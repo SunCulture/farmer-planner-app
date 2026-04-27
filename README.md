@@ -21,6 +21,8 @@ Architecture decisions are recorded in [docs/adr/README.md](docs/adr/README.md).
 
 The implementation starting point and ordered task list are documented in [docs/start-here.md](docs/start-here.md).
 
+Code quality and implementation rules are documented in [AGENTS.md](AGENTS.md) and [docs/CODE_QUALITY.md](docs/CODE_QUALITY.md).
+
 ## Core Product Idea
 
 The primary interaction is a persistent single-button expense log. A tap creates a local expense event immediately, predicts category from routine and context, and defers correction to a lightweight review flow. The system is optimized for:
@@ -171,6 +173,8 @@ npx ignite-cli generate --list
 - Architecture: [docs/architecture.md](docs/architecture.md)
 - Start here: [docs/start-here.md](docs/start-here.md)
 - ADR index: [docs/adr/README.md](docs/adr/README.md)
+- Agent rules: [AGENTS.md](AGENTS.md)
+- Code quality guide: [docs/CODE_QUALITY.md](docs/CODE_QUALITY.md)
 
 ## Notes for Contributors
 

@@ -7,6 +7,8 @@ This document turns the product and architecture documents into an execution ord
 
 Use this as the working implementation checklist until a more detailed project board exists.
 
+For code quality and implementation guardrails while executing this plan, see [AGENTS.md](../AGENTS.md) and [docs/CODE_QUALITY.md](./CODE_QUALITY.md).
+
 ## Where To Begin
 
 Begin with architecture-enabling work, not feature polish.
@@ -265,4 +267,6 @@ If starting today, do these next:
 - [README](../README.md)
 - [Architecture](./architecture.md)
 - [ADR Index](./adr/README.md)
+- [Code Quality](./code-quality.md)
+- [Agent Instructions](../AGENTS.md)
 - [PRD](./prd-docs/%23%20Tapp%20%E2%80%94%20Single-Button%20Family%20Budgeting%20PRD.md)
