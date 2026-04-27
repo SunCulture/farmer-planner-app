@@ -18,7 +18,7 @@ Keep:
 
 - Expo + prebuild workflow
 - Expo Router for navigation
-- Ignite UI primitives and theme system where they remain useful
+- Ignite Red built-in components and theming/styling practices as the default presentation foundation
 - MMKV for small, fast key-value persistence
 - Jest + React Native Testing Library for unit and component tests
 - Maestro for end-to-end flows
@@ -40,6 +40,8 @@ Use selectively:
 
 - feature flags with LaunchDarkly or ConfigCat if rollout control is needed
 - OpenAPI code generation if the backend contract is mature enough to justify it
+
+Avoid adding a second UI framework unless a specific capability is missing and the team agrees the tradeoff is worth it. The default assumption is that shared UI should build on Ignite Red components, presets, and theme tokens.
 
 ## Architectural Style
 
@@ -126,6 +128,26 @@ export { BudgetOverviewScreen as default } from "@/modules/budgeting/presentatio
 ```
 
 This prevents routing concerns from becoming the application architecture.
+
+## Styling System
+
+Use Ignite Red styling practices as the default and only introduce exceptions deliberately.
+
+Rules:
+
+- presentation code builds on Ignite's `Screen`, `Text`, `Button`, `TextField`, `Header`, `Card`, `EmptyState`, `Icon`, and related components before creating new primitives
+- styling stays colocated with the component using bare objects and themed style functions, not `StyleSheet.create()` as a default
+- themed style variables use the existing Ignite `$` convention
+- shared visual variants should be exposed through component presets rather than repeated inline style arrays
+- app-wide tokens continue to live in the Ignite theme system under shared theme modules
+
+Practical direction:
+
+- extend Ignite presets before inventing parallel component APIs
+- prefer small wrappers around Ignite components when a feature needs domain-specific presentation
+- add new generic UI components only through generators so file shape and conventions stay consistent
+
+This keeps the presentation layer aligned with Ignite's strengths and avoids creating a fragmented design system.
 
 ## Core Design Principles
 
@@ -417,6 +439,13 @@ Definition of done for a new feature:
 - tests added at the correct layers
 - docs updated if the feature changes architecture or workflows
 
+Scaffolding policy:
+
+- use Ignite generators for generic reusable components
+- customize `ignite/templates` so generated files match this architecture instead of the legacy flat app structure
+- add project-specific generators for feature modules, use cases, repositories, and screens if the built-in ones are not enough
+- update generators intentionally with `ignite-cli update` only after reviewing template drift and preserving local conventions
+
 ### Dependency Boundaries
 
 Enforce boundaries with dependency-cruiser.
@@ -438,6 +467,8 @@ Promote to shared only when one of these is true:
 - clearly platform-level, for example telemetry, auth session, database bootstrap
 - part of the design system
 
+Generic components should be generated first, then adapted. Do not hand-roll a new shared component shape when an Ignite component or preset extension would solve the same problem.
+
 ### Enforcing Consistency
 
 - use code generators for new module scaffolds
@@ -448,6 +479,10 @@ Promote to shared only when one of these is true:
 ## Testing Strategy
 
 Use a layered strategy with narrow, fast tests first.
+
+Testing is part of feature delivery, not a cleanup step. When a feature is added, its tests are added in the same pull request and live beside the code they verify so there is a one-to-one relationship between shipped behavior and available automated coverage.
+
+Follow Ignite's testing posture pragmatically: write tests, not too many, mostly integration. Keep unit tests for logic-heavy code, use integration tests for feature slices, and rely on Maestro for the most important end-to-end user journeys.
 
 ### Unit Tests
 
@@ -464,6 +499,11 @@ Tools:
 - plain test doubles
 - snapshot tests only for stable presentational output, not as the default
 
+Placement:
+
+- colocate `.test.ts` and `.test.tsx` files with feature code whenever possible
+- use the top-level `test` directory only for shared setup, global mocks, and cross-cutting test utilities
+
 ### Integration Tests
 
 Focus on:
@@ -474,6 +514,8 @@ Focus on:
 - screen plus view-model integration with React Native Testing Library
 
 Use MSW or transport-level mocks where practical.
+
+Integration tests are the default test type for new feature work because they exercise the architecture boundaries that matter most: screen or hook to use case to repository or adapter.
 
 ### End-to-End Tests
 
@@ -486,6 +528,12 @@ Keep Maestro and cover the core revenue and retention paths:
 - capture expense
 - sync after reconnect
 - notification open flow
+
+Policy:
+
+- Maestro remains the default end-to-end framework because it is already installed and aligned with Ignite
+- each major feature should either extend an existing Maestro flow or add a focused new one when the feature changes a core user journey
+- do not merge critical product flows without either Maestro coverage or an explicit reason documented in the PR
 
 ### Tooling and CI Integration
 
@@ -503,6 +551,12 @@ Recommended scripts to standardize:
 - `pnpm lint:check`
 - `pnpm test -- --runInBand`
 - `pnpm depcruise`
+
+Test ownership rule:
+
+- if a module exists, it should have corresponding unit or integration coverage in that module
+- if a workflow crosses modules and matters to users, it should have Maestro coverage
+- missing tests are treated as missing deliverables, not backlog polish
 
 ## Deployment and Release Process
 
@@ -537,12 +591,15 @@ Suggested platform setup:
 - EAS Update channels per environment
 - Sentry releases tied to app version and git SHA
 
+Release automation should borrow the useful parts of Ignite's own release discipline, especially conventional commit semantics and automated changelog generation, but app releases themselves should be fully handled by CI/CD rather than manual operator-driven steps.
+
 ### Versioning and Release Strategy
 
 - semantic versioning for product releases
 - native build number auto-increment per platform
 - `runtimeVersion` pinned to native compatibility boundaries
 - OTA updates used for JS-only fixes and copy changes, not native capability shifts
+- conventional commits are required so release notes and version bumps can be derived automatically in CI
 
 ### Rollbacks and Monitoring
 
@@ -550,6 +607,19 @@ Suggested platform setup:
 - rollback native builds via store phased rollout controls
 - track crashes, ANRs, slow launches, failed sync jobs, and notification delivery rates
 - define alerts for sync failure spikes and critical screen crash-free rate degradation
+
+## Asset and Icon Workflow
+
+Static assets remain under `assets`, with image and icon generation following Ignite conventions.
+
+Rules:
+
+- use Ignite's app-icon generator for launcher and app icon generation instead of manually editing platform asset folders
+- use Ignite's splash-screen generator for splash assets and keep the template inputs under `ignite/templates/splash-screen`
+- when `app.config.ts` requires manual config updates after generation, treat those updates as part of the asset change, not a separate cleanup step
+- preserve generator input filenames and required source dimensions so regeneration stays reliable
+
+Operationally, icon and splash changes should be reproducible from source assets committed under `ignite/templates`, not from one-off edits in native folders.
 
 ## Team Collaboration
 
@@ -626,6 +696,8 @@ The current app is already on a current Expo and React Native baseline. The mode
 5. wrap notifications, background work, storage, and transport behind ports
 6. add Sentry and release health monitoring
 7. enforce import boundaries in dependency-cruiser and CI
+8. customize Ignite generators to output code that matches the module architecture and styling conventions
+9. codify Ignite component and preset usage so new UI follows one styling model
 
 ### Dependency Guidance
 
@@ -654,6 +726,13 @@ pnpm add openapi-fetch
 - `apisauce` can remain as the low-level HTTP adapter, but only inside infrastructure modules
 - `react-native-mmkv` should remain limited to preferences, lightweight caches, and non-secret device state
 - Reactotron stays development-only and must not leak into production architecture decisions
+
+### Generator Usage Policy
+
+- use `ignite-cli generate component` for new generic shared components
+- customize `ignite/templates/component` so generated components default to the Ignite theme hook, `$` style naming, and colocated tests where appropriate
+- use generators as the default entry point for new reusable UI so the codebase stays structurally consistent
+- review generated output before commit; generators enforce shape, but architecture rules still govern boundaries
 
 ## Reference Bootstrap Composition
 
