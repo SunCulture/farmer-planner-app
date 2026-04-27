@@ -1,77 +1,177 @@
-# Welcome to your new ignited app!
+# Tapp
 
-> The latest and greatest boilerplate for Infinite Red opinions
+Tapp is a local-first family budgeting app built around a single low-friction action: tap once at the moment of spend, then review and correct later. The product is designed for shared household visibility, intermittent connectivity, and fast daily use on mobile devices.
 
-This is the boilerplate that [Infinite Red](https://infinite.red) uses as a way to test bleeding-edge changes to our React Native stack.
+The current app is built on Ignite Red, Expo Router, and Expo SDK 55. The product direction, architecture, and decision records live in the repository and should drive implementation more than the upstream Ignite boilerplate defaults.
 
-- [Quick start documentation](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/Boilerplate.md)
-- [Full documentation](https://github.com/infinitered/ignite/blob/master/docs/README.md)
+## What This Project Is
+
+Tapp is being built as:
+
+- a React Native app with Ignite Red as the UI and styling foundation
+- a local-first mobile experience with durable on-device storage
+- a modular, domain-oriented codebase with explicit boundaries
+- a family budgeting product that prioritizes habit formation and fast logging over heavy financial workflows
+
+Product direction is documented in [docs/prd-docs/# Tapp — Single-Button Family Budgeting PRD.md](docs/prd-docs/%23%20Tapp%20%E2%80%94%20Single-Button%20Family%20Budgeting%20PRD.md).
+
+Architecture direction is documented in [docs/architecture.md](docs/architecture.md).
+
+Architecture decisions are recorded in [docs/adr/README.md](docs/adr/README.md).
+
+## Core Product Idea
+
+The primary interaction is a persistent single-button expense log. A tap creates a local expense event immediately, predicts category from routine and context, and defers correction to a lightweight review flow. The system is optimized for:
+
+- quick logging with minimal friction
+- family and multi-member visibility
+- offline resilience
+- eventual sync and projections
+- simple budgeting and reporting workflows
+
+## Current Technical Direction
+
+The implementation direction for this repo is:
+
+- Ignite Red components and styling conventions for presentation
+- Expo Router for navigation
+- TanStack Query for server state
+- SQLite plus Drizzle for durable local data
+- MMKV for lightweight preferences only
+- constructor-injected application use cases behind a composition root
+- Maestro for end-to-end coverage and Jest for unit and integration testing
+
+The main ADRs currently in force are:
+
+- [ADR-001: Adopt TanStack Query for Server State](docs/adr/001-adopt-tanstack-query.md)
+- [ADR-002: Use SQLite and Drizzle for Durable Local Data](docs/adr/002-use-sqlite-and-drizzle.md)
+- [ADR-003: Define a Local-First Sync Engine Contract](docs/adr/003-sync-engine-contract.md)
+- [ADR-004: Use Composition-Root Dependency Injection and Thin App Bootstrap](docs/adr/004-dependency-injection-and-bootstrap.md)
 
 ## Getting Started
 
+### Prerequisites
+
+- Node.js 20 or newer
+- pnpm
+- Expo and EAS-compatible local mobile tooling
+- Android Studio and/or Xcode if you need native device or simulator builds
+
+### Install
+
 ```bash
 pnpm install
+```
+
+### Start the App
+
+```bash
 pnpm run start
 ```
 
-To make things work on your local simulator, or on your phone, you need first to [run `eas build`](https://github.com/infinitered/ignite/blob/master/docs/expo/EAS.md). We have many shortcuts on `package.json` to make it easier:
+Useful platform commands:
 
 ```bash
-pnpm run build:ios:sim # build for ios simulator
-pnpm run build:ios:device # build for ios device
-pnpm run build:ios:prod # build for ios device
+pnpm run android
+pnpm run ios
+pnpm run web
 ```
 
-### `./assets`
+If you are running on a simulator or physical device with the Expo dev client workflow, build the native shell first when needed:
 
-This directory is designed to organize and store various assets, making it easy for you to manage and use them in your application. The assets are further categorized into subdirectories, including `icons` and `images`:
-
-```tree
-assets
-├── icons
-└── images
+```bash
+pnpm run build:android:device
+pnpm run build:ios:device
 ```
 
-**icons**
-This is where your icon assets will live. These icons can be used for buttons, navigation elements, or any other UI components. The recommended format for icons is PNG, but other formats can be used as well.
+Other available local build shortcuts live in [package.json](package.json).
 
-Ignite comes with a built-in `Icon` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/app/components/Icon.md).
+## How We Are Building It
 
-**images**
-This is where your images will live, such as background images, logos, or any other graphics. You can use various formats such as PNG, JPEG, or GIF for your images.
+### Architecture Rules
 
-Another valuable built-in component within Ignite is the `AutoImage` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/Components-AutoImage.md).
+- code is moving toward `src/modules/<feature>` with `domain`, `application`, `infrastructure`, and `presentation` layers
+- Expo Router files stay thin and should bind routes to feature presentation entry points only
+- presentation code should not import concrete infrastructure implementations directly
+- server state, durable local data, device preferences, and UI state are treated as separate concerns
 
-How to use your `icon` or `image` assets:
+### Styling and UI
 
-```typescript
-import { Image } from 'react-native';
+- use Ignite Red built-in components first
+- follow Ignite styling practices: colocated themed styles, `$`-prefixed style variables, and preset-based reuse
+- add generic reusable UI through Ignite generators and project templates, not ad hoc file creation
+- avoid introducing a second UI framework unless a specific gap forces it
 
-const MyComponent = () => {
-  return (
-    <Image source={require('assets/images/my_image.png')} />
-  );
-};
+### Data and Sync
+
+- the app is local-first by design
+- durable business data is intended to live in SQLite
+- sync is modeled around an outbox, checkpoints, and explicit conflict policies
+- background work is opportunistic and must respect mobile platform constraints
+
+### Testing
+
+- write tests as features are built, in the same pull request
+- colocate feature tests with the code they verify when possible
+- use Jest for unit and integration coverage
+- use Maestro for critical end-to-end user journeys
+- treat missing tests as missing deliverables, not deferred polish
+
+Useful commands:
+
+```bash
+pnpm run compile
+pnpm run lint:check
+pnpm run test
+pnpm run test:watch
+pnpm run test:maestro
+pnpm run depcruise
 ```
 
-## Running Maestro end-to-end tests
+## Project Structure
 
-Follow our [Maestro Setup](https://ignitecookbook.com/docs/recipes/MaestroSetup) recipe.
+Current repo structure still contains the standard Ignite baseline in places, but the target structure is documented in [docs/architecture.md](docs/architecture.md) and centers on:
 
-## Next Steps
+- `src/app` for Expo Router route bindings
+- `src/modules` for feature code
+- `src/shared` for stable cross-feature abstractions and platform services
+- `src/bootstrap` for dependency wiring and startup orchestration
+- `docs` for product, architecture, and decision records
 
-### Ignite Cookbook
+## Releases and Delivery
 
-[Ignite Cookbook](https://ignitecookbook.com/) is an easy way for developers to browse and share code snippets (or “recipes”) that actually work.
+Releases are intended to be automated through CI/CD rather than manual operator workflows.
 
-### Upgrade Ignite boilerplate
+The expected delivery model is:
 
-Read our [Upgrade Guide](https://ignitecookbook.com/docs/recipes/UpdatingIgnite) to learn how to upgrade your Ignite project.
+- pull requests run lint, typecheck, tests, and architecture boundary checks
+- merges to `main` produce QA-ready preview artifacts
+- signed builds are produced through EAS Build
+- OTA updates are delivered through EAS Update only when native compatibility allows it
+- conventional commits drive versioning and release notes
 
-## Community
+## Assets and Generators
 
-⭐️ Help us out by [starring on GitHub](https://github.com/infinitered/ignite), filing bug reports in [issues](https://github.com/infinitered/ignite/issues) or [ask questions](https://github.com/infinitered/ignite/discussions).
+- use Ignite's app-icon generator for launcher and app icon generation
+- use Ignite's splash-screen generator for splash assets
+- keep generator source assets in `ignite/templates`
+- customize project generators so generated output matches the chosen module architecture and styling conventions
 
-💬 Join us on [Slack](https://join.slack.com/t/infiniteredcommunity/shared_invite/zt-1f137np4h-zPTq_CbaRFUOR_glUFs2UA) to discuss.
+To inspect the generators available in this repo:
 
-📰 Make our Editor-in-chief happy by [reading the React Native Newsletter](https://reactnativenewsletter.com/).
+```bash
+npx ignite-cli generate --list
+```
+
+## Documentation Map
+
+- Product requirements: [docs/prd-docs/# Tapp — Single-Button Family Budgeting PRD.md](docs/prd-docs/%23%20Tapp%20%E2%80%94%20Single-Button%20Family%20Budgeting%20PRD.md)
+- Architecture: [docs/architecture.md](docs/architecture.md)
+- ADR index: [docs/adr/README.md](docs/adr/README.md)
+
+## Notes for Contributors
+
+- prefer minimal, architecture-aligned changes over broad refactors
+- keep feature code inside the intended module boundaries
+- do not treat the current Ignite boilerplate layout as the long-term target architecture
+- if a change affects architecture, sync behavior, storage boundaries, or startup wiring, update the relevant docs or ADRs in the same change

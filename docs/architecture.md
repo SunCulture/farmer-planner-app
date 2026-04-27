@@ -197,6 +197,8 @@ Treat state as four separate categories.
 
 Use TanStack Query for anything retrieved from or synchronized with the backend.
 
+See [ADR-001: Adopt TanStack Query for Server State](./adr/001-adopt-tanstack-query.md).
+
 Responsibilities:
 
 - request lifecycle
@@ -216,6 +218,8 @@ Guidelines:
 ### 2. Durable Local Structured State
 
 Use SQLite with Drizzle for data that must survive restarts and support querying, sorting, joins, and offline workflows.
+
+See [ADR-002: Use SQLite and Drizzle for Durable Local Data](./adr/002-use-sqlite-and-drizzle.md).
 
 Use it for:
 
@@ -336,6 +340,8 @@ When new features are added:
 ### Offline-First and Sync Strategy
 
 Use a local-first model for financial workflows.
+
+See [ADR-003: Define a Local-First Sync Engine Contract](./adr/003-sync-engine-contract.md).
 
 Recommended sync model:
 
@@ -664,7 +670,7 @@ Reviewers should focus on:
 Maintain:
 
 - this architecture document
-- ADRs in `docs/adr`
+- ADRs in `docs/adr` with the index at [docs/adr/README.md](./adr/README.md)
 - feature RFCs for larger changes
 - runbooks for release, incident response, and environment setup
 
@@ -737,6 +743,8 @@ pnpm add openapi-fetch
 ## Reference Bootstrap Composition
 
 At app startup, initialize in this order:
+
+See [ADR-004: Use Composition-Root Dependency Injection and Thin App Bootstrap](./adr/004-dependency-injection-and-bootstrap.md).
 
 1. config and env
 2. telemetry
