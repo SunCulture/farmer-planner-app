@@ -3,10 +3,24 @@ import { container } from "@/bootstrap/container"
 import type { Routine } from "../../domain/entities/routine"
 import type { RoutineRepository } from "../../domain/repositories/routine-repository"
 
+const COLUMNS = "id, name, category_id, time_start, time_end, days_of_week, is_high_confidence"
+
+function rowToRoutine(row: any): Routine {
+  return {
+    id: row.id,
+    name: row.name,
+    category_id: row.category_id,
+    time_start: row.time_start,
+    time_end: row.time_end,
+    days_of_week: row.days_of_week,
+    is_high_confidence: row.is_high_confidence === 1,
+  }
+}
+
 function resultRowsToArray(result: any): Routine[] {
   const rows: Routine[] = []
   for (let i = 0; i < result.rows.length; i += 1) {
-    rows.push(result.rows.item(i))
+    rows.push(rowToRoutine(result.rows.item(i)))
   }
   return rows
 }
@@ -19,16 +33,23 @@ export class SqliteRoutineRepository implements RoutineRepository {
     if (!this.db) throw new Error("Database not available in container")
   }
 
-  create(name: string): Promise<Routine> {
+  create(routine: Omit<Routine, "id">): Promise<Routine> {
     return new Promise((resolve, reject) => {
       this.db.transaction(
         (tx: any) => {
           tx.executeSql(
-            `INSERT INTO routines (name) VALUES (?);`,
-            [name],
+            `INSERT INTO routines (name, category_id, time_start, time_end, days_of_week, is_high_confidence)
+             VALUES (?, ?, ?, ?, ?, ?);`,
+            [
+              routine.name,
+              routine.category_id,
+              routine.time_start,
+              routine.time_end,
+              routine.days_of_week,
+              routine.is_high_confidence ? 1 : 0,
+            ],
             (_: any, result: any) => {
-              const id = result.insertId
-              resolve({ id, name })
+              resolve({ ...routine, id: result.insertId })
             },
           )
         },
@@ -41,21 +62,23 @@ export class SqliteRoutineRepository implements RoutineRepository {
     return new Promise((resolve, reject) => {
       this.db.transaction(
         (tx: any) => {
-          tx.executeSql(`SELECT id, name FROM routines;`, [], (_: any, result: any) => {
-            resolve(resultRowsToArray(result))
-          })
+          tx.executeSql(
+            `SELECT ${COLUMNS} FROM routines;`,
+            [],
+            (_: any, result: any) => resolve(resultRowsToArray(result)),
+          )
         },
         (err: any) => reject(err),
       )
     })
   }
 
-  async findById(id: number): Promise<Routine | undefined> {
+  findById(id: number): Promise<Routine | undefined> {
     return new Promise((resolve, reject) => {
       this.db.transaction(
         (tx: any) => {
           tx.executeSql(
-            `SELECT id, name FROM routines WHERE id = ? LIMIT 1;`,
+            `SELECT ${COLUMNS} FROM routines WHERE id = ? LIMIT 1;`,
             [id],
             (_: any, result: any) => {
               const rows = resultRowsToArray(result)
@@ -72,7 +95,21 @@ export class SqliteRoutineRepository implements RoutineRepository {
     return new Promise((resolve, reject) => {
       this.db.transaction(
         (tx: any) => {
-          tx.executeSql(`UPDATE routines SET name = ? WHERE id = ?;`, [routine.name, routine.id])
+          tx.executeSql(
+            `UPDATE routines
+             SET name = ?, category_id = ?, time_start = ?, time_end = ?,
+                 days_of_week = ?, is_high_confidence = ?
+             WHERE id = ?;`,
+            [
+              routine.name,
+              routine.category_id,
+              routine.time_start,
+              routine.time_end,
+              routine.days_of_week,
+              routine.is_high_confidence ? 1 : 0,
+              routine.id,
+            ],
+          )
         },
         (err: any) => reject(err),
         () => resolve(),

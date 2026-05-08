@@ -1,0 +1,19 @@
+{
+  "name": "@tapp/tapp-widget",
+  "version": "1.0.0",
+  "description": "Expo Module: Tapp home-screen widget bridge",
+  "main": "index.ts",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "sourceDir": "android",
+        "packageName": "com.tapp.widget",
+        "modules": ["TappWidgetModule"],
+        "gradleProps": {}
+      }
+    },
+    "plugins": [
+      "./plugin/withTappWidget"
+    ]
+  }
+}

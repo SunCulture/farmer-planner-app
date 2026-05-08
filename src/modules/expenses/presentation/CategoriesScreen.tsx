@@ -24,7 +24,7 @@ export function CategoriesScreen() {
   async function add() {
     const repo = container.resolve<CategoryRepository>("categoryRepository")
     if (!repo) return
-    const created = await repo.create(name)
+    const created = await repo.create({ name, color_hex: "#4A90D9" })
     setCategories((s) => [created, ...s])
     setName("")
   }

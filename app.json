@@ -1,7 +1,7 @@
 {
   "name": "tapit-app-react-native",
   "slug": "tapit-app-react-native",
-  "scheme": "tapit-app-react-native",
+  "scheme": "tapp",
   "version": "1.0.0",
   "orientation": "portrait",
   "userInterfaceStyle": "automatic",
@@ -55,7 +55,8 @@
       }
     ],
     "expo-build-properties",
-    "expo-router"
+    "expo-router",
+    "./modules/tapp-widget/plugin/withTappWidget"
   ],
   "experiments": {
     "tsconfigPaths": true,

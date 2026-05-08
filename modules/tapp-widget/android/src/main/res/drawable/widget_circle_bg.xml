@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Circular shape used as the tap button background.
+  The color is overridden at runtime via setColorFilter in TappWidgetProvider.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#4A90D9" />
+</shape>

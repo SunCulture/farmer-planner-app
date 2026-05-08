@@ -36,6 +36,7 @@
     "schema": "drizzle/schema.ts"
   },
   "dependencies": {
+    "@tapp/tapp-widget": "*",
     "@expo-google-fonts/space-grotesk": "^0.4.0",
     "@expo/metro-runtime": "~55.0.6",
     "@react-navigation/bottom-tabs": "^7.2.0",
