@@ -36,7 +36,6 @@
     "schema": "drizzle/schema.ts"
   },
   "dependencies": {
-    "@tapp/tapp-widget": "workspace:*",
     "@expo-google-fonts/space-grotesk": "^0.4.0",
     "@expo-google-fonts/space-mono": "^0.4.0",
     "@expo/metro-runtime": "~55.0.6",
@@ -44,12 +43,14 @@
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.2.0",
     "@tanstack/react-query": "^5.100.7",
+    "@tapp/tapp-widget": "workspace:*",
     "apisauce": "3.1.1",
     "date-fns": "^4.1.0",
     "expo": "55.0.17",
     "expo-build-properties": "~55.0.9",
     "expo-dev-client": "~55.0.11",
     "expo-font": "~55.0.4",
+    "expo-linear-gradient": "^55.0.13",
     "expo-linking": "~55.0.7",
     "expo-localization": "~55.0.8",
     "expo-router": "~55.0.4",
