@@ -1,31 +1,377 @@
-import { View } from "react-native"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Animated, Pressable, View, ViewStyle, TextStyle } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { LinearGradient } from "expo-linear-gradient"
+import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { Ionicons } from "@expo/vector-icons"
 
+import { Text } from "@/components/Text"
 import { container } from "@/bootstrap/container"
-import { Button } from "@/components/Button"
 import { createExpense } from "@/modules/expenses/application/create-expense"
 import { predictCategory } from "@/modules/expenses/application/predict-category"
+import type { Category } from "@/modules/expenses/domain/entities/category"
 import type { CategoryRepository } from "@/modules/expenses/domain/repositories/category-repository"
 import type { ExpenseEventRepository } from "@/modules/expenses/domain/repositories/expense-event-repository"
+import type { RoutineRepository } from "@/modules/expenses/domain/repositories/routine-repository"
+import type { ExpenseEvent } from "@/modules/expenses/domain/entities/expense-event"
+import {
+  paper,
+  ink,
+  ink2,
+  ink3,
+  coral500,
+  coral600,
+  card,
+  hairline,
+  catClay,
+  catMango,
+  catFern,
+  catLake,
+  catOrchid,
+  catStone,
+  spacing,
+  radii,
+  elevation,
+  duration,
+} from "@/theme/tapp-tokens"
+import { typography } from "@/theme/typography"
 
-const $containerStyle = { padding: 16 }
+// Map lowercase category names to design-system palette colors
+const CATEGORY_COLOR_MAP: Record<string, string> = {
+  food: catClay,
+  lunch: catClay,
+  dinner: catClay,
+  groceries: catMango,
+  transport: catFern,
+  matatu: catFern,
+  uber: catFern,
+  utilities: catLake,
+  airtime: catLake,
+  leisure: catOrchid,
+  coffee: catOrchid,
+  misc: catStone,
+}
 
+function resolveCategoryColor(name?: string, colorHex?: string): string {
+  if (name) {
+    const mapped = CATEGORY_COLOR_MAP[name.toLowerCase()]
+    if (mapped) return mapped
+  }
+  return colorHex ?? catStone
+}
+
+function formatAmount(amount: number): string {
+  return amount.toLocaleString("en-KE")
+}
+
+function formatTimestamp(ts?: number): string {
+  if (!ts) return ""
+  try {
+    return new Date(ts).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })
+  } catch {
+    return ""
+  }
+}
+
+// ---- Category Pill -------------------------------------------------------
+function CategoryPill({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={[$pill, { borderColor: hairline }]}>
+      <View style={[$pillDot, { backgroundColor: color }]} />
+      <Text style={$pillText}>{label} · routine</Text>
+    </View>
+  )
+}
+
+// ---- Category Disc -------------------------------------------------------
+function CategoryDisc({ color }: { color: string }) {
+  return (
+    <View style={[$disc, { backgroundColor: color }]}>
+      <MaterialCommunityIcons name="silverware-fork-knife" size={14} color="white" />
+    </View>
+  )
+}
+
+// ---- Last-event card -------------------------------------------------------
+function LastEventCard({
+  event,
+  category,
+}: {
+  event: ExpenseEvent
+  category: Category | null
+}) {
+  const color = resolveCategoryColor(category?.name, category?.color_hex)
+  return (
+    <View style={$eventCard}>
+      <CategoryDisc color={color} />
+      <View style={$eventContent}>
+        <Text style={$eventLabel}>
+          {"Logged. "}
+          <Text style={$eventMono}>{category?.name ?? "Expense"}.</Text>
+        </Text>
+        <Text style={$eventMeta}>
+          {formatTimestamp(event.created_at)}{" · "}
+          <Text style={$eventMetaMono}>{"KSh " + formatAmount(event.amount)}</Text>
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+// ---- Main screen -----------------------------------------------------------
 export function TapToLogScreen() {
-  async function tap() {
-    const repo = container.resolve<ExpenseEventRepository>("expenseEventRepository")
-    const categoryRepo = container.resolve<CategoryRepository>("categoryRepository")
-    const syncEngine = container.resolve<any>("syncEngine")
-    if (!repo || !categoryRepo) return
+  const insets = useSafeAreaInsets()
+  const scaleAnim = useRef(new Animated.Value(1)).current
 
-    const predicted = await predictCategory(categoryRepo, repo)
-    await createExpense(repo, 100, predicted ?? null, syncEngine)
-    // lightweight feedback could be added later
+  const [total, setTotal] = useState(0)
+  const [predictedCategory, setPredictedCategory] = useState<Category | null>(null)
+  const [lastEvent, setLastEvent] = useState<ExpenseEvent | null>(null)
+  const [lastCategory, setLastCategory] = useState<Category | null>(null)
+
+  const loadData = useCallback(async () => {
+    const expenseRepo = container.resolve<ExpenseEventRepository>("expenseEventRepository")
+    const categoryRepo = container.resolve<CategoryRepository>("categoryRepository")
+    const routineRepo = container.resolve<RoutineRepository>("routineRepository")
+    if (!expenseRepo || !categoryRepo) return
+
+    const [allEvents, predictedId] = await Promise.all([
+      expenseRepo.findAll(),
+      predictCategory(categoryRepo, expenseRepo, routineRepo),
+    ])
+
+    const todayTotal = allEvents.reduce((sum, e) => sum + (e.amount ?? 0), 0)
+    setTotal(todayTotal)
+
+    if (predictedId != null) {
+      const cat = await categoryRepo.findById(predictedId)
+      setPredictedCategory(cat ?? null)
+    }
+
+    if (allEvents.length > 0) {
+      const latest = allEvents[allEvents.length - 1]
+      setLastEvent(latest)
+      if (latest.category_id != null) {
+        const cat = await categoryRepo.findById(latest.category_id as number)
+        setLastCategory(cat ?? null)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  function animatePress(toValue: number, cb?: () => void) {
+    Animated.timing(scaleAnim, {
+      toValue,
+      duration: duration.fast,
+      useNativeDriver: true,
+    }).start(cb)
   }
 
+  async function handleTap() {
+    animatePress(0.92, () => animatePress(1))
+
+    const expenseRepo = container.resolve<ExpenseEventRepository>("expenseEventRepository")
+    const categoryRepo = container.resolve<CategoryRepository>("categoryRepository")
+    const routineRepo = container.resolve<RoutineRepository>("routineRepository")
+    const sync = container.resolve<any>("syncEngine")
+    if (!expenseRepo || !categoryRepo) return
+
+    const predictedId = await predictCategory(categoryRepo, expenseRepo, routineRepo)
+    await createExpense(expenseRepo, 100, predictedId ?? null, sync)
+    loadData()
+  }
+
+  const pillColor = resolveCategoryColor(predictedCategory?.name, predictedCategory?.color_hex)
+  const pillLabel = predictedCategory?.name ?? "Expense"
+
   return (
-    <View style={$containerStyle}>
-      <Button onPress={tap} text="Tap to Log (100)" />
+    <View style={[$screen, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={$header}>
+        <View>
+          <Text style={$eyebrow}>Today</Text>
+          <View style={$amountRow}>
+            <Text style={$currencySymbol}>KSh</Text>
+            <Text style={$heroAmount}>{formatAmount(total)}</Text>
+          </View>
+        </View>
+        <Ionicons name="settings-outline" size={22} color={ink3} />
+      </View>
+
+      {/* Body */}
+      <View style={$body}>
+        <CategoryPill color={pillColor} label={pillLabel} />
+
+        <Pressable
+          onPress={handleTap}
+          accessibilityLabel="Tap to log expense"
+          accessibilityRole="button"
+        >
+          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+            <LinearGradient
+              colors={["#E8956A", coral500, coral600]}
+              start={{ x: 0.32, y: 0.3 }}
+              end={{ x: 0.8, y: 0.9 }}
+              style={[$tapButton, elevation.tapButton]}
+            >
+              <MaterialCommunityIcons name="gesture-tap" size={80} color="white" />
+            </LinearGradient>
+          </Animated.View>
+        </Pressable>
+
+        <Text style={$hint}>tap to log · hold for note</Text>
+
+        {lastEvent && <LastEventCard event={lastEvent} category={lastCategory} />}
+      </View>
     </View>
   )
 }
 
 export default TapToLogScreen
+
+// ---- Styles ----------------------------------------------------------------
+
+const $screen: ViewStyle = {
+  flex: 1,
+  backgroundColor: paper,
+}
+
+const $header: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  paddingHorizontal: spacing.s5,
+  paddingTop: spacing.s4,
+  paddingBottom: spacing.s3,
+}
+
+const $eyebrow: TextStyle = {
+  fontSize: 11,
+  letterSpacing: 1.4,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
+}
+
+const $amountRow: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "baseline",
+  marginTop: 2,
+}
+
+const $currencySymbol: TextStyle = {
+  fontSize: 20,
+  color: ink3,
+  fontFamily: typography.mono.normal,
+  marginRight: 4,
+  letterSpacing: 0.4,
+}
+
+const $heroAmount: TextStyle = {
+  fontSize: 44,
+  lineHeight: 48,
+  letterSpacing: -1,
+  color: ink,
+  fontFamily: typography.mono.normal,
+}
+
+const $body: ViewStyle = {
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 22,
+  paddingHorizontal: spacing.s5,
+  paddingBottom: spacing.s8,
+}
+
+const $tapButton: ViewStyle = {
+  width: 200,
+  height: 200,
+  borderRadius: 100,
+  alignItems: "center",
+  justifyContent: "center",
+}
+
+const $hint: TextStyle = {
+  fontSize: 11,
+  letterSpacing: 1.4,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.mono.normal,
+}
+
+const $pill: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s2,
+  paddingVertical: spacing.s1,
+  paddingHorizontal: spacing.s3,
+  borderRadius: radii.pill,
+  backgroundColor: card,
+  borderWidth: 1,
+}
+
+const $pillDot: ViewStyle = {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+}
+
+const $pillText: TextStyle = {
+  fontSize: 13,
+  color: ink2,
+  fontFamily: typography.primary.normal,
+}
+
+const $eventCard: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s3,
+  paddingVertical: spacing.s3,
+  paddingHorizontal: spacing.s4,
+  backgroundColor: card,
+  borderRadius: radii.lg,
+  borderWidth: 1,
+  borderColor: hairline,
+  ...elevation.card,
+  alignSelf: "stretch",
+}
+
+const $disc: ViewStyle = {
+  width: 28,
+  height: 28,
+  borderRadius: 14,
+  alignItems: "center",
+  justifyContent: "center",
+}
+
+const $eventContent: ViewStyle = {
+  flex: 1,
+}
+
+const $eventLabel: TextStyle = {
+  fontSize: 13,
+  color: ink2,
+  fontFamily: typography.primary.normal,
+}
+
+const $eventMono: TextStyle = {
+  fontSize: 13,
+  color: ink2,
+  fontFamily: typography.mono.normal,
+}
+
+const $eventMeta: TextStyle = {
+  fontSize: 12,
+  color: ink3,
+  fontFamily: typography.primary.normal,
+  marginTop: 2,
+}
+
+const $eventMetaMono: TextStyle = {
+  fontSize: 12,
+  color: ink3,
+  fontFamily: typography.mono.normal,
+}
