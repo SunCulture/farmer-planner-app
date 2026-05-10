@@ -23,20 +23,37 @@ import type { CategoryRepository } from "@/modules/expenses/domain/repositories/
 import type { Routine } from "@/modules/expenses/domain/entities/routine"
 import type { RoutineRepository } from "@/modules/expenses/domain/repositories/routine-repository"
 import {
-  paper, card, hairline,
-  ink, ink2, ink3, ink4,
-  coral500, coral600,
-  catClay, catFern, catMango, catLake, catOrchid, catStone,
-  spacing, radii, elevation, duration,
+  paper,
+  card,
+  hairline,
+  ink,
+  ink2,
+  ink3,
+  ink4,
+  coral500,
+  coral600,
+  catClay,
+  catFern,
+  catMango,
+  catLake,
+  catOrchid,
+  catStone,
+  spacing,
+  radii,
+  elevation,
+  duration,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
 // ---- Constants -------------------------------------------------------------
 
-
 const CATEGORY_COLORS: Record<string, string> = {
-  food: catClay, transport: catFern, groceries: catMango,
-  utilities: catLake, leisure: catOrchid, misc: catStone,
+  food: catClay,
+  transport: catFern,
+  groceries: catMango,
+  utilities: catLake,
+  leisure: catOrchid,
+  misc: catStone,
 }
 
 function resolveCategoryColor(name?: string, hex?: string): string {
@@ -48,19 +65,19 @@ function resolveCategoryColor(name?: string, hex?: string): string {
 }
 
 const TIME_SLOTS = [
-  { label: "Early morning", start: 300,  end: 420  }, // 5am-7am
-  { label: "Morning",       start: 420,  end: 600  }, // 7am-10am
-  { label: "Midday",        start: 600,  end: 720  }, // 10am-12pm
-  { label: "Lunch",         start: 720,  end: 840  }, // 12pm-2pm
-  { label: "Afternoon",     start: 840,  end: 1020 }, // 2pm-5pm
-  { label: "Evening",       start: 1020, end: 1200 }, // 5pm-8pm
-  { label: "Night",         start: 1200, end: 1380 }, // 8pm-11pm
+  { label: "Early morning", start: 300, end: 420 }, // 5am-7am
+  { label: "Morning", start: 420, end: 600 }, // 7am-10am
+  { label: "Midday", start: 600, end: 720 }, // 10am-12pm
+  { label: "Lunch", start: 720, end: 840 }, // 12pm-2pm
+  { label: "Afternoon", start: 840, end: 1020 }, // 2pm-5pm
+  { label: "Evening", start: 1020, end: 1200 }, // 5pm-8pm
+  { label: "Night", start: 1200, end: 1380 }, // 8pm-11pm
 ]
 
 const DAY_OPTIONS = [
-  { label: "Every day",  value: 127 }, // 0x7F — all bits
-  { label: "Weekdays",   value: 62  }, // Mon–Fri = bits 1-5
-  { label: "Weekends",   value: 65  }, // Sat+Sun = bits 0,6
+  { label: "Every day", value: 127 }, // 0x7F — all bits
+  { label: "Weekdays", value: 62 }, // Mon–Fri = bits 1-5
+  { label: "Weekends", value: 65 }, // Sat+Sun = bits 0,6
 ]
 
 function formatAmount(n: number): string {
@@ -96,7 +113,7 @@ function AddRoutineSheet({
     categoryId: null,
     amountText: "",
     timeSlotIndex: 1, // Morning default
-    dayOption: 127,   // Every day default
+    dayOption: 127, // Every day default
   })
   const [error, setError] = useState("")
 
@@ -113,8 +130,14 @@ function AddRoutineSheet({
   }, [visible, slideAnim])
 
   function handleSave() {
-    if (!draft.name.trim()) { setError("Add a short label for this routine."); return }
-    if (!draft.categoryId) { setError("Pick a category."); return }
+    if (!draft.name.trim()) {
+      setError("Add a short label for this routine.")
+      return
+    }
+    if (!draft.categoryId) {
+      setError("Pick a category.")
+      return
+    }
     const slot = TIME_SLOTS[draft.timeSlotIndex]
     const amount = parseFloat(draft.amountText.replace(/,/g, "")) || 0
     onSave({
@@ -130,7 +153,13 @@ function AddRoutineSheet({
   }
 
   return (
-    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      statusBarTranslucent
+      animationType="none"
+      onRequestClose={onClose}
+    >
       <Pressable style={$scrim} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -138,7 +167,10 @@ function AddRoutineSheet({
         pointerEvents="box-none"
       >
         <Animated.View
-          style={[$sheet, { paddingBottom: insets.bottom + spacing.s6, transform: [{ translateY: slideAnim }] }]}
+          style={[
+            $sheet,
+            { paddingBottom: insets.bottom + spacing.s6, transform: [{ translateY: slideAnim }] },
+          ]}
         >
           <View style={$handle} />
           <Text style={$sheetEyebrow}>New routine</Text>
@@ -149,7 +181,10 @@ function AddRoutineSheet({
           <TextInput
             style={[$textInput, error && !draft.name.trim() ? $inputError : null]}
             value={draft.name}
-            onChangeText={(t) => { setDraft((d) => ({ ...d, name: t })); setError("") }}
+            onChangeText={(t) => {
+              setDraft((d) => ({ ...d, name: t }))
+              setError("")
+            }}
             placeholder="going to work, lunch, groceries…"
             placeholderTextColor={ink4}
             maxLength={50}
@@ -158,7 +193,11 @@ function AddRoutineSheet({
 
           {/* Category */}
           <Text style={[$fieldLabel, { marginTop: spacing.s4 }]}>Category</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={$pillRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={$pillRow}
+          >
             {categories.map((cat) => {
               const isSelected = draft.categoryId === cat.id
               const color = resolveCategoryColor(cat.name, cat.color_hex)
@@ -166,10 +205,18 @@ function AddRoutineSheet({
                 <Pressable
                   key={String(cat.id)}
                   style={[$catPill, isSelected && { backgroundColor: color, borderColor: color }]}
-                  onPress={() => { setDraft((d) => ({ ...d, categoryId: cat.id ?? null })); setError("") }}
+                  onPress={() => {
+                    setDraft((d) => ({ ...d, categoryId: cat.id ?? null }))
+                    setError("")
+                  }}
                 >
                   <View style={[$catDot, { backgroundColor: isSelected ? "white" : color }]} />
-                  <Text style={[$catPillText, isSelected && { color: "white", fontFamily: typography.primary.medium }]}>
+                  <Text
+                    style={[
+                      $catPillText,
+                      isSelected && { color: "white", fontFamily: typography.primary.medium },
+                    ]}
+                  >
                     {cat.name}
                   </Text>
                 </Pressable>
@@ -194,7 +241,11 @@ function AddRoutineSheet({
 
           {/* Time slot */}
           <Text style={[$fieldLabel, { marginTop: spacing.s4 }]}>Time of day</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={$pillRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={$pillRow}
+          >
             {TIME_SLOTS.map((slot, i) => {
               const isSelected = draft.timeSlotIndex === i
               return (
@@ -248,7 +299,13 @@ function AddRoutineSheet({
 
 // ---- Routine row (in list) -------------------------------------------------
 
-function RoutineRow({ routine, categories }: { routine: Omit<Routine, "id">; categories: Category[] }) {
+function RoutineRow({
+  routine,
+  categories,
+}: {
+  routine: Omit<Routine, "id">
+  categories: Category[]
+}) {
   const cat = categories.find((c) => c.id === routine.category_id)
   const color = resolveCategoryColor(cat?.name, cat?.color_hex)
   const slot = TIME_SLOTS.find((s) => s.start === routine.time_start)
@@ -308,7 +365,11 @@ export default function OnboardingScreen() {
     setRoutines((prev) => [...prev, routine])
     const routineRepo = container.resolve<RoutineRepository>("routineRepository")
     if (routineRepo) {
-      try { await routineRepo.create(routine) } catch { /* ignore */ }
+      try {
+        await routineRepo.create(routine)
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -345,7 +406,10 @@ export default function OnboardingScreen() {
               <TextInput
                 style={[$textInput, nameError ? $inputError : null]}
                 value={userName}
-                onChangeText={(t) => { setUserName(t); setNameError("") }}
+                onChangeText={(t) => {
+                  setUserName(t)
+                  setNameError("")
+                }}
                 placeholder="first name"
                 placeholderTextColor={ink4}
                 autoFocus
@@ -376,7 +440,9 @@ export default function OnboardingScreen() {
             <Text style={$stepTitle}>before you start.</Text>
             <Text style={$manifestoName}>hello {userName.trim()},</Text>
             <Text style={$manifestoBody}>
-              {"Tapp is built for manual tracking.\n\nNo bank integrations. No background data collection. You tap when you spend and review at the end of the day.\n\nNext you'll set up your regular routines — going to work, lunch, groceries. Tapp will use them to predict what you're spending when you tap."}
+              {
+                "Tapp is built for manual tracking.\n\nNo bank integrations. No background data collection. You tap when you spend and review at the end of the day.\n\nNext you'll set up your regular routines — going to work, lunch, groceries. Tapp will use them to predict what you're spending when you tap."
+              }
             </Text>
           </View>
 
@@ -402,8 +468,8 @@ export default function OnboardingScreen() {
           <View style={{ flex: 1 }}>
             <Text style={$stepTitle}>set up your patterns.</Text>
             <Text style={$stepSubtitle}>
-              Add your regular expenses — going to work, lunch, weekly groceries.
-              Tapp predicts these when you tap.
+              Add your regular expenses — going to work, lunch, weekly groceries. Tapp predicts
+              these when you tap.
             </Text>
 
             {routines.length === 0 ? (
@@ -459,7 +525,12 @@ export default function OnboardingScreen() {
 
           <View style={$stepActions}>
             <Pressable
-              style={({ pressed }) => [$primaryBtn, $btnFull, pressed && $primaryBtnPressed, saving && { opacity: 0.6 }]}
+              style={({ pressed }) => [
+                $primaryBtn,
+                $btnFull,
+                pressed && $primaryBtnPressed,
+                saving && { opacity: 0.6 },
+              ]}
               onPress={handleFinish}
               disabled={saving}
             >
@@ -496,7 +567,9 @@ const $dots: ViewStyle = {
 }
 
 const $dot: ViewStyle = {
-  width: 6, height: 6, borderRadius: 3,
+  width: 6,
+  height: 6,
+  borderRadius: 3,
   backgroundColor: hairline,
 }
 
@@ -523,13 +596,17 @@ const $stepForm: ViewStyle = {
 // ---- Step 0 typography ----
 
 const $wordmark: TextStyle = {
-  fontSize: 52, letterSpacing: -2,
-  color: ink, fontFamily: typography.primary.bold,
+  fontSize: 52,
+  letterSpacing: -2,
+  color: ink,
+  fontFamily: typography.primary.bold,
   marginBottom: spacing.s2,
+  height: 40,
 }
 
 const $tagline: TextStyle = {
-  fontSize: 17, color: ink3,
+  fontSize: 17,
+  color: ink3,
   fontFamily: typography.primary.normal,
   marginBottom: spacing.s3,
 }
@@ -537,13 +614,18 @@ const $tagline: TextStyle = {
 // ---- Step titles ----
 
 const $stepTitle: TextStyle = {
-  fontSize: 32, lineHeight: 36, letterSpacing: -0.5,
-  color: ink, fontFamily: typography.primary.bold,
+  fontSize: 32,
+  lineHeight: 36,
+  letterSpacing: -0.5,
+  color: ink,
+  fontFamily: typography.primary.bold,
   marginBottom: spacing.s4,
 }
 
 const $stepSubtitle: TextStyle = {
-  fontSize: 15, lineHeight: 22, color: ink3,
+  fontSize: 15,
+  lineHeight: 22,
+  color: ink3,
   fontFamily: typography.primary.normal,
   marginBottom: spacing.s5,
 }
@@ -551,13 +633,16 @@ const $stepSubtitle: TextStyle = {
 // ---- Step 1 manifesto ----
 
 const $manifestoName: TextStyle = {
-  fontSize: 15, color: ink2,
+  fontSize: 15,
+  color: ink2,
   fontFamily: typography.primary.normal,
   marginBottom: spacing.s4,
 }
 
 const $manifestoBody: TextStyle = {
-  fontSize: 15, lineHeight: 24, color: ink2,
+  fontSize: 15,
+  lineHeight: 24,
+  color: ink2,
   fontFamily: typography.primary.normal,
 }
 
@@ -587,7 +672,8 @@ const $btnFull: ViewStyle = { flex: 1 }
 const $primaryBtnPressed: ViewStyle = { backgroundColor: coral600, transform: [{ scale: 0.97 }] }
 
 const $primaryBtnText: TextStyle = {
-  fontSize: 15, color: "white",
+  fontSize: 15,
+  color: "white",
   fontFamily: typography.primary.medium,
 }
 
@@ -599,11 +685,13 @@ const $ghostBtn: ViewStyle = {
   gap: spacing.s2,
   paddingVertical: spacing.s3,
   borderRadius: radii.pill,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
 }
 
 const $ghostBtnText: TextStyle = {
-  fontSize: 15, color: ink2,
+  fontSize: 15,
+  color: ink2,
   fontFamily: typography.primary.medium,
 }
 
@@ -616,13 +704,15 @@ const $emptyRoutines: ViewStyle = {
 }
 
 const $emptyRoutinesText: TextStyle = {
-  fontSize: 15, color: ink3,
+  fontSize: 15,
+  color: ink3,
   fontFamily: typography.primary.semiBold,
   marginTop: spacing.s2,
 }
 
 const $emptyRoutinesSub: TextStyle = {
-  fontSize: 13, color: ink4,
+  fontSize: 13,
+  color: ink4,
   fontFamily: typography.primary.normal,
   textAlign: "center",
 }
@@ -632,7 +722,8 @@ const $emptyRoutinesSub: TextStyle = {
 const $routineList: ViewStyle = {
   backgroundColor: card,
   borderRadius: radii.lg,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   ...elevation.card,
   overflow: "hidden",
   marginBottom: spacing.s4,
@@ -644,21 +735,26 @@ const $routineRow: ViewStyle = {
   gap: spacing.s3,
   paddingVertical: spacing.s3,
   paddingHorizontal: spacing.s4,
-  borderTopWidth: 1, borderTopColor: hairline,
+  borderTopWidth: 1,
+  borderTopColor: hairline,
 }
 
 const $routineDisc: ViewStyle = {
-  width: 28, height: 28, borderRadius: 14,
+  width: 28,
+  height: 28,
+  borderRadius: 14,
   flexShrink: 0,
 }
 
 const $routineName: TextStyle = {
-  fontSize: 14, color: ink,
+  fontSize: 14,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
 const $routineMeta: TextStyle = {
-  fontSize: 12, color: ink3,
+  fontSize: 12,
+  color: ink3,
   fontFamily: typography.primary.normal,
   marginTop: 2,
 }
@@ -671,67 +767,93 @@ const $addRoutineBtn: ViewStyle = {
 }
 
 const $addRoutineBtnText: TextStyle = {
-  fontSize: 15, color: coral500,
+  fontSize: 15,
+  color: coral500,
   fontFamily: typography.primary.normal,
 }
 
 // ---- Done disc ----
 
 const $doneDisc: ViewStyle = {
-  width: 80, height: 80, borderRadius: 40,
+  width: 80,
+  height: 80,
+  borderRadius: 40,
   backgroundColor: coral500,
-  alignItems: "center", justifyContent: "center",
+  alignItems: "center",
+  justifyContent: "center",
   ...elevation.tapButton,
 }
 
 // ---- Sheet ----
 
 const $scrim: ViewStyle = {
-  position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   backgroundColor: "rgba(31, 28, 24, 0.45)",
 }
 
 const $sheetOuter: ViewStyle = {
-  position: "absolute", bottom: 0, left: 0, right: 0,
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  right: 0,
 }
 
 const $sheet: ViewStyle = {
   backgroundColor: card,
-  borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
+  borderTopLeftRadius: radii.xl,
+  borderTopRightRadius: radii.xl,
   paddingHorizontal: spacing.s5,
   paddingTop: spacing.s3,
   ...elevation.sheet,
 }
 
 const $handle: ViewStyle = {
-  width: 36, height: 4, borderRadius: 2,
+  width: 36,
+  height: 4,
+  borderRadius: 2,
   backgroundColor: hairline,
-  alignSelf: "center", marginBottom: spacing.s4,
+  alignSelf: "center",
+  marginBottom: spacing.s4,
 }
 
 const $sheetEyebrow: TextStyle = {
-  fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.4,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
 }
 
 const $sheetTitle: TextStyle = {
-  fontSize: 22, letterSpacing: -0.3,
-  color: ink, fontFamily: typography.primary.semiBold,
-  marginTop: spacing.s1, marginBottom: spacing.s4,
+  fontSize: 22,
+  letterSpacing: -0.3,
+  color: ink,
+  fontFamily: typography.primary.semiBold,
+  marginTop: spacing.s1,
+  marginBottom: spacing.s4,
 }
 
 const $fieldLabel: TextStyle = {
-  fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 12,
+  letterSpacing: 0.5,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
   marginBottom: spacing.s2,
 }
 
 const $textInput: TextStyle = {
   paddingVertical: spacing.s3,
   paddingHorizontal: spacing.s4,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   borderRadius: radii.md,
-  fontSize: 16, color: ink,
+  fontSize: 16,
+  color: ink,
   fontFamily: typography.primary.normal,
   backgroundColor: paper,
 }
@@ -742,22 +864,26 @@ const $amountRow: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
   gap: spacing.s2,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   borderRadius: radii.md,
   paddingHorizontal: spacing.s4,
   backgroundColor: paper,
 }
 
 const $amountPrefix: TextStyle = {
-  fontSize: 15, color: ink3,
+  fontSize: 15,
+  color: ink3,
   fontFamily: typography.mono.normal,
 }
 
 const $amountInput: TextStyle = {
   flex: 1,
   paddingVertical: spacing.s3,
-  fontSize: 20, letterSpacing: -0.3,
-  color: ink, fontFamily: typography.mono.normal,
+  fontSize: 20,
+  letterSpacing: -0.3,
+  color: ink,
+  fontFamily: typography.mono.normal,
 }
 
 const $pillRow = {
@@ -772,16 +898,20 @@ const $catPill: ViewStyle = {
   paddingVertical: spacing.s2,
   paddingHorizontal: spacing.s3,
   borderRadius: radii.pill,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   backgroundColor: card,
 }
 
 const $catDot: ViewStyle = {
-  width: 7, height: 7, borderRadius: 4,
+  width: 7,
+  height: 7,
+  borderRadius: 4,
 }
 
 const $catPillText: TextStyle = {
-  fontSize: 13, color: ink2,
+  fontSize: 13,
+  color: ink2,
   fontFamily: typography.primary.normal,
 }
 
@@ -789,7 +919,8 @@ const $pill: ViewStyle = {
   paddingVertical: spacing.s2,
   paddingHorizontal: spacing.s3,
   borderRadius: radii.pill,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   backgroundColor: card,
 }
 
@@ -801,7 +932,8 @@ const $pillActive: ViewStyle = {
 }
 
 const $pillText: TextStyle = {
-  fontSize: 13, color: ink2,
+  fontSize: 13,
+  color: ink2,
   fontFamily: typography.primary.normal,
 }
 
@@ -821,7 +953,8 @@ const $actions: ViewStyle = {
 }
 
 const $errorText: TextStyle = {
-  fontSize: 13, color: coral600,
+  fontSize: 13,
+  color: coral600,
   fontFamily: typography.primary.normal,
   marginTop: spacing.s2,
 }
