@@ -8,6 +8,7 @@ export type PredictionResult = {
   categoryId: number | null
   defaultAmount: number
   source: PredictionSource
+  routineName?: string  // the user's label, e.g. "going to work"
 }
 
 /** Convert a Date to minutes from midnight (0–1439). */
@@ -56,6 +57,7 @@ export async function predictCategory(
         categoryId: match.category_id,
         defaultAmount: match.default_amount ?? 0,
         source: "routine",
+        routineName: match.name,
       }
     }
   }
