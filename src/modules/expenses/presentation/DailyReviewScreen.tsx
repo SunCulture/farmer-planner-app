@@ -123,9 +123,8 @@ function EventRow({ event, category, isFirst, onPress }: EventRowItem) {
           {category?.name ?? "Expense"}
         </Text>
         <Text style={$rowMeta}>
-          {event.category_id != null ? "predicted" : "unassigned"}
-          {" · "}
           {formatTimestamp(event.created_at)}
+          {event.category_id == null ? " · no category" : ""}
         </Text>
       </View>
 

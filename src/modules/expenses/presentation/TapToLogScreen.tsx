@@ -82,10 +82,8 @@ function CategoryPill({
   amount: number
   source: "routine" | "history" | "fallback"
 }) {
-  const suffix = source === "routine" && amount > 0
+  const suffix = amount > 0
     ? ` · KSh ${formatAmount(amount)}`
-    : source === "routine"
-    ? " · routine"
     : source === "history"
     ? " · past"
     : ""
@@ -139,7 +137,7 @@ export function TapToLogScreen() {
 
   const [total, setTotal] = useState(0)
   const [predictedCategory, setPredictedCategory] = useState<Category | null>(null)
-  const [prediction, setPrediction] = useState<{ amount: number; source: "routine" | "history" | "fallback" }>({ amount: 0, source: "fallback" })
+  const [prediction, setPrediction] = useState<{ amount: number; source: "routine" | "history" | "fallback"; routineName?: string }>({ amount: 0, source: "fallback" })
   const [lastEvent, setLastEvent] = useState<ExpenseEvent | null>(null)
   const [lastCategory, setLastCategory] = useState<Category | null>(null)
 
@@ -156,7 +154,7 @@ export function TapToLogScreen() {
 
     const todayTotal = allEvents.reduce((sum, e) => sum + (e.amount ?? 0), 0)
     setTotal(todayTotal)
-    setPrediction({ amount: result.defaultAmount, source: result.source })
+    setPrediction({ amount: result.defaultAmount, source: result.source, routineName: result.routineName })
 
     if (result.categoryId != null) {
       const cat = await categoryRepo.findById(result.categoryId)
@@ -195,13 +193,12 @@ export function TapToLogScreen() {
     if (!expenseRepo || !categoryRepo) return
 
     const result = await predictCategory(categoryRepo, expenseRepo, routineRepo)
-    const amount = result.defaultAmount > 0 ? result.defaultAmount : 100
-    await createExpense(expenseRepo, amount, result.categoryId, sync)
+    await createExpense(expenseRepo, result.defaultAmount, result.categoryId, sync)
     loadData()
   }
 
   const pillColor = resolveCategoryColor(predictedCategory?.name, predictedCategory?.color_hex)
-  const pillLabel = predictedCategory?.name ?? "Expense"
+  const pillLabel = prediction.routineName ?? predictedCategory?.name ?? "Expense"
 
   return (
     <View style={[$screen, { paddingTop: insets.top }]}>
