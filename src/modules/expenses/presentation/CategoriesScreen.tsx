@@ -166,7 +166,7 @@ function CategorySheet({ visible, mode, category, onSave, onDelete, onClose }: S
   const canSave = name.trim().length > 0
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
       <Pressable style={$scrim} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}

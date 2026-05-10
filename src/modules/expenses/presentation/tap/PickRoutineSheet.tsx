@@ -430,7 +430,7 @@ export function PickRoutineSheet({
   const timeStr = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
       <Pressable style={$scrim} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}

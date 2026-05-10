@@ -130,7 +130,7 @@ function AddRoutineSheet({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
       <Pressable style={$scrim} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -334,35 +334,37 @@ export default function OnboardingScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={$stepWrap}
         >
-          <View style={$stepContent}>
+          <View>
             <Text style={$wordmark}>tapp</Text>
             <Text style={$tagline}>one tap at the point of spend.</Text>
           </View>
 
-          <View style={$stepForm}>
-            <Text style={$stepTitle}>What do we call you?</Text>
-            <TextInput
-              style={[$textInput, nameError ? $inputError : null]}
-              value={userName}
-              onChangeText={(t) => { setUserName(t); setNameError("") }}
-              placeholder="first name"
-              placeholderTextColor={ink4}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={goNext}
-              maxLength={30}
-            />
-            {nameError ? <Text style={$errorText}>{nameError}</Text> : null}
-          </View>
+          <View>
+            <View style={$stepForm}>
+              <Text style={$stepTitle}>What do we call you?</Text>
+              <TextInput
+                style={[$textInput, nameError ? $inputError : null]}
+                value={userName}
+                onChangeText={(t) => { setUserName(t); setNameError("") }}
+                placeholder="first name"
+                placeholderTextColor={ink4}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={goNext}
+                maxLength={30}
+              />
+              {nameError ? <Text style={$errorText}>{nameError}</Text> : null}
+            </View>
 
-          <View style={$stepActions}>
-            <Pressable
-              style={({ pressed }) => [$primaryBtn, $btnFull, pressed && $primaryBtnPressed]}
-              onPress={goNext}
-            >
-              <Text style={$primaryBtnText}>Continue</Text>
-              <Ionicons name="arrow-forward" size={16} color="white" />
-            </Pressable>
+            <View style={$stepActions}>
+              <Pressable
+                style={({ pressed }) => [$primaryBtn, $btnFull, pressed && $primaryBtnPressed]}
+                onPress={goNext}
+              >
+                <Text style={$primaryBtnText}>Continue</Text>
+                <Ionicons name="arrow-forward" size={16} color="white" />
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       )}
@@ -529,7 +531,7 @@ const $wordmark: TextStyle = {
 const $tagline: TextStyle = {
   fontSize: 17, color: ink3,
   fontFamily: typography.primary.normal,
-  marginBottom: spacing.s12,
+  marginBottom: spacing.s3,
 }
 
 // ---- Step titles ----
