@@ -13,7 +13,9 @@ import type { Category } from "@/modules/expenses/domain/entities/category"
 import type { CategoryRepository } from "@/modules/expenses/domain/repositories/category-repository"
 import type { ExpenseEventRepository } from "@/modules/expenses/domain/repositories/expense-event-repository"
 import type { RoutineRepository } from "@/modules/expenses/domain/repositories/routine-repository"
+import type { Routine } from "@/modules/expenses/domain/entities/routine"
 import type { ExpenseEvent } from "@/modules/expenses/domain/entities/expense-event"
+import { PickRoutineSheet } from "./tap/PickRoutineSheet"
 import {
   paper,
   ink,
@@ -140,6 +142,10 @@ export function TapToLogScreen() {
   const [prediction, setPrediction] = useState<{ amount: number; source: "routine" | "history" | "fallback"; routineName?: string }>({ amount: 0, source: "fallback" })
   const [lastEvent, setLastEvent] = useState<ExpenseEvent | null>(null)
   const [lastCategory, setLastCategory] = useState<Category | null>(null)
+  const [allRoutines, setAllRoutines] = useState<Routine[]>([])
+  const [allCategories, setAllCategories] = useState<Category[]>([])
+  const [pickSheetOpen, setPickSheetOpen] = useState(false)
+  const [nowMinutes, setNowMinutes] = useState(0)
 
   const loadData = useCallback(async () => {
     const expenseRepo = container.resolve<ExpenseEventRepository>("expenseEventRepository")
@@ -147,14 +153,21 @@ export function TapToLogScreen() {
     const routineRepo = container.resolve<RoutineRepository>("routineRepository")
     if (!expenseRepo || !categoryRepo) return
 
-    const [allEvents, result] = await Promise.all([
+    const [allEvents, result, cats, routines] = await Promise.all([
       expenseRepo.findAll(),
       predictCategory(categoryRepo, expenseRepo, routineRepo),
+      categoryRepo.findAll(),
+      routineRepo ? routineRepo.findAll() : Promise.resolve([]),
     ])
 
     const todayTotal = allEvents.reduce((sum, e) => sum + (e.amount ?? 0), 0)
     setTotal(todayTotal)
     setPrediction({ amount: result.defaultAmount, source: result.source, routineName: result.routineName })
+    setAllCategories(cats)
+    setAllRoutines(routines)
+
+    const now = new Date()
+    setNowMinutes(now.getHours() * 60 + now.getMinutes())
 
     if (result.categoryId != null) {
       const cat = await categoryRepo.findById(result.categoryId)
@@ -193,9 +206,36 @@ export function TapToLogScreen() {
     if (!expenseRepo || !categoryRepo) return
 
     const result = await predictCategory(categoryRepo, expenseRepo, routineRepo)
-    await createExpense(expenseRepo, result.defaultAmount, result.categoryId, sync)
-    loadData()
+
+    if (result.source === "routine" && result.defaultAmount > 0) {
+      await createExpense(expenseRepo, result.defaultAmount, result.categoryId, sync)
+      loadData()
+    } else {
+      const now = new Date()
+      setNowMinutes(now.getHours() * 60 + now.getMinutes())
+      setPickSheetOpen(true)
+    }
   }
+
+  const handleLog = useCallback(async (categoryId: number, amount: number) => {
+    setPickSheetOpen(false)
+    const expenseRepo = container.resolve<ExpenseEventRepository>("expenseEventRepository")
+    const sync = container.resolve<any>("syncEngine")
+    if (!expenseRepo) return
+    await createExpense(expenseRepo, amount, categoryId, sync)
+    loadData()
+  }, [loadData])
+
+  const handleSaveRoutineAndLog = useCallback(async (routine: Omit<Routine, "id">) => {
+    setPickSheetOpen(false)
+    const expenseRepo = container.resolve<ExpenseEventRepository>("expenseEventRepository")
+    const routineRepo = container.resolve<RoutineRepository>("routineRepository")
+    const sync = container.resolve<any>("syncEngine")
+    if (!expenseRepo || !routineRepo) return
+    await routineRepo.create(routine)
+    await createExpense(expenseRepo, routine.default_amount, routine.category_id, sync)
+    loadData()
+  }, [loadData])
 
   const pillColor = resolveCategoryColor(predictedCategory?.name, predictedCategory?.color_hex)
   const pillLabel = prediction.routineName ?? predictedCategory?.name ?? "Expense"
@@ -239,6 +279,16 @@ export function TapToLogScreen() {
 
         {lastEvent && <LastEventCard event={lastEvent} category={lastCategory} />}
       </View>
+
+      <PickRoutineSheet
+        visible={pickSheetOpen}
+        routines={allRoutines}
+        categories={allCategories}
+        nowMinutes={nowMinutes}
+        onLog={handleLog}
+        onSaveRoutineAndLog={handleSaveRoutineAndLog}
+        onClose={() => setPickSheetOpen(false)}
+      />
     </View>
   )
 }
