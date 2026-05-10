@@ -18,7 +18,6 @@ import { Ionicons } from "@expo/vector-icons"
 import { Text } from "@/components/Text"
 import { container } from "@/bootstrap/container"
 import { saveString } from "@/utils/storage"
-import { createCategory } from "@/modules/expenses/application/create-category"
 import type { Category } from "@/modules/expenses/domain/entities/category"
 import type { CategoryRepository } from "@/modules/expenses/domain/repositories/category-repository"
 import type { Routine } from "@/modules/expenses/domain/entities/routine"
@@ -34,14 +33,6 @@ import { typography } from "@/theme/typography"
 
 // ---- Constants -------------------------------------------------------------
 
-const SEED_CATEGORIES = [
-  { name: "Food",      colorHex: catClay,   icon: "silverware-fork-knife" },
-  { name: "Transport", colorHex: catFern,   icon: "bus" },
-  { name: "Groceries", colorHex: catMango,  icon: "cart" },
-  { name: "Utilities", colorHex: catLake,   icon: "lightning-bolt" },
-  { name: "Leisure",   colorHex: catOrchid, icon: "movie-open" },
-  { name: "Misc",      colorHex: catStone,  icon: "dots-horizontal" },
-]
 
 const CATEGORY_COLORS: Record<string, string> = {
   food: catClay, transport: catFern, groceries: catMango,
@@ -292,13 +283,7 @@ export default function OnboardingScreen() {
   const loadCategories = useCallback(async () => {
     const categoryRepo = container.resolve<CategoryRepository>("categoryRepository")
     if (!categoryRepo) return
-    let all = await categoryRepo.findAll()
-    if (all.length === 0) {
-      for (const seed of SEED_CATEGORIES) {
-        await createCategory(categoryRepo, seed.name, seed.colorHex, seed.icon, true)
-      }
-      all = await categoryRepo.findAll()
-    }
+    const all = await categoryRepo.findAll()
     setCategories(all)
   }, [])
 

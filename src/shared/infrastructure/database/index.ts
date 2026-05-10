@@ -43,6 +43,20 @@ function createInMemoryDb() {
           return
         }
 
+        // Categories: INSERT ... WHERE NOT EXISTS (seed migration)
+        if (/^INSERT\s+INTO\s+categories.*WHERE\s+NOT\s+EXISTS/i.test(s)) {
+          const [name, color_hex, , icon] = params
+          const exists = state.categories.some((c: any) => c.name === params[3])
+          if (!exists) {
+            const id = ++state.nextCategoryId
+            state.categories.push({ id, name, color_hex, default_amount: null, icon: icon ?? "dots-horizontal", is_system: 1 })
+            success && success(tx, { insertId: id, rows: makeRows([]) })
+          } else {
+            success && success(tx, { insertId: 0, rows: makeRows([]) })
+          }
+          return
+        }
+
         // Categories: INSERT (name, color_hex, default_amount, icon, is_system)
         if (
           /^INSERT\s+INTO\s+categories\s*\(name\s*,\s*color_hex\s*,\s*default_amount\s*,\s*icon\s*,\s*is_system\)\s*VALUES\s*\(\?\s*,\s*\?\s*,\s*\?\s*,\s*\?\s*,\s*\?\)/i.test(s)
@@ -367,5 +381,47 @@ export async function initDatabase() {
     await runAlterSafe(db, sql)
   }
 
+  await seedDefaultCategories(db)
+
   return db
+}
+
+// ---------------------------------------------------------------------------
+// Default categories — idempotent (INSERT WHERE NOT EXISTS by name)
+// ---------------------------------------------------------------------------
+
+type SeedCategory = {
+  name: string
+  color_hex: string
+  icon: string
+}
+
+const DEFAULT_CATEGORIES: SeedCategory[] = [
+  { name: "Food",       color_hex: "#C97A4A", icon: "silverware-fork-knife" },
+  { name: "Transport",  color_hex: "#4E9A6A", icon: "bus"                   },
+  { name: "Groceries",  color_hex: "#C4A028", icon: "cart"                  },
+  { name: "Utilities",  color_hex: "#3D7AB5", icon: "lightning-bolt"        },
+  { name: "Leisure",    color_hex: "#9050B8", icon: "movie-open"            },
+  { name: "Health",     color_hex: "#3E9E6A", icon: "medical-bag"           },
+  { name: "Shopping",   color_hex: "#C2664A", icon: "shopping"              },
+  { name: "Misc",       color_hex: "#7A7468", icon: "dots-horizontal"       },
+]
+
+function seedDefaultCategories(db: any): Promise<void> {
+  return new Promise((resolve) => {
+    db.transaction(
+      (tx: any) => {
+        for (const cat of DEFAULT_CATEGORIES) {
+          tx.executeSql(
+            `INSERT INTO categories (name, color_hex, default_amount, icon, is_system)
+             SELECT ?, ?, NULL, ?, 1
+             WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = ?);`,
+            [cat.name, cat.color_hex, cat.icon, cat.name],
+          )
+        }
+      },
+      () => resolve(), // errors are non-fatal — seed may already exist
+      () => resolve(),
+    )
+  })
 }
