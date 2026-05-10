@@ -155,7 +155,7 @@ const $input: TextStyle = {
   marginBottom: spacing.s2,
 }
 
-const $inputError: ViewStyle = { borderColor: coral500 }
+const $inputError: TextStyle = { borderColor: coral500 }
 
 const $errorText: TextStyle = {
   fontSize: 13, color: coral600,

@@ -734,7 +734,7 @@ const $textInput: TextStyle = {
   backgroundColor: paper,
 }
 
-const $inputError: ViewStyle = { borderColor: coral500 }
+const $inputError: TextStyle = { borderColor: coral500 }
 
 const $amountRow: ViewStyle = {
   flexDirection: "row",
