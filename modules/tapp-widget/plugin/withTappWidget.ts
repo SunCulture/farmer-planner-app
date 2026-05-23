@@ -36,6 +36,7 @@ import android.os.Build
 import android.util.Log
 import android.widget.RemoteViews
 import __APP_PACKAGE__.R
+import java.io.File
 import java.util.Calendar
 
 private const val TAG = "TappWidget"
@@ -167,7 +168,7 @@ class TappWidgetProvider : AppWidgetProvider() {
         )
 
         private fun predictFromDb(context: Context): Prediction? {
-            val dbFile = context.getDatabasePath("tapp.db")
+            val dbFile = File(context.filesDir, "SQLite/tapp.db")
             if (!dbFile.exists()) return null
             return try {
                 SQLiteDatabase.openDatabase(
@@ -194,7 +195,7 @@ class TappWidgetProvider : AppWidgetProvider() {
         }
 
         private fun logExpense(context: Context) {
-            val dbFile = context.getDatabasePath("tapp.db")
+            val dbFile = File(context.filesDir, "SQLite/tapp.db")
             if (!dbFile.exists()) { Log.w(TAG, "tapp.db not found"); return }
             SQLiteDatabase.openDatabase(
                 dbFile.path, null, SQLiteDatabase.OPEN_READWRITE

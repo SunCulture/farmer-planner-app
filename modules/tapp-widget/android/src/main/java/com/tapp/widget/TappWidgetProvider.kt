@@ -13,6 +13,7 @@ import android.util.Log
 import android.widget.RemoteViews
 import com.tapp.widget.R
 import org.json.JSONObject
+import java.io.File
 import java.util.Calendar
 
 private const val TAG = "TappWidget"
@@ -184,7 +185,7 @@ class TappWidgetProvider : AppWidgetProvider() {
         // ── Database write ───────────────────────────────────────────────────
 
         private fun logExpense(context: Context) {
-            val dbFile = context.getDatabasePath("tapp.db")
+            val dbFile = File(context.filesDir, "SQLite/tapp.db")
             if (!dbFile.exists()) {
                 Log.w(TAG, "tapp.db not found — open the app at least once before using the widget")
                 return
