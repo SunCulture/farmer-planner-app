@@ -77,6 +77,7 @@ export function initDatabase(): Db {
     `ALTER TABLE routines ADD COLUMN is_high_confidence INTEGER NOT NULL DEFAULT 0;`,
     `ALTER TABLE routines ADD COLUMN default_amount INTEGER NOT NULL DEFAULT 0;`,
     `ALTER TABLE expense_events ADD COLUMN confirmed_at INTEGER;`,
+    `ALTER TABLE routines ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;`,
   ]
 
   for (const sql of alterStatements) {
@@ -106,14 +107,12 @@ const DEFAULT_CATEGORIES: SeedCategory[] = [
 ]
 
 function seedDefaultCategories(db: Db): void {
-  db.withTransactionSync(() => {
-    for (const cat of DEFAULT_CATEGORIES) {
-      db.runSync(
-        `INSERT INTO categories (name, color_hex, default_amount, icon, is_system)
-         SELECT ?, ?, NULL, ?, 1
-         WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = ?);`,
-        [cat.name, cat.color_hex, cat.icon, cat.name],
-      )
-    }
-  })
+  for (const cat of DEFAULT_CATEGORIES) {
+    db.runSync(
+      `INSERT INTO categories (name, color_hex, default_amount, icon, is_system)
+       SELECT ?, ?, NULL, ?, 1
+       WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = ?);`,
+      [cat.name, cat.color_hex, cat.icon, cat.name],
+    )
+  }
 }

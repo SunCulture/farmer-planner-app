@@ -187,7 +187,7 @@ export function TapToLogScreen() {
   }, [])
 
   useEffect(() => {
-    loadData()
+    loadData().catch((err) => console.error("TapToLogScreen: loadData failed", err))
   }, [loadData])
 
   function animatePress(toValue: number, cb?: () => void) {
