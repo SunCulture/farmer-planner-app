@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native checkout -b fix/sqlite-null-pointer-init)",
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native add src/bootstrap/app-bootstrap.ts src/shared/infrastructure/database/index.ts)",
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native commit -m ' *)",
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native push -u origin fix/sqlite-null-pointer-init)",
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native checkout develop)",
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native merge --no-ff fix/sqlite-null-pointer-init -m ' *)",
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native push origin develop)"
+    ]
+  }
+}
