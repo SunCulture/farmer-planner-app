@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { expensesKeys } from "@/shared/query-keys"
 import {
   Animated,
   KeyboardAvoidingView,
@@ -14,20 +12,38 @@ import {
   TextStyle,
   ActivityIndicator,
 } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Text } from "@/components/Text"
 import { container } from "@/bootstrap/container"
+import { Text } from "@/components/Text"
 import { createCategory } from "@/modules/expenses/application/create-category"
 import type { Category } from "@/modules/expenses/domain/entities/category"
 import type { CategoryRepository } from "@/modules/expenses/domain/repositories/category-repository"
+import { expensesKeys } from "@/shared/query-keys"
 import {
-  paper, paper2, card, ink, ink2, ink3, ink4,
-  coral500, coral600, hairline,
-  catClay, catMango, catFern, catLake, catOrchid, catStone,
-  spacing, radii, elevation, duration,
+  paper,
+  paper2,
+  card,
+  ink,
+  ink2,
+  ink3,
+  ink4,
+  coral500,
+  coral600,
+  hairline,
+  catClay,
+  catMango,
+  catFern,
+  catLake,
+  catOrchid,
+  catStone,
+  spacing,
+  radii,
+  elevation,
+  duration,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
@@ -55,33 +71,43 @@ export const ICON_OPTIONS = [
 export type CategoryIconName = (typeof ICON_OPTIONS)[number]
 
 const PALETTE = [
-  { key: "clay",   color: catClay,   label: "Clay" },
-  { key: "mango",  color: catMango,  label: "Mango" },
-  { key: "fern",   color: catFern,   label: "Fern" },
-  { key: "lake",   color: catLake,   label: "Lake" },
+  { key: "clay", color: catClay, label: "Clay" },
+  { key: "mango", color: catMango, label: "Mango" },
+  { key: "fern", color: catFern, label: "Fern" },
+  { key: "lake", color: catLake, label: "Lake" },
   { key: "orchid", color: catOrchid, label: "Orchid" },
-  { key: "stone",  color: catStone,  label: "Stone" },
+  { key: "stone", color: catStone, label: "Stone" },
 ]
 
 // ---- Category disc ---------------------------------------------------------
 
 export function CategoryDisc({
-  color, icon, size = 36,
-}: { color: string; icon: string; size?: number }) {
+  color,
+  icon,
+  size = 36,
+}: {
+  color: string
+  icon: string
+  size?: number
+}) {
   return (
-    <View style={[$disc, { width: size, height: size, borderRadius: size / 2, backgroundColor: color }]}>
-      <MaterialCommunityIcons
-        name={icon as any}
-        size={Math.round(size * 0.44)}
-        color="white"
-      />
+    <View
+      style={[$disc, { width: size, height: size, borderRadius: size / 2, backgroundColor: color }]}
+    >
+      <MaterialCommunityIcons name={icon as any} size={Math.round(size * 0.44)} color="white" />
     </View>
   )
 }
 
 // ---- Icon picker -----------------------------------------------------------
 
-function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon: string) => void }) {
+function IconPicker({
+  selected,
+  onSelect,
+}: {
+  selected: string
+  onSelect: (icon: string) => void
+}) {
   return (
     <View style={$iconGrid}>
       {ICON_OPTIONS.map((icon) => {
@@ -154,9 +180,17 @@ function CategorySheet({ visible, mode, category, onSave, onDelete, onClose }: S
         setColor(catClay)
         setIcon("silverware-fork-knife")
       }
-      Animated.timing(slideAnim, { toValue: 0, duration: duration.base, useNativeDriver: true }).start()
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: duration.base,
+        useNativeDriver: true,
+      }).start()
     } else {
-      Animated.timing(slideAnim, { toValue: 600, duration: duration.fast, useNativeDriver: true }).start()
+      Animated.timing(slideAnim, {
+        toValue: 600,
+        duration: duration.fast,
+        useNativeDriver: true,
+      }).start()
     }
   }, [visible, category])
 
@@ -168,7 +202,13 @@ function CategorySheet({ visible, mode, category, onSave, onDelete, onClose }: S
   const canSave = name.trim().length > 0
 
   return (
-    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      statusBarTranslucent
+      animationType="none"
+      onRequestClose={onClose}
+    >
       <Pressable style={$scrim} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -202,9 +242,7 @@ function CategorySheet({ visible, mode, category, onSave, onDelete, onClose }: S
               editable={!isSystem}
               autoFocus={mode === "add"}
             />
-            {isSystem && (
-              <Text style={$lockedHint}>System categories can't be renamed.</Text>
-            )}
+            {isSystem && <Text style={$lockedHint}>System categories can't be renamed.</Text>}
 
             {/* Color */}
             <Text style={$fieldLabel}>Colour</Text>
@@ -216,7 +254,11 @@ function CategorySheet({ visible, mode, category, onSave, onDelete, onClose }: S
 
             <Pressable
               onPress={handleSave}
-              style={({ pressed }) => [$saveBtn, !canSave && $saveBtnDisabled, pressed && canSave && $saveBtnPressed]}
+              style={({ pressed }) => [
+                $saveBtn,
+                !canSave && $saveBtnDisabled,
+                pressed && canSave && $saveBtnPressed,
+              ]}
               disabled={!canSave}
             >
               <Text style={$saveBtnText}>{mode === "add" ? "Add category" : "Save changes"}</Text>
@@ -252,7 +294,11 @@ function CategoryRow({ category, isFirst, onPress }: RowProps) {
       onPress={() => onPress(category)}
       style={({ pressed }) => [$row, !isFirst && $rowBorder, pressed && $rowPressed]}
     >
-      <CategoryDisc color={category.color_hex} icon={category.icon ?? "dots-horizontal"} size={36} />
+      <CategoryDisc
+        color={category.color_hex}
+        icon={category.icon ?? "dots-horizontal"}
+        size={36}
+      />
       <View style={$rowMid}>
         <Text style={$rowName}>{category.name}</Text>
         {category.is_system && <Text style={$systemBadge}>system</Text>}
@@ -349,10 +395,17 @@ export function CategoriesScreen() {
           <Text style={$sectionLabel}>Tapp defaults</Text>
           <View style={$card}>
             {systemCats.map((cat, i) => (
-              <CategoryRow key={String(cat.id)} category={cat} isFirst={i === 0} onPress={openEdit} />
+              <CategoryRow
+                key={String(cat.id)}
+                category={cat}
+                isFirst={i === 0}
+                onPress={openEdit}
+              />
             ))}
           </View>
-          <Text style={$sectionHint}>These can't be deleted or renamed, but you can change their colour and icon.</Text>
+          <Text style={$sectionHint}>
+            These can't be deleted or renamed, but you can change their colour and icon.
+          </Text>
 
           {/* User categories */}
           {userCats.length > 0 && (
@@ -360,7 +413,12 @@ export function CategoriesScreen() {
               <Text style={[$sectionLabel, { marginTop: spacing.s4 }]}>Your categories</Text>
               <View style={$card}>
                 {userCats.map((cat, i) => (
-                  <CategoryRow key={String(cat.id)} category={cat} isFirst={i === 0} onPress={openEdit} />
+                  <CategoryRow
+                    key={String(cat.id)}
+                    category={cat}
+                    isFirst={i === 0}
+                    onPress={openEdit}
+                  />
                 ))}
               </View>
             </>
@@ -409,12 +467,15 @@ const $addBtn: ViewStyle = { width: 36, alignItems: "flex-end" }
 const $headerCenter: ViewStyle = { flex: 1, alignItems: "center" }
 
 const $headerTitle: TextStyle = {
-  fontSize: 17, color: ink,
+  fontSize: 17,
+  color: ink,
   fontFamily: typography.primary.semiBold,
 }
 
 const $loadingWrap: ViewStyle = {
-  flex: 1, alignItems: "center", justifyContent: "center",
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "center",
 }
 
 const $scrollContent = {
@@ -424,13 +485,17 @@ const $scrollContent = {
 }
 
 const $sectionLabel: TextStyle = {
-  fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.2,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
   marginBottom: spacing.s1,
 }
 
 const $sectionHint: TextStyle = {
-  fontSize: 12, color: ink4,
+  fontSize: 12,
+  color: ink4,
   fontFamily: typography.primary.normal,
   lineHeight: 17,
 }
@@ -464,19 +529,23 @@ const $rowMid: ViewStyle = {
 }
 
 const $rowName: TextStyle = {
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
 const $systemBadge: TextStyle = {
-  fontSize: 10, color: ink4,
+  fontSize: 10,
+  color: ink4,
   fontFamily: typography.primary.normal,
   letterSpacing: 0.5,
   textTransform: "uppercase",
 }
 
 const $disc: ViewStyle = {
-  alignItems: "center", justifyContent: "center", flexShrink: 0,
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
 }
 
 const $addRowBtn: ViewStyle = {
@@ -489,19 +558,27 @@ const $addRowBtn: ViewStyle = {
 }
 
 const $addRowBtnText: TextStyle = {
-  fontSize: 14, color: coral500,
+  fontSize: 14,
+  color: coral500,
   fontFamily: typography.primary.medium,
 }
 
 // ---- Sheet -----------------------------------------------------------------
 
 const $scrim: ViewStyle = {
-  position: "absolute", top: 0, bottom: 0, left: 0, right: 0,
+  position: "absolute",
+  top: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
   backgroundColor: "rgba(0,0,0,0.35)",
 }
 
 const $kavWrap: ViewStyle = {
-  position: "absolute", bottom: 0, left: 0, right: 0,
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  right: 0,
 }
 
 const $sheet: ViewStyle = {
@@ -513,7 +590,9 @@ const $sheet: ViewStyle = {
 }
 
 const $handle: ViewStyle = {
-  width: 36, height: 4, borderRadius: 2,
+  width: 36,
+  height: 4,
+  borderRadius: 2,
   backgroundColor: hairline,
   alignSelf: "center",
   marginTop: spacing.s2,
@@ -531,11 +610,14 @@ const $sheetHeader: ViewStyle = {
 }
 
 const $sheetTitleRow: ViewStyle = {
-  flexDirection: "row", alignItems: "center", gap: spacing.s3,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s3,
 }
 
 const $sheetTitle: TextStyle = {
-  fontSize: 17, color: ink,
+  fontSize: 17,
+  color: ink,
   fontFamily: typography.primary.semiBold,
 }
 
@@ -547,17 +629,22 @@ const $sheetContent = {
 }
 
 const $fieldLabel: TextStyle = {
-  fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.2,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
 }
 
 const $textInput: TextStyle = {
   backgroundColor: card,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   borderRadius: radii.md,
   paddingHorizontal: spacing.s3,
   paddingVertical: spacing.s2 + 2,
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
@@ -566,7 +653,8 @@ const $textInputLocked: TextStyle = {
 }
 
 const $lockedHint: TextStyle = {
-  fontSize: 12, color: ink4,
+  fontSize: 12,
+  color: ink4,
   fontFamily: typography.primary.normal,
   marginTop: -spacing.s1,
 }
@@ -580,10 +668,14 @@ const $iconGrid: ViewStyle = {
 }
 
 const $iconCell: ViewStyle = {
-  width: 44, height: 44, borderRadius: radii.md,
-  alignItems: "center", justifyContent: "center",
+  width: 44,
+  height: 44,
+  borderRadius: radii.md,
+  alignItems: "center",
+  justifyContent: "center",
   backgroundColor: card,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
 }
 
 const $iconCellActive: ViewStyle = {
@@ -600,12 +692,16 @@ const $colorRow: ViewStyle = {
 }
 
 const $swatch: ViewStyle = {
-  width: 36, height: 36, borderRadius: 18,
-  alignItems: "center", justifyContent: "center",
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  alignItems: "center",
+  justifyContent: "center",
 }
 
 const $swatchActive: ViewStyle = {
-  borderWidth: 2, borderColor: ink,
+  borderWidth: 2,
+  borderColor: ink,
 }
 
 // ---- Save / Delete ---------------------------------------------------------
@@ -627,7 +723,8 @@ const $saveBtnPressed: ViewStyle = {
 }
 
 const $saveBtnText: TextStyle = {
-  fontSize: 15, color: "white",
+  fontSize: 15,
+  color: "white",
   fontFamily: typography.primary.medium,
   letterSpacing: 0.1,
 }
@@ -641,6 +738,7 @@ const $deleteBtn: ViewStyle = {
 }
 
 const $deleteBtnText: TextStyle = {
-  fontSize: 14, color: coral500,
+  fontSize: 14,
+  color: coral500,
   fontFamily: typography.primary.normal,
 }

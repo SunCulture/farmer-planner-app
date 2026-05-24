@@ -1,12 +1,22 @@
 import { Pressable, View, ViewStyle, TextStyle } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Text } from "@/components/Text"
 import {
-  paper, paper2, card, ink, ink2, ink3, ink4,
-  coral500, hairline, spacing, radii, elevation,
+  paper,
+  paper2,
+  card,
+  ink,
+  ink2,
+  ink3,
+  ink4,
+  coral500,
+  hairline,
+  spacing,
+  radii,
+  elevation,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
@@ -102,7 +112,8 @@ const $backBtn: ViewStyle = { width: 36, alignItems: "flex-start" }
 const $headerCenter: ViewStyle = { flex: 1, alignItems: "center" }
 
 const $headerTitle: TextStyle = {
-  fontSize: 17, color: ink,
+  fontSize: 17,
+  color: ink,
   fontFamily: typography.primary.semiBold,
 }
 
@@ -113,8 +124,11 @@ const $content: ViewStyle = {
 }
 
 const $sectionLabel: TextStyle = {
-  fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.2,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
   marginBottom: spacing.s1,
 }
 
@@ -140,19 +154,24 @@ const $rowBorder: ViewStyle = { borderTopWidth: 1, borderTopColor: hairline }
 const $rowPressed: ViewStyle = { backgroundColor: paper2 }
 
 const $iconWrap: ViewStyle = {
-  width: 36, height: 36, borderRadius: radii.md,
-  alignItems: "center", justifyContent: "center",
+  width: 36,
+  height: 36,
+  borderRadius: radii.md,
+  alignItems: "center",
+  justifyContent: "center",
   flexShrink: 0,
 }
 
 const $rowMid: ViewStyle = { flex: 1, gap: 2 }
 
 const $rowLabel: TextStyle = {
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.medium,
 }
 
 const $rowDesc: TextStyle = {
-  fontSize: 12, color: ink3,
+  fontSize: 12,
+  color: ink3,
   fontFamily: typography.primary.normal,
 }

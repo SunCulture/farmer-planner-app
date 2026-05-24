@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { container } from "@/bootstrap/container"
 import { Text } from "@/components/Text"
-import { loadString, saveString } from "@/utils/storage"
 import type { Category } from "@/modules/expenses/domain/entities/category"
 import type { ExpenseEvent } from "@/modules/expenses/domain/entities/expense-event"
 import type { CategoryRepository } from "@/modules/expenses/domain/repositories/category-repository"
@@ -22,15 +21,25 @@ import {
   coral500,
   card,
   hairline,
-  heatGood, heatGoodBg,
-  heatWarn, heatWarnBg,
-  heatOver, heatOverBg,
-  catClay, catFern, catLake, catMango, catOrchid, catStone,
+  heatGood,
+  heatGoodBg,
+  heatWarn,
+  heatWarnBg,
+  heatOver,
+  heatOverBg,
+  catClay,
+  catFern,
+  catLake,
+  catMango,
+  catOrchid,
+  catStone,
   spacing,
   radii,
   elevation,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
+import { loadString, saveString } from "@/utils/storage"
+
 import { FamilyNameSheet } from "./family/FamilyNameSheet"
 import { InviteSheet } from "./family/InviteSheet"
 
@@ -67,11 +76,17 @@ const DUMMY_MEMBERS = [
 // ---- Helpers ---------------------------------------------------------------
 
 const CATEGORY_COLOR_MAP: Record<string, string> = {
-  food: catClay, lunch: catClay, dinner: catClay,
+  food: catClay,
+  lunch: catClay,
+  dinner: catClay,
   groceries: catMango,
-  transport: catFern, matatu: catFern, uber: catFern,
-  utilities: catLake, airtime: catLake,
-  leisure: catOrchid, coffee: catOrchid,
+  transport: catFern,
+  matatu: catFern,
+  uber: catFern,
+  utilities: catLake,
+  airtime: catLake,
+  leisure: catOrchid,
+  coffee: catOrchid,
   misc: catStone,
 }
 
@@ -94,7 +109,10 @@ function heatColors(pct: number): [string, string] {
 }
 
 function familyCodeFromName(name: string): string {
-  const clean = name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6)
+  const clean = name
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .slice(0, 6)
   return `TAPP-${clean || "FAMILY"}`
 }
 
@@ -164,7 +182,7 @@ function MemberCategoryBreakdown({ categories }: { categories: MemberCategory[] 
       {categories.map((cat, i) => {
         const [barFill] = heatColors(cat.pct)
         return (
-          <View key={cat.name} style={[i > 0 && $breakdownRowBorder]}>
+          <View key={cat.name} style={i > 0 && $breakdownRowBorder}>
             <View style={$breakdownRow}>
               <View style={[$catDot, { backgroundColor: cat.color }]} />
               <Text style={$breakdownName}>{cat.name}</Text>
@@ -287,7 +305,7 @@ export function FamilyScreen() {
               const pct = Math.round((member.total / maxMemberSpend) * 100)
               const [barFill] = heatColors(pct)
               return (
-                <View key={member.id} style={[i > 0 && $rowBorder]}>
+                <View key={member.id} style={i > 0 && $rowBorder}>
                   <Pressable
                     style={$row}
                     onPress={() => toggleMember(member.id)}
@@ -347,7 +365,7 @@ export function FamilyScreen() {
                 const color = resolveCategoryColor(item.category.name, item.category.color_hex)
                 const [barFill] = heatColors(item.pct)
                 return (
-                  <View key={String(item.category.id ?? i)} style={[i > 0 && $rowBorder]}>
+                  <View key={String(item.category.id ?? i)} style={i > 0 && $rowBorder}>
                     <View style={[$row, { paddingVertical: spacing.s4 }]}>
                       <View style={$catBlock}>
                         <View style={$catNameRow}>
@@ -355,9 +373,7 @@ export function FamilyScreen() {
                             <View style={[$catDot, { backgroundColor: color }]} />
                             <Text style={$catName}>{item.category.name}</Text>
                           </View>
-                          <Text style={[$catPct, { color: barFill }]}>
-                            {item.pct}%
-                          </Text>
+                          <Text style={[$catPct, { color: barFill }]}>{item.pct}%</Text>
                         </View>
                         <HeatBar pct={item.pct} color={barFill} />
                         <Text style={$catAmountLabel}>
@@ -406,14 +422,21 @@ const $header: ViewStyle = {
 }
 
 const $eyebrow: TextStyle = {
-  fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.4,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
 }
 
 const $familyName: TextStyle = {
-  fontSize: 34, lineHeight: 38, letterSpacing: -0.5,
-  color: ink, fontFamily: typography.primary.bold,
-  marginTop: 4, marginBottom: 6,
+  fontSize: 34,
+  lineHeight: 38,
+  letterSpacing: -0.5,
+  color: ink,
+  fontFamily: typography.primary.bold,
+  marginTop: 4,
+  marginBottom: 6,
 }
 
 const $totalRow: ViewStyle = {
@@ -424,25 +447,32 @@ const $totalRow: ViewStyle = {
 }
 
 const $currencyLabel: TextStyle = {
-  fontSize: 15, color: ink3,
+  fontSize: 15,
+  color: ink3,
   fontFamily: typography.mono.normal,
 }
 
 const $totalAmount: TextStyle = {
-  fontSize: 28, letterSpacing: -0.5,
-  color: ink, fontFamily: typography.mono.normal,
+  fontSize: 28,
+  letterSpacing: -0.5,
+  color: ink,
+  fontFamily: typography.mono.normal,
 }
 
 const $subHeader: TextStyle = {
-  fontSize: 13, color: ink3,
+  fontSize: 13,
+  color: ink3,
   fontFamily: typography.primary.normal,
   marginTop: 3,
 }
 
 const $settingsBtn: ViewStyle = {
-  width: 36, height: 36, borderRadius: 18,
+  width: 36,
+  height: 36,
+  borderRadius: 18,
   backgroundColor: paper2,
-  alignItems: "center", justifyContent: "center",
+  alignItems: "center",
+  justifyContent: "center",
   marginTop: spacing.s2,
 }
 
@@ -453,8 +483,11 @@ const $scrollContent = {
 }
 
 const $sectionLabel: TextStyle = {
-  fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.4,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
   marginBottom: spacing.s2,
 }
 
@@ -485,32 +518,39 @@ const $rowBorder: ViewStyle = {
 const $rowMid: ViewStyle = { flex: 1, gap: 6 }
 
 const $rowName: TextStyle = {
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
 const $rowAmount: TextStyle = {
-  fontSize: 14, color: ink,
+  fontSize: 14,
+  color: ink,
   fontFamily: typography.mono.normal,
 }
 
 // ---- Member disc -----------------------------------------------------------
 
 const $memberDisc: ViewStyle = {
-  width: 32, height: 32, borderRadius: 16,
-  alignItems: "center", justifyContent: "center",
+  width: 32,
+  height: 32,
+  borderRadius: 16,
+  alignItems: "center",
+  justifyContent: "center",
   flexShrink: 0,
 }
 
 const $memberDiscText: TextStyle = {
-  fontSize: 14, color: "white",
+  fontSize: 14,
+  color: "white",
   fontFamily: typography.primary.semiBold,
 }
 
 // ---- Heat bar --------------------------------------------------------------
 
 const $bar: ViewStyle = {
-  height: 6, borderRadius: radii.pill,
+  height: 6,
+  borderRadius: radii.pill,
   backgroundColor: paper2,
   overflow: "hidden",
 }
@@ -541,13 +581,15 @@ const $breakdownRowBorder: ViewStyle = {
 }
 
 const $breakdownName: TextStyle = {
-  fontSize: 13, color: ink2,
+  fontSize: 13,
+  color: ink2,
   fontFamily: typography.primary.normal,
   width: 80,
 }
 
 const $breakdownAmount: TextStyle = {
-  fontSize: 12, color: ink3,
+  fontSize: 12,
+  color: ink3,
   fontFamily: typography.mono.normal,
   marginLeft: spacing.s2,
 }
@@ -558,7 +600,8 @@ const $breakdownEmpty: ViewStyle = {
 }
 
 const $breakdownEmptyText: TextStyle = {
-  fontSize: 13, color: ink4,
+  fontSize: 13,
+  color: ink4,
   fontFamily: typography.primary.normal,
 }
 
@@ -579,32 +622,39 @@ const $catDotWrap: ViewStyle = {
 }
 
 const $catDot: ViewStyle = {
-  width: 8, height: 8, borderRadius: 4,
+  width: 8,
+  height: 8,
+  borderRadius: 4,
 }
 
 const $catName: TextStyle = {
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
 const $catPct: TextStyle = {
-  fontSize: 14, fontFamily: typography.mono.normal,
+  fontSize: 14,
+  fontFamily: typography.mono.normal,
 }
 
 const $catAmountLabel: TextStyle = {
-  fontSize: 12, color: ink3,
+  fontSize: 12,
+  color: ink3,
   fontFamily: typography.primary.normal,
   marginTop: 2,
 }
 
 const $catAmountMono: TextStyle = {
   fontFamily: typography.mono.normal,
-  fontSize: 12, color: ink3,
+  fontSize: 12,
+  color: ink3,
 }
 
 const $catAmountOf: TextStyle = {
   fontFamily: typography.primary.normal,
-  fontSize: 12, color: ink3,
+  fontSize: 12,
+  color: ink3,
 }
 
 // ---- Invite row ------------------------------------------------------------
@@ -623,18 +673,23 @@ const $inviteRow: ViewStyle = {
 }
 
 const $inviteIcon: ViewStyle = {
-  width: 36, height: 36, borderRadius: 18,
+  width: 36,
+  height: 36,
+  borderRadius: 18,
   backgroundColor: coral500 + "18",
-  alignItems: "center", justifyContent: "center",
+  alignItems: "center",
+  justifyContent: "center",
 }
 
 const $inviteTitle: TextStyle = {
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
 const $inviteSub: TextStyle = {
-  fontSize: 12, color: ink4,
+  fontSize: 12,
+  color: ink4,
   fontFamily: typography.primary.normal,
   marginTop: 1,
 }
@@ -652,13 +707,15 @@ const $emptyWrap: ViewStyle = {
 }
 
 const $emptyText: TextStyle = {
-  fontSize: 15, color: ink3,
+  fontSize: 15,
+  color: ink3,
   fontFamily: typography.primary.semiBold,
   marginTop: spacing.s2,
 }
 
 const $emptySubText: TextStyle = {
-  fontSize: 13, color: ink4,
+  fontSize: 13,
+  color: ink4,
   fontFamily: typography.primary.normal,
   textAlign: "center",
   paddingHorizontal: spacing.s8,

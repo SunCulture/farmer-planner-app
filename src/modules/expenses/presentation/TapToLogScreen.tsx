@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react"
 import { Animated, Pressable, View, ViewStyle, TextStyle } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
+import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
@@ -17,8 +17,6 @@ import type { CategoryRepository } from "@/modules/expenses/domain/repositories/
 import type { ExpenseEventRepository } from "@/modules/expenses/domain/repositories/expense-event-repository"
 import type { RoutineRepository } from "@/modules/expenses/domain/repositories/routine-repository"
 import { expensesKeys } from "@/shared/query-keys"
-
-import { PickRoutineSheet } from "./tap/PickRoutineSheet"
 import {
   paper,
   ink,
@@ -40,6 +38,8 @@ import {
   duration,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
+
+import { PickRoutineSheet } from "./tap/PickRoutineSheet"
 
 // Map lowercase category names to design-system palette colors
 const CATEGORY_COLOR_MAP: Record<string, string> = {
@@ -80,22 +80,25 @@ function formatTimestamp(ts?: number): string {
 
 // ---- Category Pill -------------------------------------------------------
 function CategoryPill({
-  color, label, amount, source,
+  color,
+  label,
+  amount,
+  source,
 }: {
   color: string
   label: string
   amount: number
   source: "routine" | "history" | "fallback"
 }) {
-  const suffix = amount > 0
-    ? ` · KSh ${formatAmount(amount)}`
-    : source === "history"
-    ? " · past"
-    : ""
+  const suffix =
+    amount > 0 ? ` · KSh ${formatAmount(amount)}` : source === "history" ? " · past" : ""
   return (
     <View style={[$pill, { borderColor: hairline }]}>
       <View style={[$pillDot, { backgroundColor: color }]} />
-      <Text style={$pillText}>{label}{suffix}</Text>
+      <Text style={$pillText}>
+        {label}
+        {suffix}
+      </Text>
     </View>
   )
 }
@@ -110,13 +113,7 @@ function CategoryDisc({ color }: { color: string }) {
 }
 
 // ---- Last-event card -------------------------------------------------------
-function LastEventCard({
-  event,
-  category,
-}: {
-  event: ExpenseEvent
-  category: Category | null
-}) {
+function LastEventCard({ event, category }: { event: ExpenseEvent; category: Category | null }) {
   const color = resolveCategoryColor(category?.name, category?.color_hex)
   return (
     <View style={$eventCard}>
@@ -127,7 +124,8 @@ function LastEventCard({
           <Text style={$eventMono}>{category?.name ?? "Expense"}.</Text>
         </Text>
         <Text style={$eventMeta}>
-          {formatTimestamp(event.created_at)}{" · "}
+          {formatTimestamp(event.created_at)}
+          {" · "}
           <Text style={$eventMetaMono}>{"KSh " + formatAmount(event.amount)}</Text>
         </Text>
       </View>
@@ -292,7 +290,12 @@ export function TapToLogScreen() {
 
       {/* Body */}
       <View style={$body}>
-        <CategoryPill color={pillColor} label={pillLabel} amount={prediction.amount} source={prediction.source} />
+        <CategoryPill
+          color={pillColor}
+          label={pillLabel}
+          amount={prediction.amount}
+          source={prediction.source}
+        />
 
         <Pressable
           onPress={handleTap}
