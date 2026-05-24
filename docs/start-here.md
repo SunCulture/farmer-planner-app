@@ -166,21 +166,26 @@ RUN_NATIVE_INTEGRATION_TESTS=1 pnpm test
 ### Must-do before any external users
 
 1. **On-device migration runner** — decide: keep idempotent `initDatabase()` or implement a proper Drizzle migration runner. The idempotent approach works for dev but risks silent data loss in upgrades. Choose and document in an ADR.
-2. **Remove dev-only in-memory DB fallback** — currently falls back silently in `__DEV__` when the native binding is missing; this must be gated or removed before shipping.
-3. **TanStack Query adoption in screens** — screens use raw `useState` + `loadData()` callbacks; migrating to `useQuery` / `useMutation` gives correct cache invalidation and removes the manual reload calls scattered across handlers.
 
 ### Core product completeness
 
-4. **Notes/memo on expenses** — add `notes TEXT` column (migration), update `ExpenseEvent` entity, `updateExpense` use-case, and add a notes input to `EditExpenseSheet`.
-5. **iOS widget end-to-end verification** — test tap-through on a real device; confirm the expense is written and the app reflects it.
-6. **Widget active-routine switching** — let the user choose which routine the widget logs against, rather than always picking the first match.
+2. **iOS widget end-to-end verification** — test tap-through on a real device; confirm the expense is written and the app reflects it.
+3. **Widget active-routine switching** — let the user choose which routine the widget logs against, rather than always picking the first match.
 
 ### Data and quality
 
-7. **Harden tests** — add use-case unit tests for `createExpense`, `updateExpense`, `confirmDay`, `predictCategory`; add a repository integration test for routines; determine CI strategy for running native tests on emulators.
-8. **Dependency-cruiser CI rules** — enforce that presentation never imports infra directly and domain never imports React/Expo.
+4. **Harden tests** — add use-case unit tests for `createExpense`, `updateExpense`, `confirmDay`, `predictCategory`; add a repository integration test for routines; determine CI strategy for running native tests on emulators.
+5. **Dependency-cruiser CI rules** — enforce that presentation never imports infra directly and domain never imports React/Expo.
 
 ### Phase 2 (multi-device)
 
-9. **Production sync runner** — retries, idempotence, HTTP sender, background flush. This unlocks the family screen and multi-device use.
-10. **Family identity and invite flow** — user ID, family ID, invite code; replace the placeholder "You" row and invite CTA in `FamilyScreen`.
+6. **Production sync runner** — retries, idempotence, HTTP sender, background flush. This unlocks the family screen and multi-device use.
+7. **Family identity and invite flow** — user ID, family ID, invite code; replace the placeholder "You" row and invite CTA in `FamilyScreen`.
+
+---
+
+### Completed this session (2026-05-24)
+
+- ✅ **Notes/memo on expenses** — `notes TEXT` column added via migration, `ExpenseEvent` entity updated, `updateExpense` use-case updated, notes input added to `EditExpenseSheet`, notes shown in `DailyReviewScreen` event row meta (PR #19)
+- ✅ **Remove dev-only in-memory DB fallback** — removed entirely in commit `3ceeb50` when the data layer was migrated to expo-sqlite v55 synchronous API
+- ✅ **TanStack Query adoption** — all five screens (`CategoriesScreen`, `DailyReviewScreen`, `RoutinesScreen`, `TapToLogScreen`, `FamilyScreen`) migrated from manual `useState`/`loadData` to `useQuery`/`useMutation`; `expensesKeys.prediction()` added (PR #20)
