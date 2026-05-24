@@ -1,12 +1,10 @@
-import { Tabs } from "expo-router"
 import { Platform, Pressable, Text, View, ViewStyle, TextStyle } from "react-native"
+import { Tabs } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Ionicons } from "@expo/vector-icons"
 
-import {
-  card, coral500, hairline, ink3, spacing,
-} from "@/theme/tapp-tokens"
+import { card, coral500, hairline, ink3, spacing } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
 // Exported so screens can pad their content to clear the floating bar
@@ -24,9 +22,9 @@ type TabDef = {
 }
 
 const TABS: TabDef[] = [
-  { name: "index",  label: "Tap",    icon: "hand-left-outline", iconFocused: "hand-left" },
-  { name: "review", label: "Review", icon: "list-outline",      iconFocused: "list" },
-  { name: "family", label: "Family", icon: "people-outline",    iconFocused: "people" },
+  { name: "index", label: "Tap", icon: "hand-left-outline", iconFocused: "hand-left" },
+  { name: "review", label: "Review", icon: "list-outline", iconFocused: "list" },
+  { name: "family", label: "Family", icon: "people-outline", iconFocused: "people" },
 ]
 
 // ---- Floating tab bar ------------------------------------------------------
@@ -56,9 +54,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 size={22}
                 color={focused ? coral500 : ink3}
               />
-              <Text style={[styles.label, focused && styles.labelActive]}>
-                {tab.label}
-              </Text>
+              <Text style={[styles.label, focused && styles.labelActive]}>{tab.label}</Text>
             </Pressable>
           )
         })}
@@ -71,10 +67,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
+    <Tabs tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="review" />
       <Tabs.Screen name="family" />
@@ -103,7 +96,7 @@ const $pill: ViewStyle = {
   // shadow
   shadowColor: "#1F1C18",
   shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.10,
+  shadowOpacity: 0.1,
   shadowRadius: 20,
   elevation: 14,
 }

@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react"
 import { useLocalSearchParams } from "expo-router"
-import TapToLogScreen from "@/modules/expenses/presentation/TapToLogScreen"
+
 import { container } from "@/bootstrap/container"
+import { createExpense } from "@/modules/expenses/application/create-expense"
+import { predictCategory } from "@/modules/expenses/application/predict-category"
+import { syncWidgetData } from "@/modules/expenses/application/sync-widget-data"
 import type { CategoryRepository } from "@/modules/expenses/domain/repositories/category-repository"
 import type { ExpenseEventRepository } from "@/modules/expenses/domain/repositories/expense-event-repository"
 import type { RoutineRepository } from "@/modules/expenses/domain/repositories/routine-repository"
-import { predictCategory } from "@/modules/expenses/application/predict-category"
-import { createExpense } from "@/modules/expenses/application/create-expense"
-import { syncWidgetData } from "@/modules/expenses/application/sync-widget-data"
+import TapToLogScreen from "@/modules/expenses/presentation/TapToLogScreen"
 
 export default function TapRoute() {
   const { auto } = useLocalSearchParams<{ auto?: string }>()

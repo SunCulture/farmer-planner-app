@@ -1,4 +1,5 @@
 import type SyncEngine from "@/shared/contracts/sync"
+
 import type { ExpenseEventRepository } from "../domain/repositories/expense-event-repository"
 
 export async function updateExpense(
@@ -12,7 +13,10 @@ export async function updateExpense(
   await repo.update(id, amount, categoryId, notes)
   try {
     if (syncEngine) {
-      await syncEngine.enqueue({ type: "update_expense", payload: { id, amount, categoryId, notes } })
+      await syncEngine.enqueue({
+        type: "update_expense",
+        payload: { id, amount, categoryId, notes },
+      })
     }
   } catch {
     // ignore enqueue errors

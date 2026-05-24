@@ -6,8 +6,8 @@ import { KeyboardProvider } from "react-native-keyboard-controller"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
 
 import appBootstrap from "@/bootstrap/app-bootstrap"
-import { setupNotifications, addNotificationResponseListener } from "@/bootstrap/notifications"
 import { container } from "@/bootstrap/container"
+import { setupNotifications, addNotificationResponseListener } from "@/bootstrap/notifications"
 import { initI18n } from "@/i18n"
 import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
@@ -68,9 +68,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       // ignore
     }
 
-    setupNotifications().catch((err) =>
-      console.error("APP: setupNotifications failed", err),
-    )
+    setupNotifications().catch((err) => console.error("APP: setupNotifications failed", err))
 
     const notificationSub = addNotificationResponseListener()
     return () => notificationSub.remove()

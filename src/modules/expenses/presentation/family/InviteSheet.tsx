@@ -9,16 +9,24 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Text } from "@/components/Text"
 import {
   paper,
-  ink, ink2, ink3, ink4,
-  coral500, coral600,
-  card, hairline,
-  spacing, radii, elevation, duration,
+  ink,
+  ink2,
+  ink3,
+  ink4,
+  coral500,
+  coral600,
+  card,
+  hairline,
+  spacing,
+  radii,
+  elevation,
+  duration,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
@@ -41,7 +49,11 @@ export function InviteSheet({ visible, familyCode, onClose }: Props) {
       duration: visible ? duration.base : duration.fast,
       useNativeDriver: true,
     }).start()
-    if (!visible) { setJoinMode(false); setJoinCode(""); setCopied(false) }
+    if (!visible) {
+      setJoinMode(false)
+      setJoinCode("")
+      setCopied(false)
+    }
   }, [visible, slideAnim])
 
   function handleCopy() {
@@ -51,7 +63,13 @@ export function InviteSheet({ visible, familyCode, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      statusBarTranslucent
+      animationType="none"
+      onRequestClose={onClose}
+    >
       <Pressable style={$scrim} onPress={onClose} />
       <Animated.View
         style={[
@@ -126,7 +144,8 @@ export function InviteSheet({ visible, familyCode, onClose }: Props) {
               </Pressable>
               <Pressable
                 style={({ pressed }) => [
-                  $primaryBtn, { flex: 2 },
+                  $primaryBtn,
+                  { flex: 2 },
                   pressed && $primaryBtnPressed,
                   !joinCode.trim() && $primaryBtnDisabled,
                 ]}
@@ -146,40 +165,59 @@ export function InviteSheet({ visible, familyCode, onClose }: Props) {
 // ---- Styles ----------------------------------------------------------------
 
 const $scrim: ViewStyle = {
-  position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   backgroundColor: "rgba(31, 28, 24, 0.45)",
 }
 
 const $sheet: ViewStyle = {
-  position: "absolute", left: 0, right: 0, bottom: 0,
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: 0,
   backgroundColor: card,
-  borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
+  borderTopLeftRadius: radii.xl,
+  borderTopRightRadius: radii.xl,
   paddingHorizontal: spacing.s5,
   paddingTop: spacing.s3,
   ...elevation.sheet,
 }
 
 const $handle: ViewStyle = {
-  width: 36, height: 4, borderRadius: 2,
+  width: 36,
+  height: 4,
+  borderRadius: 2,
   backgroundColor: hairline,
-  alignSelf: "center", marginBottom: spacing.s4,
+  alignSelf: "center",
+  marginBottom: spacing.s4,
 }
 
 const $eyebrow: TextStyle = {
-  fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.4,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
 }
 
 const $title: TextStyle = {
-  fontSize: 22, letterSpacing: -0.3,
-  color: ink, fontFamily: typography.primary.semiBold,
-  marginTop: spacing.s1, marginBottom: spacing.s2,
+  fontSize: 22,
+  letterSpacing: -0.3,
+  color: ink,
+  fontFamily: typography.primary.semiBold,
+  marginTop: spacing.s1,
+  marginBottom: spacing.s2,
 }
 
 const $body: TextStyle = {
-  fontSize: 14, color: ink3,
+  fontSize: 14,
+  color: ink3,
   fontFamily: typography.primary.normal,
-  lineHeight: 20, marginBottom: spacing.s5,
+  lineHeight: 20,
+  marginBottom: spacing.s5,
 }
 
 const $codeBox: ViewStyle = {
@@ -188,32 +226,44 @@ const $codeBox: ViewStyle = {
   justifyContent: "space-between",
   backgroundColor: paper,
   borderRadius: radii.md,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   paddingVertical: spacing.s4,
   paddingHorizontal: spacing.s4,
   marginBottom: spacing.s4,
 }
 
 const $codeText: TextStyle = {
-  fontSize: 22, letterSpacing: 2,
-  color: ink, fontFamily: typography.mono.normal,
+  fontSize: 22,
+  letterSpacing: 2,
+  color: ink,
+  fontFamily: typography.mono.normal,
 }
 
 const $copyBtn: ViewStyle = {
-  flexDirection: "row", alignItems: "center", gap: 5,
-  paddingVertical: spacing.s2, paddingHorizontal: spacing.s3,
-  borderRadius: radii.md, backgroundColor: card,
-  borderWidth: 1, borderColor: hairline,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 5,
+  paddingVertical: spacing.s2,
+  paddingHorizontal: spacing.s3,
+  borderRadius: radii.md,
+  backgroundColor: card,
+  borderWidth: 1,
+  borderColor: hairline,
 }
 
 const $copyBtnPressed: ViewStyle = { backgroundColor: paper }
 
 const $copyBtnText: TextStyle = {
-  fontSize: 13, color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink3,
+  fontFamily: typography.primary.normal,
 }
 
 const $primaryBtn: ViewStyle = {
-  flexDirection: "row", alignItems: "center", justifyContent: "center",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
   gap: spacing.s2,
   backgroundColor: coral500,
   borderRadius: radii.pill,
@@ -226,20 +276,28 @@ const $primaryBtnPressed: ViewStyle = { backgroundColor: coral600, transform: [{
 const $primaryBtnDisabled: ViewStyle = { backgroundColor: ink4 }
 
 const $primaryBtnText: TextStyle = {
-  fontSize: 15, color: "white", fontFamily: typography.primary.medium,
+  fontSize: 15,
+  color: "white",
+  fontFamily: typography.primary.medium,
 }
 
 const $divider: ViewStyle = {
-  flexDirection: "row", alignItems: "center",
-  gap: spacing.s3, marginVertical: spacing.s2,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s3,
+  marginVertical: spacing.s2,
 }
 
 const $dividerLine: ViewStyle = {
-  flex: 1, height: 1, backgroundColor: hairline,
+  flex: 1,
+  height: 1,
+  backgroundColor: hairline,
 }
 
 const $dividerText: TextStyle = {
-  fontSize: 12, color: ink4, fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink4,
+  fontFamily: typography.primary.normal,
 }
 
 const $ghostBtn: ViewStyle = {
@@ -247,26 +305,33 @@ const $ghostBtn: ViewStyle = {
   paddingVertical: spacing.s3,
   borderRadius: radii.pill,
   alignItems: "center",
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   marginBottom: spacing.s2,
 }
 
 const $ghostBtnText: TextStyle = {
-  fontSize: 15, color: ink2, fontFamily: typography.primary.medium,
+  fontSize: 15,
+  color: ink2,
+  fontFamily: typography.primary.medium,
 }
 
 const $joinInput: TextStyle = {
   paddingVertical: spacing.s4,
   paddingHorizontal: spacing.s4,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   borderRadius: radii.md,
-  fontSize: 20, letterSpacing: 2,
-  color: ink, fontFamily: typography.mono.normal,
+  fontSize: 20,
+  letterSpacing: 2,
+  color: ink,
+  fontFamily: typography.mono.normal,
   backgroundColor: paper,
   marginBottom: spacing.s5,
   textAlign: "center",
 }
 
 const $actionRow: ViewStyle = {
-  flexDirection: "row", gap: spacing.s3,
+  flexDirection: "row",
+  gap: spacing.s3,
 }

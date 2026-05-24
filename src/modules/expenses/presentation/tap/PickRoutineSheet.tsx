@@ -12,8 +12,8 @@ import {
 } from "react-native"
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
 
-import { Text } from "@/components/Text"
 import { container } from "@/bootstrap/container"
+import { Text } from "@/components/Text"
 import { createCategory } from "@/modules/expenses/application/create-category"
 import type { Category } from "@/modules/expenses/domain/entities/category"
 import type { Routine } from "@/modules/expenses/domain/entities/routine"
@@ -40,16 +40,23 @@ import {
   elevation,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
+
 import { CategoryDisc, ICON_OPTIONS } from "../CategoriesScreen"
 
 // ---- helpers ---------------------------------------------------------------
 
 const CATEGORY_COLOR_MAP: Record<string, string> = {
-  food: catClay, lunch: catClay, dinner: catClay,
+  food: catClay,
+  lunch: catClay,
+  dinner: catClay,
   groceries: catMango,
-  transport: catFern, matatu: catFern, uber: catFern,
-  utilities: catLake, airtime: catLake,
-  leisure: catOrchid, coffee: catOrchid,
+  transport: catFern,
+  matatu: catFern,
+  uber: catFern,
+  utilities: catLake,
+  airtime: catLake,
+  leisure: catOrchid,
+  coffee: catOrchid,
   misc: catStone,
 }
 
@@ -101,8 +108,13 @@ function closestSlotIndex(nowMinutes: number): number {
   let bestDist = Infinity
   TIME_SLOTS.forEach((s, i) => {
     const d = Math.min(Math.abs(s.start - nowMinutes), Math.abs(s.end - nowMinutes))
-    if (nowMinutes >= s.start && nowMinutes < s.end) { best = i; bestDist = 0 }
-    else if (d < bestDist) { bestDist = d; best = i }
+    if (nowMinutes >= s.start && nowMinutes < s.end) {
+      best = i
+      bestDist = 0
+    } else if (d < bestDist) {
+      bestDist = d
+      best = i
+    }
   })
   return best
 }
@@ -167,7 +179,11 @@ function RoutineRow({ routine, category, isFirst, onTap }: RoutineRowProps) {
           ) : (
             <Text style={$setAmountHint}>set amount</Text>
           )}
-          <Ionicons name={hasAmount ? "chevron-forward" : "add-circle-outline"} size={16} color={ink4} />
+          <Ionicons
+            name={hasAmount ? "chevron-forward" : "add-circle-outline"}
+            size={16}
+            color={ink4}
+          />
         </View>
       </Pressable>
 
@@ -301,18 +317,32 @@ function AddForm({ categories, nowMinutes, onSave, onCategoryCreated, onBack }: 
       {/* Category */}
       <View style={$catLabelRow}>
         <Text style={$fieldLabel}>Category</Text>
-        <Pressable onPress={() => { setNewCatOpen((v) => !v); setNewCatName("") }} hitSlop={8}>
+        <Pressable
+          onPress={() => {
+            setNewCatOpen((v) => !v)
+            setNewCatName("")
+          }}
+          hitSlop={8}
+        >
           <Text style={$newCatLink}>{newCatOpen ? "Cancel" : "+ New category"}</Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={$catScroll} contentContainerStyle={$catScrollContent}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={$catScroll}
+        contentContainerStyle={$catScrollContent}
+      >
         {categories.map((cat) => {
           const active = cat.id === selectedCategoryId
           return (
             <Pressable
               key={String(cat.id)}
               onPress={() => setSelectedCategoryId(cat.id ?? null)}
-              style={[$catPill, active && { backgroundColor: cat.color_hex, borderColor: cat.color_hex }]}
+              style={[
+                $catPill,
+                active && { backgroundColor: cat.color_hex, borderColor: cat.color_hex },
+              ]}
             >
               <CategoryDisc color={cat.color_hex} icon={cat.icon ?? "dots-horizontal"} size={20} />
               <Text style={[$catPillText, active && $catPillTextActive]}>{cat.name}</Text>
@@ -335,26 +365,42 @@ function AddForm({ categories, nowMinutes, onSave, onCategoryCreated, onBack }: 
               <Pressable
                 key={c}
                 onPress={() => setNewCatColor(c)}
-                style={[$miniSwatch, { backgroundColor: c }, newCatColor === c && $miniSwatchActive]}
+                style={[
+                  $miniSwatch,
+                  { backgroundColor: c },
+                  newCatColor === c && $miniSwatchActive,
+                ]}
                 hitSlop={6}
               />
             ))}
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={$iconScrollContent}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={$iconScrollContent}
+          >
             {ICON_OPTIONS.map((ic) => (
               <Pressable
                 key={ic}
                 onPress={() => setNewCatIcon(ic)}
                 style={[$iconCell, newCatIcon === ic && $iconCellActive]}
               >
-                <MaterialCommunityIcons name={ic as any} size={18} color={newCatIcon === ic ? "white" : ink3} />
+                <MaterialCommunityIcons
+                  name={ic as any}
+                  size={18}
+                  color={newCatIcon === ic ? "white" : ink3}
+                />
               </Pressable>
             ))}
           </ScrollView>
           <Pressable
             onPress={handleNewCatSave}
             disabled={newCatSaving || !newCatName.trim()}
-            style={({ pressed }) => [$confirmSmallBtn, (!newCatName.trim() || newCatSaving) && { opacity: 0.45 }, pressed && { opacity: 0.75 }]}
+            style={({ pressed }) => [
+              $confirmSmallBtn,
+              (!newCatName.trim() || newCatSaving) && { opacity: 0.45 },
+              pressed && { opacity: 0.75 },
+            ]}
           >
             <Text style={$confirmSmallText}>Add &amp; select</Text>
           </Pressable>
@@ -363,7 +409,12 @@ function AddForm({ categories, nowMinutes, onSave, onCategoryCreated, onBack }: 
 
       {/* Time slot */}
       <Text style={$fieldLabel}>When</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={$catScroll} contentContainerStyle={$catScrollContent}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={$catScroll}
+        contentContainerStyle={$catScrollContent}
+      >
         {TIME_SLOTS.map((slot, i) => (
           <Pressable
             key={i}
@@ -396,7 +447,11 @@ function AddForm({ categories, nowMinutes, onSave, onCategoryCreated, onBack }: 
 
       <Pressable
         onPress={handleSave}
-        style={({ pressed }) => [$saveBtn, !canSave && $saveBtnDisabled, pressed && canSave && $saveBtnPressed]}
+        style={({ pressed }) => [
+          $saveBtn,
+          !canSave && $saveBtnDisabled,
+          pressed && canSave && $saveBtnPressed,
+        ]}
         disabled={!canSave}
       >
         <Text style={$saveBtnText}>Save &amp; log</Text>
@@ -420,11 +475,15 @@ export function PickRoutineSheet({
   const [localCategories, setLocalCategories] = useState<Category[]>(categories)
 
   // Keep localCategories in sync when the parent reloads categories (async data arrives)
-  useEffect(() => { setLocalCategories(categories) }, [categories])
+  useEffect(() => {
+    setLocalCategories(categories)
+  }, [categories])
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]))
 
-  const sorted = [...routines].sort((a, b) => timeProximity(a, nowMinutes) - timeProximity(b, nowMinutes))
+  const sorted = [...routines].sort(
+    (a, b) => timeProximity(a, nowMinutes) - timeProximity(b, nowMinutes),
+  )
 
   function handleTap(routine: Routine, amount: number) {
     onLog(routine.category_id, amount)
@@ -439,7 +498,13 @@ export function PickRoutineSheet({
   const timeStr = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`
 
   return (
-    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      statusBarTranslucent
+      animationType="none"
+      onRequestClose={onClose}
+    >
       <Pressable style={$scrim} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -462,7 +527,11 @@ export function PickRoutineSheet({
                 </Pressable>
               </View>
 
-              <ScrollView style={$sheetScroll} contentContainerStyle={$sheetScrollContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                style={$sheetScroll}
+                contentContainerStyle={$sheetScrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
                 {sorted.length === 0 ? (
                   <View style={$noRoutinesWrap}>
                     <MaterialCommunityIcons name="clock-outline" size={32} color={ink4} />
@@ -492,7 +561,10 @@ export function PickRoutineSheet({
               </ScrollView>
             </>
           ) : (
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
               <AddForm
                 categories={localCategories}
                 nowMinutes={nowMinutes}
@@ -514,13 +586,18 @@ export default PickRoutineSheet
 
 const $scrim: ViewStyle = {
   position: "absolute",
-  top: 0, bottom: 0, left: 0, right: 0,
+  top: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
   backgroundColor: "rgba(0,0,0,0.35)",
 }
 
 const $kavWrap: ViewStyle = {
   position: "absolute",
-  bottom: 0, left: 0, right: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
 }
 
 const $sheet: ViewStyle = {
@@ -532,7 +609,9 @@ const $sheet: ViewStyle = {
 }
 
 const $handle: ViewStyle = {
-  width: 36, height: 4, borderRadius: 2,
+  width: 36,
+  height: 4,
+  borderRadius: 2,
   backgroundColor: hairline,
   alignSelf: "center",
   marginTop: spacing.s2,
@@ -548,12 +627,14 @@ const $sheetHeader: ViewStyle = {
 }
 
 const $sheetTitle: TextStyle = {
-  fontSize: 17, color: ink,
+  fontSize: 17,
+  color: ink,
   fontFamily: typography.primary.semiBold,
 }
 
 const $sheetSub: TextStyle = {
-  fontSize: 13, color: ink3,
+  fontSize: 13,
+  color: ink3,
   fontFamily: typography.primary.normal,
   marginTop: 2,
 }
@@ -594,33 +675,42 @@ const $routineRow: ViewStyle = {
 const $rowPressed: ViewStyle = { backgroundColor: paper2 }
 
 const $dot: ViewStyle = {
-  width: 10, height: 10, borderRadius: 5, flexShrink: 0,
+  width: 10,
+  height: 10,
+  borderRadius: 5,
+  flexShrink: 0,
 }
 
 const $rowMid: ViewStyle = { flex: 1 }
 
 const $routineName: TextStyle = {
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
 const $routineMeta: TextStyle = {
-  fontSize: 12, color: ink3,
+  fontSize: 12,
+  color: ink3,
   fontFamily: typography.primary.normal,
   marginTop: 2,
 }
 
 const $rowRight: ViewStyle = {
-  flexDirection: "row", alignItems: "center", gap: spacing.s1,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s1,
 }
 
 const $routineAmount: TextStyle = {
-  fontSize: 14, color: ink,
+  fontSize: 14,
+  color: ink,
   fontFamily: typography.mono.normal,
 }
 
 const $setAmountHint: TextStyle = {
-  fontSize: 12, color: coral500,
+  fontSize: 12,
+  color: coral500,
   fontFamily: typography.primary.normal,
 }
 
@@ -636,13 +726,15 @@ const $inlineAmountRow: ViewStyle = {
 }
 
 const $inlineAmountPrefix: TextStyle = {
-  fontSize: 14, color: ink3,
+  fontSize: 14,
+  color: ink3,
   fontFamily: typography.mono.normal,
 }
 
 const $inlineAmountInput: TextStyle = {
   flex: 1,
-  fontSize: 18, color: ink,
+  fontSize: 18,
+  color: ink,
   fontFamily: typography.mono.normal,
   paddingVertical: 4,
 }
@@ -655,7 +747,8 @@ const $confirmSmall: ViewStyle = {
 }
 
 const $confirmSmallText: TextStyle = {
-  fontSize: 13, color: "white",
+  fontSize: 13,
+  color: "white",
   fontFamily: typography.primary.medium,
 }
 
@@ -668,7 +761,8 @@ const $noRoutinesWrap: ViewStyle = {
 }
 
 const $noRoutinesText: TextStyle = {
-  fontSize: 14, color: ink4,
+  fontSize: 14,
+  color: ink4,
   fontFamily: typography.primary.normal,
 }
 
@@ -683,7 +777,8 @@ const $addRoutineBtn: ViewStyle = {
 }
 
 const $addRoutineBtnText: TextStyle = {
-  fontSize: 14, color: coral500,
+  fontSize: 14,
+  color: coral500,
   fontFamily: typography.primary.medium,
 }
 
@@ -703,28 +798,35 @@ const $backRow: ViewStyle = {
 }
 
 const $backText: TextStyle = {
-  fontSize: 13, color: ink3,
+  fontSize: 13,
+  color: ink3,
   fontFamily: typography.primary.normal,
 }
 
 const $addFormTitle: TextStyle = {
-  fontSize: 17, color: ink,
+  fontSize: 17,
+  color: ink,
   fontFamily: typography.primary.semiBold,
   marginBottom: spacing.s1,
 }
 
 const $fieldLabel: TextStyle = {
-  fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.2,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
 }
 
 const $textInput: TextStyle = {
   backgroundColor: card,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   borderRadius: radii.md,
   paddingHorizontal: spacing.s3,
   paddingVertical: spacing.s2 + 2,
-  fontSize: 15, color: ink,
+  fontSize: 15,
+  color: ink,
   fontFamily: typography.primary.normal,
 }
 
@@ -735,7 +837,8 @@ const $amountInputRow: ViewStyle = {
 }
 
 const $amountPrefix: TextStyle = {
-  fontSize: 15, color: ink3,
+  fontSize: 15,
+  color: ink3,
   fontFamily: typography.mono.normal,
 }
 
@@ -763,7 +866,8 @@ const $catPill: ViewStyle = {
 const $catDot: ViewStyle = { width: 8, height: 8, borderRadius: 4 }
 
 const $catPillText: TextStyle = {
-  fontSize: 13, color: ink2,
+  fontSize: 13,
+  color: ink2,
   fontFamily: typography.primary.normal,
 }
 
@@ -784,7 +888,8 @@ const $slotPillActive: ViewStyle = {
 }
 
 const $slotPillText: TextStyle = {
-  fontSize: 13, color: ink2,
+  fontSize: 13,
+  color: ink2,
   fontFamily: typography.primary.normal,
 }
 
@@ -811,7 +916,8 @@ const $dayBtnActive: ViewStyle = {
 }
 
 const $dayBtnText: TextStyle = {
-  fontSize: 12, color: ink2,
+  fontSize: 12,
+  color: ink2,
   fontFamily: typography.primary.normal,
 }
 
@@ -834,7 +940,8 @@ const $saveBtnPressed: ViewStyle = {
 }
 
 const $saveBtnText: TextStyle = {
-  fontSize: 15, color: "white",
+  fontSize: 15,
+  color: "white",
   fontFamily: typography.primary.medium,
   letterSpacing: 0.1,
 }
@@ -842,18 +949,22 @@ const $saveBtnText: TextStyle = {
 // ---- Inline new-category form ----------------------------------------------
 
 const $catLabelRow: ViewStyle = {
-  flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
 }
 
 const $newCatLink: TextStyle = {
-  fontSize: 12, color: coral500,
+  fontSize: 12,
+  color: coral500,
   fontFamily: typography.primary.medium,
 }
 
 const $newCatForm: ViewStyle = {
   backgroundColor: paper2,
   borderRadius: radii.md,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   padding: spacing.s3,
   gap: spacing.s3,
 }
@@ -867,10 +978,14 @@ const $miniSwatchActive: ViewStyle = { borderWidth: 2.5, borderColor: ink }
 const $iconScrollContent = { gap: spacing.s2, paddingVertical: spacing.s1 }
 
 const $iconCell: ViewStyle = {
-  width: 36, height: 36, borderRadius: radii.md,
-  alignItems: "center", justifyContent: "center",
+  width: 36,
+  height: 36,
+  borderRadius: radii.md,
+  alignItems: "center",
+  justifyContent: "center",
   backgroundColor: card,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
 }
 
 const $iconCellActive: ViewStyle = { backgroundColor: ink, borderColor: ink }

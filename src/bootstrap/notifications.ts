@@ -1,9 +1,10 @@
 import * as Notifications from "expo-notifications"
 import { router } from "expo-router"
 
-import { container } from "./container"
 import { confirmDay } from "@/modules/expenses/application/confirm-day"
 import type { ExpenseEventRepository } from "@/modules/expenses/domain/repositories/expense-event-repository"
+
+import { container } from "./container"
 
 const NOTIFICATION_DATA_TYPE = "daily_review"
 const CATEGORY_ID = "DAILY_REVIEW"
@@ -91,10 +92,7 @@ export function addNotificationResponseListener(): Notifications.Subscription {
   return Notifications.addNotificationResponseReceivedListener((response) => {
     const actionId = response.actionIdentifier
 
-    if (
-      actionId === ACTION_REVIEW ||
-      actionId === Notifications.DEFAULT_ACTION_IDENTIFIER
-    ) {
+    if (actionId === ACTION_REVIEW || actionId === Notifications.DEFAULT_ACTION_IDENTIFIER) {
       // Navigate to the Review tab — router is available after app mounts
       router.push("/(tabs)/review")
     } else if (actionId === ACTION_CONFIRM) {

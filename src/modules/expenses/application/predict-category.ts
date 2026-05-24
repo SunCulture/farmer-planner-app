@@ -8,7 +8,7 @@ export type PredictionResult = {
   categoryId: number | null
   defaultAmount: number
   source: PredictionSource
-  routineName?: string  // the user's label, e.g. "going to work"
+  routineName?: string // the user's label, e.g. "going to work"
 }
 
 /** Convert a Date to minutes from midnight (0–1439). */
@@ -106,7 +106,10 @@ export async function predictCategory(
     let bestId: number | null = null
     let bestCount = 0
     for (const [id, c] of counts.entries()) {
-      if (c > bestCount) { bestCount = c; bestId = id }
+      if (c > bestCount) {
+        bestCount = c
+        bestId = id
+      }
     }
     if (bestId !== null) return { categoryId: bestId, defaultAmount: 0, source: "history" }
   }

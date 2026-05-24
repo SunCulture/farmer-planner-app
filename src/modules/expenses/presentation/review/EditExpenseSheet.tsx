@@ -11,29 +11,49 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Text } from "@/components/Text"
 import type { Category } from "@/modules/expenses/domain/entities/category"
 import type { ExpenseEvent } from "@/modules/expenses/domain/entities/expense-event"
 import {
-  paper, card, hairline,
-  ink, ink2, ink3, ink4,
-  coral500, coral600,
-  catClay, catMango, catFern, catLake, catOrchid, catStone,
-  spacing, radii, elevation, duration,
+  paper,
+  card,
+  hairline,
+  ink,
+  ink2,
+  ink3,
+  ink4,
+  coral500,
+  coral600,
+  catClay,
+  catMango,
+  catFern,
+  catLake,
+  catOrchid,
+  catStone,
+  spacing,
+  radii,
+  elevation,
+  duration,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
 // ---- Category color resolution (mirrors the screen helper) -----------------
 
 const CATEGORY_COLOR_MAP: Record<string, string> = {
-  food: catClay, lunch: catClay, dinner: catClay,
+  food: catClay,
+  lunch: catClay,
+  dinner: catClay,
   groceries: catMango,
-  transport: catFern, matatu: catFern, uber: catFern,
-  utilities: catLake, airtime: catLake,
-  leisure: catOrchid, coffee: catOrchid,
+  transport: catFern,
+  matatu: catFern,
+  uber: catFern,
+  utilities: catLake,
+  airtime: catLake,
+  leisure: catOrchid,
+  coffee: catOrchid,
   misc: catStone,
 }
 
@@ -70,7 +90,7 @@ export function EditExpenseSheet({ visible, event, categories, onClose, onSave, 
   useEffect(() => {
     if (visible && event) {
       setAmountText(String(event.amount ?? ""))
-      setSelectedCategoryId(event.category_id as number | null ?? null)
+      setSelectedCategoryId((event.category_id as number | null) ?? null)
       setNotes(event.notes ?? "")
       setError("")
     }
@@ -99,7 +119,13 @@ export function EditExpenseSheet({ visible, event, categories, onClose, onSave, 
   }
 
   return (
-    <Modal visible={visible} transparent statusBarTranslucent animationType="none" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      statusBarTranslucent
+      animationType="none"
+      onRequestClose={onClose}
+    >
       <Pressable style={$scrim} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -133,7 +159,10 @@ export function EditExpenseSheet({ visible, event, categories, onClose, onSave, 
             <TextInput
               style={$amountInput}
               value={amountText}
-              onChangeText={(t) => { setAmountText(t); setError("") }}
+              onChangeText={(t) => {
+                setAmountText(t)
+                setError("")
+              }}
               keyboardType="numeric"
               placeholder="0"
               placeholderTextColor={ink4}
@@ -156,7 +185,9 @@ export function EditExpenseSheet({ visible, event, categories, onClose, onSave, 
               style={[$categoryPill, selectedCategoryId === null && $categoryPillActive]}
               onPress={() => setSelectedCategoryId(null)}
             >
-              <Text style={[$categoryPillText, selectedCategoryId === null && $categoryPillTextActive]}>
+              <Text
+                style={[$categoryPillText, selectedCategoryId === null && $categoryPillTextActive]}
+              >
                 None
               </Text>
             </Pressable>
@@ -167,7 +198,10 @@ export function EditExpenseSheet({ visible, event, categories, onClose, onSave, 
               return (
                 <Pressable
                   key={String(cat.id)}
-                  style={[$categoryPill, isSelected && { backgroundColor: color, borderColor: color }]}
+                  style={[
+                    $categoryPill,
+                    isSelected && { backgroundColor: color, borderColor: color },
+                  ]}
                   onPress={() => setSelectedCategoryId(cat.id ?? null)}
                 >
                   <View style={[$catDot, { backgroundColor: isSelected ? "white" : color }]} />
@@ -214,26 +248,37 @@ export function EditExpenseSheet({ visible, event, categories, onClose, onSave, 
 // ---- Styles ----------------------------------------------------------------
 
 const $scrim: ViewStyle = {
-  position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   backgroundColor: "rgba(31, 28, 24, 0.45)",
 }
 
 const $outer: ViewStyle = {
-  position: "absolute", bottom: 0, left: 0, right: 0,
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  right: 0,
 }
 
 const $sheet: ViewStyle = {
   backgroundColor: card,
-  borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
+  borderTopLeftRadius: radii.xl,
+  borderTopRightRadius: radii.xl,
   paddingHorizontal: spacing.s5,
   paddingTop: spacing.s3,
   ...elevation.sheet,
 }
 
 const $handle: ViewStyle = {
-  width: 36, height: 4, borderRadius: 2,
+  width: 36,
+  height: 4,
+  borderRadius: 2,
   backgroundColor: hairline,
-  alignSelf: "center", marginBottom: spacing.s4,
+  alignSelf: "center",
+  marginBottom: spacing.s4,
 }
 
 const $headerRow: ViewStyle = {
@@ -244,26 +289,37 @@ const $headerRow: ViewStyle = {
 }
 
 const $eyebrow: TextStyle = {
-  fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 11,
+  letterSpacing: 1.4,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
 }
 
 const $title: TextStyle = {
-  fontSize: 22, letterSpacing: -0.3,
-  color: ink, fontFamily: typography.primary.semiBold,
+  fontSize: 22,
+  letterSpacing: -0.3,
+  color: ink,
+  fontFamily: typography.primary.semiBold,
   marginTop: spacing.s1,
 }
 
 const $deleteBtn: ViewStyle = {
-  width: 38, height: 38, borderRadius: 19,
+  width: 38,
+  height: 38,
+  borderRadius: 19,
   backgroundColor: coral500 + "14",
-  alignItems: "center", justifyContent: "center",
+  alignItems: "center",
+  justifyContent: "center",
   marginTop: spacing.s1,
 }
 
 const $fieldLabel: TextStyle = {
-  fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
-  color: ink3, fontFamily: typography.primary.normal,
+  fontSize: 12,
+  letterSpacing: 0.5,
+  textTransform: "uppercase",
+  color: ink3,
+  fontFamily: typography.primary.normal,
   marginBottom: spacing.s2,
 }
 
@@ -271,7 +327,8 @@ const $amountRow: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
   gap: spacing.s2,
-  borderWidth: 1, borderColor: hairline,
+  borderWidth: 1,
+  borderColor: hairline,
   borderRadius: radii.md,
   paddingHorizontal: spacing.s4,
   backgroundColor: paper,
@@ -280,19 +337,23 @@ const $amountRow: ViewStyle = {
 const $amountRowError: ViewStyle = { borderColor: coral500 }
 
 const $currencyPrefix: TextStyle = {
-  fontSize: 16, color: ink3,
+  fontSize: 16,
+  color: ink3,
   fontFamily: typography.mono.normal,
 }
 
 const $amountInput: TextStyle = {
   flex: 1,
   paddingVertical: spacing.s3 + 2,
-  fontSize: 24, letterSpacing: -0.5,
-  color: ink, fontFamily: typography.mono.normal,
+  fontSize: 24,
+  letterSpacing: -0.5,
+  color: ink,
+  fontFamily: typography.mono.normal,
 }
 
 const $errorText: TextStyle = {
-  fontSize: 13, color: coral600,
+  fontSize: 13,
+  color: coral600,
   fontFamily: typography.primary.normal,
   marginTop: spacing.s1,
 }
@@ -320,7 +381,8 @@ const $categoryPillActive: ViewStyle = {
 }
 
 const $categoryPillText: TextStyle = {
-  fontSize: 14, color: ink2,
+  fontSize: 14,
+  color: ink2,
   fontFamily: typography.primary.normal,
 }
 
@@ -330,7 +392,9 @@ const $categoryPillTextActive: TextStyle = {
 }
 
 const $catDot: ViewStyle = {
-  width: 7, height: 7, borderRadius: 4,
+  width: 7,
+  height: 7,
+  borderRadius: 4,
 }
 
 const $notesInput: TextStyle = {
@@ -348,22 +412,31 @@ const $notesInput: TextStyle = {
 }
 
 const $actions: ViewStyle = {
-  flexDirection: "row", gap: spacing.s3, marginTop: spacing.s5,
+  flexDirection: "row",
+  gap: spacing.s3,
+  marginTop: spacing.s5,
 }
 
 const $ghostBtn: ViewStyle = {
-  flex: 1, paddingVertical: spacing.s3,
-  borderRadius: radii.pill, alignItems: "center",
-  borderWidth: 1, borderColor: hairline,
+  flex: 1,
+  paddingVertical: spacing.s3,
+  borderRadius: radii.pill,
+  alignItems: "center",
+  borderWidth: 1,
+  borderColor: hairline,
 }
 
 const $ghostBtnText: TextStyle = {
-  fontSize: 15, color: ink2, fontFamily: typography.primary.medium,
+  fontSize: 15,
+  color: ink2,
+  fontFamily: typography.primary.medium,
 }
 
 const $primaryBtn: ViewStyle = {
-  flex: 2, paddingVertical: spacing.s3,
-  borderRadius: radii.pill, alignItems: "center",
+  flex: 2,
+  paddingVertical: spacing.s3,
+  borderRadius: radii.pill,
+  alignItems: "center",
   backgroundColor: coral500,
   ...elevation.tapButton,
 }
@@ -371,5 +444,7 @@ const $primaryBtn: ViewStyle = {
 const $primaryBtnPressed: ViewStyle = { backgroundColor: coral600, transform: [{ scale: 0.97 }] }
 
 const $primaryBtnText: TextStyle = {
-  fontSize: 15, color: "white", fontFamily: typography.primary.medium,
+  fontSize: 15,
+  color: "white",
+  fontFamily: typography.primary.medium,
 }
