@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import {
   ActivityIndicator,
   Modal,
@@ -12,6 +12,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { container } from "@/bootstrap/container"
@@ -288,6 +289,12 @@ export function DailyReviewScreen() {
   const insets = useSafeAreaInsets()
 
   const queryClient = useQueryClient()
+
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: expensesKeys.events() })
+    }, [queryClient]),
+  )
 
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date()

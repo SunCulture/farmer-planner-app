@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { Animated, Pressable, View, ViewStyle, TextStyle } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
-import { useRouter } from "expo-router"
+import { useFocusEffect, useRouter } from "expo-router"
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -140,6 +140,14 @@ export function TapToLogScreen() {
   const scaleAnim = useRef(new Animated.Value(1)).current
 
   const queryClient = useQueryClient()
+
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: expensesKeys.events() })
+      queryClient.invalidateQueries({ queryKey: expensesKeys.prediction() })
+    }, [queryClient]),
+  )
+
   const [pickSheetOpen, setPickSheetOpen] = useState(false)
   const [nowMinutes, setNowMinutes] = useState(() => {
     const now = new Date()
