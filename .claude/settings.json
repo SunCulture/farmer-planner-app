@@ -7,7 +7,19 @@
       "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native push -u origin fix/sqlite-null-pointer-init)",
       "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native checkout develop)",
       "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native merge --no-ff fix/sqlite-null-pointer-init -m ' *)",
-      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native push origin develop)"
+      "Bash(git -C /home/fredrick-sunculture/Documents/projects/tapit-app-react-native push origin develop)",
+      "Bash(git merge docs/sync-docs-with-codebase --no-ff -m ' *)",
+      "Bash(kill %1)",
+      "Bash(node --input-type=module --eval ' *)",
+      "Bash(curl -s http://localhost:8081/status)",
+      "Bash(curl -s \"http://localhost:8081/index.bundle?platform=android&dev=true\")",
+      "Bash(curl -s \"http://localhost:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true\")",
+      "Bash(git merge *)",
+      "mcp__claude_ai_Figma__get_design_context",
+      "mcp__claude_ai_Figma__whoami",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -m json.tool ~/.claude/settings.json)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }

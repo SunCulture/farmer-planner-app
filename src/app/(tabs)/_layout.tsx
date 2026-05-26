@@ -4,15 +4,12 @@ import { Ionicons } from "@expo/vector-icons"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { card, coral500, hairline, ink3, spacing } from "@/theme/tapp-tokens"
+import { card, forest500, hairline, ink3, spacing } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
-// Exported so screens can pad their content to clear the floating bar
 export const FLOATING_NAV_HEIGHT = 60
 export const FLOATING_NAV_BOTTOM_GAP = 8
 export const FLOATING_NAV_CLEARANCE = FLOATING_NAV_HEIGHT + FLOATING_NAV_BOTTOM_GAP + 20
-
-// ---- Tab definitions -------------------------------------------------------
 
 type TabDef = {
   name: string
@@ -22,12 +19,10 @@ type TabDef = {
 }
 
 const TABS: TabDef[] = [
-  { name: "index", label: "Tap", icon: "hand-left-outline", iconFocused: "hand-left" },
-  { name: "review", label: "Review", icon: "list-outline", iconFocused: "list" },
-  { name: "family", label: "Family", icon: "people-outline", iconFocused: "people" },
+  { name: "index", label: "Home", icon: "home-outline", iconFocused: "home" },
+  { name: "plan", label: "Plan", icon: "calendar-outline", iconFocused: "calendar" },
+  { name: "journal", label: "Journal", icon: "journal-outline", iconFocused: "journal" },
 ]
-
-// ---- Floating tab bar ------------------------------------------------------
 
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
@@ -52,7 +47,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
               <Ionicons
                 name={focused ? tab.iconFocused : tab.icon}
                 size={22}
-                color={focused ? coral500 : ink3}
+                color={focused ? forest500 : ink3}
               />
               <Text style={[styles.label, focused && styles.labelActive]}>{tab.label}</Text>
             </Pressable>
@@ -63,19 +58,15 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   )
 }
 
-// ---- Layout ----------------------------------------------------------------
-
 export default function TabsLayout() {
   return (
     <Tabs tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="review" />
-      <Tabs.Screen name="family" />
+      <Tabs.Screen name="plan" />
+      <Tabs.Screen name="journal" />
     </Tabs>
   )
 }
-
-// ---- Styles ----------------------------------------------------------------
 
 const $outerWrap: ViewStyle = {
   position: "absolute",
@@ -93,7 +84,6 @@ const $pill: ViewStyle = {
   borderColor: hairline,
   height: FLOATING_NAV_HEIGHT,
   overflow: "hidden",
-  // shadow
   shadowColor: "#1F1C18",
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.1,
@@ -108,7 +98,6 @@ const $tabItem: ViewStyle = {
   gap: 3,
 }
 
-// Use plain RN StyleSheet-free inline style objects for text (no $-prefix since it's TextStyle)
 const styles = {
   label: {
     fontFamily: typography.primary.normal,
@@ -117,7 +106,7 @@ const styles = {
     color: ink3,
   } as TextStyle,
   labelActive: {
-    color: coral500,
+    color: forest500,
     fontFamily: typography.primary.medium,
   } as TextStyle,
 }

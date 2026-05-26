@@ -1,47 +1,41 @@
-import { tappPalette } from "./tapp-tokens"
+import {
+  card, paper, paper2, hairline, ink4, ink3, ink2, ink,
+  forest100, forest300, forest500, forest600,
+  statusGood, statusGoodBg, statusWarn, statusWarnBg, statusBad, statusBadBg,
+} from "./tapp-tokens"
 
-/**
- * Tapp semantic color tokens.
- *
- * Use the semantic names (background, text, tint, etc.) in Ignite components.
- * Import raw palette values from tapp-tokens.ts for screen-level styling.
- */
 const palette = {
-  // Surfaces
-  neutral100: tappPalette.card, // white — elevated card
-  neutral200: tappPalette.paper, // warm cream — page background
-  neutral300: tappPalette.paper2, // subtle inset
-  neutral400: tappPalette.hairline, // dividers
-  neutral500: tappPalette.ink4, // disabled / placeholder
-  neutral600: tappPalette.ink3, // tertiary text
-  neutral700: tappPalette.ink2, // secondary text
-  neutral800: tappPalette.ink, // primary text
+  neutral100: card,
+  neutral200: paper,
+  neutral300: paper2,
+  neutral400: hairline,
+  neutral500: ink4,
+  neutral600: ink3,
+  neutral700: ink2,
+  neutral800: ink,
   neutral900: "#0E0C09",
 
-  // Brand — coral
-  primary100: tappPalette.coral100,
-  primary200: tappPalette.coral300,
-  primary300: tappPalette.coral300,
-  primary400: tappPalette.coral500,
-  primary500: tappPalette.coral500,
-  primary600: tappPalette.coral600,
+  primary100: forest100,
+  primary200: forest300,
+  primary300: forest300,
+  primary400: forest500,
+  primary500: forest500,
+  primary600: forest600,
 
-  // Heat
-  secondary100: tappPalette.heatGoodBg,
-  secondary200: tappPalette.heatGood,
-  secondary300: tappPalette.heatWarnBg,
-  secondary400: tappPalette.heatWarn,
-  secondary500: tappPalette.heatOver,
+  secondary100: statusGoodBg,
+  secondary200: statusGood,
+  secondary300: statusWarnBg,
+  secondary400: statusWarn,
+  secondary500: statusBad,
 
-  // Error / over-budget
-  angry100: tappPalette.heatOverBg,
-  angry500: tappPalette.heatOver,
+  angry100: statusBadBg,
+  angry500: statusBad,
 
-  accent100: tappPalette.infoBg,
-  accent200: tappPalette.infoBg,
-  accent300: tappPalette.info,
-  accent400: tappPalette.info,
-  accent500: tappPalette.info,
+  accent100: "#D8E8F5",
+  accent200: "#D8E8F5",
+  accent300: "#3D7AB5",
+  accent400: "#3D7AB5",
+  accent500: "#3D7AB5",
 
   overlay20: "rgba(31, 28, 24, 0.2)",
   overlay50: "rgba(31, 28, 24, 0.5)",

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="widget_description">Tapp — tap once to log an expense</string>
-    <string name="widget_tap_button_desc">Tap to log expense</string>
-</resources>

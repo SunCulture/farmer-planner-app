@@ -55,8 +55,7 @@
       }
     ],
     "expo-build-properties",
-    "expo-router",
-    "./modules/tapp-widget/plugin/withTappWidget"
+    "expo-router"
   ],
   "experiments": {
     "tsconfigPaths": true,

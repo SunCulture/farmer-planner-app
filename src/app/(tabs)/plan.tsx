@@ -3,20 +3,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { paper, ink, ink3, spacing } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
-import { loadFarmerProfile } from "@/modules/onboarding"
 import { FLOATING_NAV_CLEARANCE } from "./_layout"
 
-export default function HomeScreen() {
+export default function PlanScreen() {
   const insets = useSafeAreaInsets()
-  const profile = loadFarmerProfile()
-  const greeting = profile?.name ? `Good morning, ${profile.name} 🌱` : "Good morning 🌱"
 
   return (
-    <View
-      style={[$root, { paddingTop: insets.top + spacing.s4, paddingBottom: FLOATING_NAV_CLEARANCE }]}
-    >
-      <Text style={$greeting}>{greeting}</Text>
-      <Text style={$subtitle}>Your farm plan is ready.</Text>
+    <View style={[$root, { paddingTop: insets.top + spacing.s4, paddingBottom: FLOATING_NAV_CLEARANCE }]}>
+      <Text style={$title}>Plan</Text>
+      <Text style={$subtitle}>Today's activities will appear here.</Text>
     </View>
   )
 }
@@ -27,7 +22,7 @@ const $root: ViewStyle = {
   paddingHorizontal: spacing.s5,
 }
 
-const $greeting: TextStyle = {
+const $title: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 28,
   color: ink,
