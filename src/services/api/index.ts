@@ -8,6 +8,7 @@
 import { ApisauceInstance, create } from "apisauce"
 
 import Config from "@/config"
+import type { FarmerProfile } from "@/modules/onboarding/domain/entities/farmer-profile"
 
 import type { ApiConfig } from "./types"
 
@@ -39,6 +40,9 @@ export class Api {
         Accept: "application/json",
       },
     })
+  }
+  async postOnboarding(profile: FarmerProfile) {
+    return this.apisauce.post("/api/v1/onboarding", profile)
   }
 }
 

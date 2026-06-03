@@ -31,6 +31,8 @@ import {
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
+import { api } from "@/services/api"
+
 import { saveFarmerProfile } from "../application/farmer-profile-store"
 import type { FarmSize, FarmType, WorkStyle } from "../domain/entities/farmer-profile"
 import { CROPS, GOALS, LIVESTOCK, REGIONS } from "../infrastructure/mock-data"
@@ -83,7 +85,7 @@ export default function OnboardingScreen() {
   const skipToDashboard = () => router.replace("/(tabs)/" as any)
 
   const handleFinish = () => {
-    saveFarmerProfile({
+    const profile = {
       name: draft.name,
       location: draft.location,
       farmType: draft.farmType!,
@@ -92,7 +94,9 @@ export default function OnboardingScreen() {
       workStyle: draft.workStyle!,
       farmSize: draft.farmSize!,
       goals: draft.goals,
-    })
+    }
+    saveFarmerProfile(profile)
+    api.postOnboarding(profile)
     setStep(8)
   }
 
