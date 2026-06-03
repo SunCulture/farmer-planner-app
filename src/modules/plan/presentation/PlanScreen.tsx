@@ -11,14 +11,11 @@ import {
   View,
   ViewStyle,
 } from "react-native"
-import { useLocalSearchParams } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import {
-  FLOATING_NAV_BOTTOM_GAP,
-  FLOATING_NAV_HEIGHT,
-} from "@/app/(tabs)/_layout"
+import { FLOATING_NAV_BOTTOM_GAP, FLOATING_NAV_HEIGHT } from "@/app/(tabs)/_layout"
 import {
   card,
   cardBorder,
@@ -131,10 +128,7 @@ export default function PlanScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={$root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={$root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         style={{ flex: 1, backgroundColor: paper }}
         contentContainerStyle={[
@@ -178,6 +172,7 @@ export default function PlanScreen() {
             <ActivityRow
               key={activity.id}
               activity={activity}
+              dateStr={dateStr}
               isExpanded={expandedId === activity.id}
               onToggleDone={() => toggleDone(activity.id)}
               onToggleExpand={() => toggleExpanded(activity.id)}
@@ -261,15 +256,18 @@ export default function PlanScreen() {
 
 function ActivityRow({
   activity,
+  dateStr,
   isExpanded,
   onToggleDone,
   onToggleExpand,
 }: {
   activity: PlanActivity
+  dateStr: string
   isExpanded: boolean
   onToggleDone: () => void
   onToggleExpand: () => void
 }) {
+  const router = useRouter()
   const p = priorityColor(activity.priority)
 
   return (
@@ -294,26 +292,44 @@ function ActivityRow({
 
         <Text style={[$priorityText, { color: p.text }]}>{activity.priority}</Text>
         <TouchableOpacity onPress={onToggleExpand} hitSlop={8} style={$chevronBtn}>
-          <Ionicons
-            name={isExpanded ? "chevron-up" : "chevron-forward"}
-            size={16}
-            color={ink4}
-          />
+          <Ionicons name={isExpanded ? "chevron-up" : "chevron-forward"} size={16} color={ink4} />
         </TouchableOpacity>
       </View>
 
-      {isExpanded && activity.aiTip && (
+      {isExpanded && (
         <View style={$expandedSection}>
-          <View style={$aiTipRow}>
-            <Text style={$aiTipEmoji}>🤖</Text>
-            <Text style={$aiTipText}>
-              <Text style={$aiTipBold}>AI tip: </Text>
-              {activity.aiTip}
-            </Text>
-          </View>
+          {activity.aiTip && (
+            <View style={$aiTipRow}>
+              <Text style={$aiTipEmoji}>🤖</Text>
+              <Text style={$aiTipText}>
+                <Text style={$aiTipBold}>AI tip: </Text>
+                {activity.aiTip}
+              </Text>
+            </View>
+          )}
           {activity.tools && activity.tools.length > 0 && (
             <Text style={$toolsText}>📦 Tools: {activity.tools.join(" · ")}</Text>
           )}
+
+          <TouchableOpacity
+            style={$journalLink}
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/journal",
+                params: {
+                  date: dateStr,
+                  activityId: activity.id,
+                  activityName: activity.name,
+                  activityIcon: activity.icon,
+                },
+              })
+            }
+            activeOpacity={0.7}
+          >
+            <Ionicons name="journal-outline" size={14} color={forest500} />
+            <Text style={$journalLinkText}>Write journal entry</Text>
+            <Ionicons name="arrow-forward" size={13} color={forest500} />
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -541,6 +557,23 @@ const $toolsText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 12,
   color: ink3,
+}
+
+const $journalLink: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s2,
+  marginTop: spacing.s3,
+  paddingTop: spacing.s3,
+  borderTopWidth: 1,
+  borderTopColor: hairline,
+}
+
+const $journalLinkText: TextStyle = {
+  flex: 1,
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+  color: forest500,
 }
 
 const $aiPanel: ViewStyle = {

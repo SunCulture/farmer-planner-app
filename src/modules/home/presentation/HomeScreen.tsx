@@ -243,14 +243,38 @@ export default function HomeScreen() {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers (local)
+// ---------------------------------------------------------------------------
+
+function todayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+// ---------------------------------------------------------------------------
 // ActivityCard
 // ---------------------------------------------------------------------------
 
 function ActivityCard({ activity }: { activity: TodayActivity }) {
+  const router = useRouter()
   const p = priorityColor(activity.priority)
 
   return (
-    <TouchableOpacity style={$activityCard} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={$activityCard}
+      activeOpacity={0.7}
+      onPress={() =>
+        router.push({
+          pathname: "/(tabs)/journal",
+          params: {
+            date: todayStr(),
+            activityId: activity.id,
+            activityName: activity.name,
+            activityIcon: activity.icon,
+          },
+        })
+      }
+    >
       <View style={$activityIconCircle}>
         <Text style={$activityIcon}>{activity.icon}</Text>
       </View>

@@ -563,7 +563,6 @@ export default function OnboardingScreen() {
 
       {/* Footer */}
       <View style={[$footer, { paddingBottom: insets.bottom + spacing.s2 }]}>
-        {isWelcome && <Text style={$featureLine}>Free · Works offline · No complex forms</Text>}
         <TouchableOpacity
           style={[$ctaBtn, !ctaEnabled && $ctaBtnDisabled]}
           onPress={ctaOnPress}
@@ -572,9 +571,7 @@ export default function OnboardingScreen() {
         >
           <Text style={$ctaBtnText}>{ctaLabel}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={skipToDashboard} hitSlop={6} style={$skipBtn}>
-          <Text style={$skipText}>Skip to dashboard →</Text>
-        </TouchableOpacity>
+        {isWelcome && <Text style={$featureLine}>Free · Works offline · No complex forms</Text>}
       </View>
     </View>
   )
