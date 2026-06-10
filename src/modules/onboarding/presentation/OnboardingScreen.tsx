@@ -70,12 +70,6 @@ const INITIAL_DRAFT: DraftProfile = {
   goals: [],
 }
 
-const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
-  small: 0.5,
-  medium: 2.5,
-  large: 7.5,
-}
-
 // Steps: 0=welcome  1=name  2=location  3=farmType  4=species  5=helpers  6=farmSize  7=goals  8=success
 const PROGRESS_STEPS = 7
 
@@ -597,13 +591,18 @@ export default function OnboardingScreen() {
 
       {/* Footer */}
       <View style={[$footer, { paddingBottom: insets.bottom + spacing.s2 }]}>
+        {finishError ? <Text style={$finishError}>{finishError}</Text> : null}
         <TouchableOpacity
-          style={[$ctaBtn, !ctaEnabled && $ctaBtnDisabled]}
+          style={[$ctaBtn, (!ctaEnabled || isFinishing) && $ctaBtnDisabled]}
           onPress={ctaOnPress}
-          disabled={!ctaEnabled}
+          disabled={!ctaEnabled || isFinishing}
           activeOpacity={0.85}
         >
-          <Text style={$ctaBtnText}>{ctaLabel}</Text>
+          {isFinishing ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={$ctaBtnText}>{ctaLabel}</Text>
+          )}
         </TouchableOpacity>
         {isWelcome && <Text style={$featureLine}>Free · Works offline · No complex forms</Text>}
       </View>
@@ -1014,6 +1013,15 @@ const $ctaBtnText: TextStyle = {
   fontSize: 16,
   color: "#FFFFFF",
   letterSpacing: 0.2,
+}
+
+const $finishError: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: "#C0392B",
+  marginBottom: spacing.s3,
+  lineHeight: 18,
+  textAlign: "center",
 }
 
 const $skipBtn: ViewStyle = {
