@@ -1,12 +1,12 @@
-# Jipange Bana
+# Tujiweze
 
-**Jipange Bana** ("Plan yourself, friend") is a mobile-first farming planner that helps smallholder farmers in East Africa make better decisions, track their work, and grow more profitably — one season at a time.
+**Tujiweze** ("Let us be capable") is a mobile-first farming planner that helps smallholder farmers in East Africa make better decisions, track their work, and grow more profitably — one season at a time.
 
 The app is built on Ignite Red, Expo Router, and Expo SDK 55. Product direction, architecture, and decision records live in this repository and should drive implementation over upstream Ignite boilerplate defaults.
 
 ## What This Project Is
 
-Jipange Bana is being built as:
+Tujiweze is being built as:
 
 - a React Native app with Ignite Red as the UI and styling foundation
 - a local-first mobile experience designed for intermittent connectivity
@@ -15,7 +15,7 @@ Jipange Bana is being built as:
 
 ## Core Product Idea
 
-Farmers are most profitable when they plan ahead, act at the right time, and reflect on what worked. Jipange Bana supports that loop with three core areas:
+Farmers are most profitable when they plan ahead, act at the right time, and reflect on what worked. Tujiweze supports that loop with three core areas:
 
 - **Plan** — seasonal farming plans: what to grow, when to plant, input budgets, and expected yields
 - **Journal** — lightweight daily or weekly farm logs: activities done, observations, weather, spend
