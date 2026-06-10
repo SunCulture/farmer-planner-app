@@ -126,9 +126,14 @@ export default function HomeScreen() {
             <Text style={$greeting}>Good morning, {firstName} 👋</Text>
             <Text style={$greetingSubtitle}>{subtitle}</Text>
           </View>
-          <View style={$avatar}>
+          <TouchableOpacity
+            style={$avatar}
+            onPress={() => router.push("/profile" as any)}
+            activeOpacity={0.75}
+            hitSlop={8}
+          >
             <Text style={$avatarText}>{firstInitial}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Week strip */}
