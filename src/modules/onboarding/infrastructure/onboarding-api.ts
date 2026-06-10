@@ -9,7 +9,9 @@ export async function patchOnboardingProfile(profile: FarmerProfile): Promise<On
   return unwrap(response)
 }
 
-export async function completeOnboardingProfile(): Promise<OnboardingData> {
+export async function completeOnboardingProfile(): Promise<
+  Pick<OnboardingData, "farmerId" | "onboardingCompletedAt" | "suggestedStep" | "steps">
+> {
   const response = await api.completeOnboarding()
   return unwrap(response)
 }

@@ -35,7 +35,7 @@ export class ApiRequestError extends Error {
 /**
  * Unwraps a successful `{ data, meta }` envelope or throws ApiRequestError.
  */
-export function unwrap<T>(response: ApiResponse<ApiEnvelope<T> | ApiErrorBody>): T {
+export function unwrap<T>(response: ApiResponse<ApiEnvelope<T> | ApiErrorBody | unknown>): T {
   if (!response.ok) {
     const body = response.data as ApiErrorBody | undefined
     if (body?.error) {
@@ -64,7 +64,7 @@ export function unwrap<T>(response: ApiResponse<ApiEnvelope<T> | ApiErrorBody>):
 /**
  * Unwraps public catalog/template responses that are not wrapped in `{ data }`.
  */
-export function unwrapRaw<T>(response: ApiResponse<T | ApiErrorBody>): T {
+export function unwrapRaw<T>(response: ApiResponse<T | ApiErrorBody | unknown>): T {
   if (!response.ok) {
     const body = response.data as ApiErrorBody | undefined
     if (body?.error) {
