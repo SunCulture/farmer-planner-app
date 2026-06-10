@@ -1,8 +1,14 @@
 import { Redirect } from "expo-router"
-import { isOnboardingComplete } from "@/modules/onboarding"
+import { isOnboardingComplete, loadAuthToken } from "@/modules/onboarding"
+import { api } from "@/services/api"
 
 export default function Index() {
-  return isOnboardingComplete()
-    ? <Redirect href={"/(tabs)/" as any} />
-    : <Redirect href={"/onboarding" as any} />
+  const token = loadAuthToken()
+  if (token) {
+    api.setAuthToken(token)
+    if (isOnboardingComplete()) {
+      return <Redirect href={"/(tabs)/" as any} />
+    }
+  }
+  return <Redirect href={"/onboarding" as any} />
 }

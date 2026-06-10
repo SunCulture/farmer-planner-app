@@ -1,0 +1,890 @@
+{
+  "info": {
+    "_postman_id": "tujiweze-api-collection",
+    "name": "Tujiweze API",
+    "description": "Tujiweze farmer onboarding, AI plans (DeepSeek/Gemini), daily activities, and completions.\n\n**Base URL:** `{{baseUrl}}`\n\n**Auth:** Bearer `{{accessToken}}` on `/api/me/*` and protected routes.\n\n**Response envelope:** Most authenticated routes return `{ data, meta }`. Catalog/templates are unwrapped.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "farmerId", "value": "" },
+    { "key": "planId", "value": "" },
+    { "key": "activityId", "value": "" },
+    { "key": "templateId", "value": "a0000001-0000-4000-8000-000000000001" },
+    { "key": "date", "value": "2026-06-03" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"ok\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data?.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.environment.set('accessToken', json.data.accessToken);",
+                  "}",
+                  "if (json.data?.refreshToken) {",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "  pm.environment.set('refreshToken', json.data.refreshToken);",
+                  "}",
+                  "if (json.data?.farmer?.id) {",
+                  "  pm.collectionVariables.set('farmerId', json.data.farmer.id);",
+                  "  pm.environment.set('farmerId', json.data.farmer.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.kamau@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Kamau\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refreshToken\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"farmer\": {\n      \"id\": \"f0000001-0000-4000-8000-000000000001\",\n      \"email\": \"john.kamau@example.com\",\n      \"displayName\": \"John Kamau\",\n      \"onboardingCompleted\": false,\n      \"suggestedStep\": \"location\"\n    }\n  },\n  \"meta\": {\n    \"requestId\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"generatedAt\": \"2026-06-03T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "409 Conflict (email exists)",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": {\n    \"code\": \"CONFLICT\",\n    \"message\": \"Resource already exists\",\n    \"details\": \"farmer_accounts_email_key\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data?.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.environment.set('accessToken', json.data.accessToken);",
+                  "}",
+                  "if (json.data?.refreshToken) {",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "  pm.environment.set('refreshToken', json.data.refreshToken);",
+                  "}",
+                  "if (json.data?.farmer?.id) {",
+                  "  pm.collectionVariables.set('farmerId', json.data.farmer.id);",
+                  "  pm.environment.set('farmerId', json.data.farmer.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.kamau@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refreshToken\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"farmer\": {\n      \"id\": \"f0000001-0000-4000-8000-000000000001\",\n      \"email\": \"john.kamau@example.com\",\n      \"displayName\": \"John Kamau\",\n      \"onboardingCompleted\": true,\n      \"suggestedStep\": null\n    }\n  },\n  \"meta\": {\n    \"requestId\": \"550e8400-e29b-41d4-a716-446655440001\",\n    \"generatedAt\": \"2026-06-03T10:05:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": {\n    \"code\": \"UNAUTHORIZED\",\n    \"message\": \"Invalid email or password\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refresh tokens",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data?.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.environment.set('accessToken', json.data.accessToken);",
+                  "}",
+                  "if (json.data?.refreshToken) {",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "  pm.environment.set('refreshToken', json.data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/refresh"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new...\",\n    \"refreshToken\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\"\n  },\n  \"meta\": {\n    \"requestId\": \"550e8400-e29b-41d4-a716-446655440002\",\n    \"generatedAt\": \"2026-06-03T11:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/logout"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": { \"ok\": true },\n  \"meta\": {\n    \"requestId\": \"550e8400-e29b-41d4-a716-446655440003\",\n    \"generatedAt\": \"2026-06-03T11:05:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get auth me",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"farmer\": {\n      \"id\": \"f0000001-0000-4000-8000-000000000001\",\n      \"email\": \"john.kamau@example.com\",\n      \"displayName\": \"John Kamau\",\n      \"onboardingCompleted\": true,\n      \"suggestedStep\": null\n    }\n  },\n  \"meta\": {\n    \"requestId\": \"550e8400-e29b-41d4-a716-446655440004\",\n    \"generatedAt\": \"2026-06-03T11:10:00.000Z\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Catalog (public)",
+      "item": [
+        {
+          "name": "Search crops",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const maize = json.crops?.find(c => c.slug === 'maize');",
+                  "const beans = json.crops?.find(c => c.slug === 'beans');",
+                  "if (maize?.id) pm.environment.set('cropIdMaize', maize.id);",
+                  "if (beans?.id) pm.environment.set('cropIdBeans', beans.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/crops?q=ma",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "catalog", "crops"],
+              "query": [{ "key": "q", "value": "ma" }]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"crops\": [\n    { \"id\": \"c1000001-0000-4000-8000-000000000001\", \"name\": \"Maize\", \"slug\": \"maize\" },\n    { \"id\": \"c1000001-0000-4000-8000-000000000002\", \"name\": \"Beans\", \"slug\": \"beans\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Search livestock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const chickens = json.livestock?.find(l => l.slug === 'chickens');",
+                  "if (chickens?.id) pm.environment.set('livestockIdChickens', chickens.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/livestock?q=chick",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "catalog", "livestock"],
+              "query": [{ "key": "q", "value": "chick" }]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"livestock\": [\n    { \"id\": \"l1000001-0000-4000-8000-000000000001\", \"name\": \"Chickens\", \"slug\": \"chickens\" },\n    { \"id\": \"l1000001-0000-4000-8000-000000000002\", \"name\": \"Cattle\", \"slug\": \"cattle\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List regions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/catalog/regions"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"regions\": [\n    { \"id\": \"...\", \"countryId\": \"c0000000-0000-4000-8000-000000000001\", \"name\": \"Nairobi\", \"slug\": \"nairobi\", \"latitude\": -1.286389, \"longitude\": 36.817223 },\n    { \"id\": \"...\", \"countryId\": \"c0000000-0000-4000-8000-000000000001\", \"name\": \"Mombasa\", \"slug\": \"mombasa\", \"latitude\": -4.043477, \"longitude\": 39.668206 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List regions with weather",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/catalog/regions?weather=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "catalog", "regions"],
+              "query": [{ "key": "weather", "value": "true" }]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"regions\": [\n    {\n      \"id\": \"...\",\n      \"countryId\": \"c0000000-0000-4000-8000-000000000001\",\n      \"name\": \"Nairobi\",\n      \"slug\": \"nairobi\",\n      \"latitude\": -1.286389,\n      \"longitude\": 36.817223,\n      \"weather\": {\n        \"temperature\": 22,\n        \"feelsLike\": 21,\n        \"humidity\": 65,\n        \"description\": \"partly cloudy\",\n        \"windSpeed\": 3.5,\n        \"iconCode\": \"02d\"\n      }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List all crops",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/catalog/crops"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"crops\": [\n    { \"id\": \"c1000001-0000-4000-8000-000000000001\", \"name\": \"Beans\", \"slug\": \"beans\" },\n    { \"id\": \"c1000001-0000-4000-8000-000000000002\", \"name\": \"Maize\", \"slug\": \"maize\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List all livestock",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/catalog/livestock"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"livestock\": [\n    { \"id\": \"l1000001-0000-4000-8000-000000000001\", \"name\": \"Cattle\", \"slug\": \"cattle\" },\n    { \"id\": \"l1000001-0000-4000-8000-000000000002\", \"name\": \"Chickens\", \"slug\": \"chickens\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List goals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/catalog/goals"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"goals\": [\n    { \"id\": \"g1000001-0000-4000-8000-000000000001\", \"name\": \"Make money\", \"slug\": \"MAKE_MONEY\", \"illustrationKey\": \"goal-money\" },\n    { \"id\": \"g1000001-0000-4000-8000-000000000002\", \"name\": \"Food security\", \"slug\": \"FOOD_SECURITY\", \"illustrationKey\": \"goal-food\" }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Me",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Onboarding",
+          "item": [
+            {
+              "name": "Get onboarding",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/me/onboarding"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"farmerId\": \"f0000001-0000-4000-8000-000000000001\",\n    \"name\": \"John Kamau\",\n    \"location\": { \"label\": \"Nakuru, Kenya\", \"county\": \"Nakuru\", \"country\": \"Kenya\" },\n    \"productionType\": \"MIXED\",\n    \"cropIds\": [],\n    \"livestockIds\": [],\n    \"helpersLevel\": null,\n    \"acreage\": null,\n    \"goalSlugs\": [],\n    \"onboardingCompletedAt\": null,\n    \"suggestedStep\": \"production_type\",\n    \"steps\": [\n      { \"key\": \"name\", \"label\": \"Your name\", \"done\": true },\n      { \"key\": \"location\", \"label\": \"Location\", \"done\": true },\n      { \"key\": \"production_type\", \"label\": \"Crops or livestock\", \"done\": false }\n    ]\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:00:00.000Z\" }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Patch onboarding (with AI location fields)",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productionType\": \"MIXED\",\n  \"cropIds\": [\n    \"{{cropIdMaize}}\",\n    \"{{cropIdBeans}}\"\n  ],\n  \"livestockIds\": [\"{{livestockIdChickens}}\"],\n  \"helpersLevel\": \"SOLO\",\n  \"acreage\": 3.5,\n  \"goalSlugs\": [\"MAKE_MONEY\", \"FOOD_SECURITY\"],\n  \"location\": {\n    \"label\": \"Nakuru, Kenya\",\n    \"county\": \"Nakuru\",\n    \"country\": \"Kenya\",\n    \"soilType\": \"Well-drained red volcanic loam, typical of the Rift Valley\",\n    \"farmingStage\": \"growing\",\n    \"weatherSummary\": \"Partly cloudy, 22–27°C. No rain expected today. Last rains were 3 days ago.\",\n    \"soilCondition\": \"Moist but not waterlogged. Good working conditions.\",\n    \"waterAvailability\": \"Borehole on farm, no irrigation — rain-fed only.\",\n    \"diseasesReported\": [\"fall armyworm\", \"grey leaf spot on maize\"]\n  }\n}"
+                },
+                "url": "{{baseUrl}}/api/me/onboarding"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"farmerId\": \"f0000001-0000-4000-8000-000000000001\",\n    \"name\": \"John Kamau\",\n    \"location\": {\n      \"label\": \"Nakuru, Kenya\",\n      \"soilType\": \"Well-drained red volcanic loam, typical of the Rift Valley\",\n      \"farmingStage\": \"growing\",\n      \"weatherSummary\": \"Partly cloudy, 22–27°C. No rain expected today.\",\n      \"diseasesReported\": [\"fall armyworm\", \"grey leaf spot on maize\"]\n    },\n    \"productionType\": \"MIXED\",\n    \"cropIds\": [\"c1000001-0000-4000-8000-000000000001\", \"c1000001-0000-4000-8000-000000000002\"],\n    \"livestockIds\": [\"l1000001-0000-4000-8000-000000000001\"],\n    \"helpersLevel\": \"SOLO\",\n    \"acreage\": 3.5,\n    \"goalSlugs\": [\"MAKE_MONEY\", \"FOOD_SECURITY\"],\n    \"onboardingCompletedAt\": null,\n    \"suggestedStep\": null,\n    \"steps\": [\n      { \"key\": \"goals\", \"label\": \"Goals\", \"done\": true }\n    ]\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:15:00.000Z\" }\n}"
+                },
+                {
+                  "name": "400 Validation error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": {\n    \"code\": \"VALIDATION_ERROR\",\n    \"message\": \"Invalid request body\",\n    \"details\": {\n      \"fieldErrors\": {},\n      \"formErrors\": [\"At least one field must be provided\"]\n    }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Complete onboarding",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/me/onboarding/complete"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"farmerId\": \"f0000001-0000-4000-8000-000000000001\",\n    \"onboardingCompletedAt\": \"2026-06-03T10:20:00.000Z\",\n    \"suggestedStep\": null,\n    \"steps\": [\n      { \"key\": \"goals\", \"label\": \"Goals\", \"done\": true }\n    ]\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:20:00.000Z\" }\n}"
+                },
+                {
+                  "name": "422 Onboarding incomplete",
+                  "status": "Unprocessable Entity",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": {\n    \"code\": \"UNPROCESSABLE\",\n    \"message\": \"Onboarding validation failed\",\n    \"details\": [\"acreage is required\", \"at least one goal is required\"]\n  }\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Home & plans",
+          "item": [
+            {
+              "name": "Get home",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/me/home"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"weekStrip\": [\n      { \"date\": \"2026-06-02\", \"dayLabel\": \"Mon\", \"isToday\": false, \"hasPlan\": true, \"statusColor\": \"muted\" },\n      { \"date\": \"2026-06-03\", \"dayLabel\": \"Tue\", \"isToday\": true, \"hasPlan\": true, \"statusColor\": \"primary\" }\n    ],\n    \"templateCards\": [\n      {\n        \"id\": \"a0000001-0000-4000-8000-000000000001\",\n        \"title\": \"5-day quick start\",\n        \"subtitle\": \"5-day plan\",\n        \"description\": \"A short plan to build daily farm habits\",\n        \"badge\": \"Make Money\",\n        \"durationDays\": 5,\n        \"goalSlug\": \"MAKE_MONEY\",\n        \"ctaLabel\": \"Start this plan\"\n      }\n    ],\n    \"todaySection\": {\n      \"title\": \"Today\",\n      \"activities\": [\n        {\n          \"id\": \"b0000001-0000-4000-8000-000000000001\",\n          \"title\": \"Inspect maize rows for fall armyworm damage.\",\n          \"subtitle\": \"Pest-management · ~45 min · Morning\",\n          \"status\": { \"code\": \"PENDING\", \"label\": \"Not started\", \"color\": \"amber\" },\n          \"iconKey\": \"pest-scout\",\n          \"cta\": { \"label\": \"Log what you did\", \"route\": \"/activities/b0000001-0000-4000-8000-000000000001\" }\n        }\n      ],\n      \"tips\": [\n        { \"body\": \"Today is a good field-working day because the soil is moist.\", \"type\": \"tip\" }\n      ],\n      \"cta\": { \"label\": \"See full day plan\", \"route\": \"/plan/today\" }\n    },\n    \"activePlanId\": \"p0000001-0000-4000-8000-000000000001\"\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:30:00.000Z\" }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get plan recommendations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/me/plans/recommendations"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"recommendations\": [\n      {\n        \"title\": \"5-day maize protection sprint\",\n        \"description\": \"Matches your maize crop and fall armyworm risk near Nakuru.\",\n        \"durationDays\": 5,\n        \"goalSlug\": \"MAKE_MONEY\",\n        \"badge\": \"Make Money\",\n        \"ctaLabel\": \"Generate this plan\"\n      },\n      {\n        \"title\": \"20-day growth plan\",\n        \"description\": \"Longer plan to maximise yield while intercropping beans.\",\n        \"durationDays\": 20,\n        \"goalSlug\": \"MAKE_MONEY\",\n        \"badge\": \"Make Money\",\n        \"ctaLabel\": \"Generate this plan\"\n      }\n    ]\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:35:00.000Z\" }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Generate AI plan",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const json = pm.response.json();",
+                      "if (json.data?.planId) {",
+                      "  pm.collectionVariables.set('planId', json.data.planId);",
+                      "  pm.environment.set('planId', json.data.planId);",
+                      "}",
+                      "const act = json.data?.days?.[0]?.activities?.[0];",
+                      "if (act?.id) {",
+                      "  pm.collectionVariables.set('activityId', act.id);",
+                      "  pm.environment.set('activityId', act.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"durationDays\": 5,\n  \"startDate\": \"{{date}}\"\n}"
+                },
+                "url": "{{baseUrl}}/api/me/plans/generate",
+                "description": "Requires `AI_PLAN_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` (or Gemini) in backend `.env`. Generates one agronomist day-plan per calendar day."
+              },
+              "response": [
+                {
+                  "name": "201 Created",
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"planId\": \"p0000001-0000-4000-8000-000000000001\",\n    \"hero\": {\n      \"title\": \"5-day plan for maize and beans\",\n      \"summary\": \"Today is a good field-working day because the soil is moist and there is no rain expected. Focus on protecting maize yield by checking fall armyworm early.\",\n      \"badge\": \"Make Money\",\n      \"durationLabel\": \"5 days\",\n      \"startDate\": \"2026-06-03\"\n    },\n    \"days\": [\n      {\n        \"dayNumber\": 1,\n        \"date\": \"2026-06-03\",\n        \"dayLabel\": \"Tue\",\n        \"theme\": \"Today is a good field-working day because the soil is moist\",\n        \"activities\": [\n          {\n            \"id\": \"b0000001-0000-4000-8000-000000000001\",\n            \"title\": \"Inspect maize rows for fall armyworm damage.\",\n            \"subtitle\": \"Pest-management · ~45 min · Morning\",\n            \"description\": \"Walk every maize row, especially the eastern side where caterpillars were found.\",\n            \"status\": { \"code\": \"PENDING\", \"label\": \"Not started\", \"color\": \"amber\" },\n            \"iconKey\": \"pest-scout\",\n            \"cta\": { \"label\": \"Log what you did\", \"route\": \"/activities/b0000001-0000-4000-8000-000000000001\" }\n          },\n          {\n            \"id\": \"b0000001-0000-4000-8000-000000000002\",\n            \"title\": \"Control caterpillars found in maize whorls.\",\n            \"subtitle\": \"Pest-management · ~45 min · Morning\",\n            \"description\": \"Remove and crush caterpillars by hand where numbers are low.\",\n            \"status\": { \"code\": \"PENDING\", \"label\": \"Not started\", \"color\": \"amber\" },\n            \"iconKey\": \"pest-scout\",\n            \"cta\": { \"label\": \"Log what you did\", \"route\": \"/activities/b0000001-0000-4000-8000-000000000002\" }\n          }\n        ],\n        \"tips\": [\n          { \"body\": \"Today is a good field-working day because the soil is moist\", \"type\": \"tip\" }\n        ]\n      }\n    ],\n    \"cta\": { \"label\": \"Go to home\", \"route\": \"/home\" }\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:40:00.000Z\" }\n}"
+                },
+                {
+                  "name": "400 AI not configured",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": {\n    \"code\": \"BAD_REQUEST\",\n    \"message\": \"AI plan generation requires AI_PLAN_PROVIDER=deepseek or gemini with a valid API key\"\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Enroll seed template",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const json = pm.response.json();",
+                      "if (json.data?.planId) {",
+                      "  pm.collectionVariables.set('planId', json.data.planId);",
+                      "  pm.environment.set('planId', json.data.planId);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"templateId\": \"{{templateId}}\",\n  \"startDate\": \"{{date}}\"\n}"
+                },
+                "url": "{{baseUrl}}/api/me/plans"
+              },
+              "response": [
+                {
+                  "name": "201 Created",
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": { \"planId\": \"p0000001-0000-4000-8000-000000000002\" },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:45:00.000Z\" }\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Day & activities",
+          "item": [
+            {
+              "name": "Get day plan",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const json = pm.response.json();",
+                      "if (json.data?.planId) {",
+                      "  pm.collectionVariables.set('planId', json.data.planId);",
+                      "  pm.environment.set('planId', json.data.planId);",
+                      "}",
+                      "const act = json.data?.activities?.[0];",
+                      "if (act?.id) {",
+                      "  pm.collectionVariables.set('activityId', act.id);",
+                      "  pm.environment.set('activityId', act.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/me/days/{{date}}/plan"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"planId\": \"p0000001-0000-4000-8000-000000000001\",\n    \"date\": \"2026-06-03\",\n    \"dayLabel\": \"Tue\",\n    \"hero\": {\n      \"title\": \"5-day plan for maize and beans\",\n      \"summary\": \"Today is a good field-working day because the soil is moist.\"\n    },\n    \"activities\": [\n      {\n        \"id\": \"b0000001-0000-4000-8000-000000000001\",\n        \"title\": \"Inspect maize rows for fall armyworm damage.\",\n        \"subtitle\": \"Pest-management · ~45 min · Morning\",\n        \"description\": \"Walk every maize row, especially the eastern side.\",\n        \"status\": { \"code\": \"PENDING\", \"label\": \"Not started\", \"color\": \"amber\" },\n        \"iconKey\": \"pest-scout\",\n        \"cta\": { \"label\": \"Log what you did\", \"route\": \"/activities/b0000001-0000-4000-8000-000000000001\" }\n      }\n    ],\n    \"tips\": [\n      { \"id\": \"t0000001-0000-4000-8000-000000000001\", \"body\": \"Build on recent urea top-dressing — plants are greener.\", \"type\": \"tip\" }\n    ],\n    \"chatCta\": {\n      \"label\": \"Ask AI to review my plan\",\n      \"route\": \"/plans/p0000001-0000-4000-8000-000000000001/chat\"\n    }\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T11:00:00.000Z\" }\n}"
+                },
+                {
+                  "name": "404 No plan for date",
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"No plan found for this date\"\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get activity",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/me/activities/{{activityId}}"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"id\": \"b0000001-0000-4000-8000-000000000001\",\n    \"title\": \"Inspect maize rows for fall armyworm damage.\",\n    \"subtitle\": \"Pest-management\",\n    \"description\": \"Walk every maize row, especially the eastern side.\",\n    \"status\": { \"code\": \"PENDING\", \"label\": \"Not started\", \"color\": \"amber\" },\n    \"iconKey\": \"pest-scout\",\n    \"cta\": { \"label\": \"Log what you did\", \"route\": \"/activities/b0000001-0000-4000-8000-000000000001\" },\n    \"planId\": \"p0000001-0000-4000-8000-000000000001\",\n    \"date\": \"2026-06-03\",\n    \"completion\": null\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T11:05:00.000Z\" }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get day completions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/me/days/{{date}}/completions"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-06-03\",\n    \"activities\": [\n      {\n        \"id\": \"b0000001-0000-4000-8000-000000000001\",\n        \"title\": \"Inspect maize rows for fall armyworm damage.\",\n        \"status\": { \"code\": \"VERIFIED\", \"label\": \"Verified\", \"color\": \"green\" },\n        \"completion\": {\n          \"id\": \"cmp00001-0000-4000-8000-000000000001\",\n          \"journalText\": \"Walked all rows on the east side. Found caterpillars in 3 plants and crushed them.\",\n          \"photoUrls\": [\"/uploads/f0000001.../photo1.jpg\"],\n          \"status\": \"VERIFIED\"\n        }\n      }\n    ]\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T18:00:00.000Z\" }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Chat — AI plan audit",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Rain is expected tomorrow. Should I delay spraying and field work?\"\n}"
+                },
+                "url": "{{baseUrl}}/api/me/plans/{{planId}}/chat"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": {\n    \"messageId\": \"m0000001-0000-4000-8000-000000000001\",\n    \"reply\": {\n      \"markdown\": \"If heavy rain is expected, **postpone spraying** until leaves dry. You can still do a quick pest scout under cover.\",\n      \"plain\": \"If heavy rain is expected, postpone spraying until leaves dry. You can still do a quick pest scout under cover.\"\n    },\n    \"confidence\": \"medium\",\n    \"suggestionCards\": [\n      {\n        \"id\": \"suggestion-0\",\n        \"action\": \"add\",\n        \"title\": \"Check drainage and postpone field work if soil is saturated\",\n        \"reason\": \"Rain or weather concern detected\",\n        \"ctaLabel\": \"Apply to plan\"\n      }\n    ]\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T11:15:00.000Z\" }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Patch plan activities",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"activities\": [\n    {\n      \"planDayId\": \"pd000001-0000-4000-8000-000000000001\",\n      \"title\": \"Scout maize for armyworm (rain-adjusted)\",\n      \"description\": \"Quick walk only if soil is not saturated.\",\n      \"sortOrder\": 0,\n      \"category\": \"pest-management\"\n    }\n  ]\n}"
+                },
+                "url": "{{baseUrl}}/api/me/plans/{{planId}}"
+              },
+              "response": [
+                {
+                  "name": "200 OK",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"data\": { \"planId\": \"p0000001-0000-4000-8000-000000000001\", \"updated\": true },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T11:20:00.000Z\" }\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Templates (public)",
+      "item": [
+        {
+          "name": "List templates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/templates?goal=MAKE_MONEY&durationDays=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "templates"],
+              "query": [
+                { "key": "goal", "value": "MAKE_MONEY" },
+                { "key": "durationDays", "value": "5" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"templates\": [\n    {\n      \"id\": \"a0000001-0000-4000-8000-000000000001\",\n      \"title\": \"5-day quick start\",\n      \"durationDays\": 5,\n      \"goalSlug\": \"MAKE_MONEY\",\n      \"description\": \"A short plan to build daily farm habits\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Activities",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Submit activity completion",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "journalText",
+                  "value": "Walked all maize rows on the east side. Found caterpillars in 3 plants and crushed them by hand. No spray applied yet.",
+                  "type": "text"
+                },
+                {
+                  "key": "photos",
+                  "description": "Up to 5 images. At least 1 photo + 20+ char journal → VERIFIED status.",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/activities/{{activityId}}/completions",
+            "description": "multipart/form-data: `journalText` (string), `photos[]` (files, max 5)."
+          },
+          "response": [
+            {
+              "name": "201 Created (verified)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"cmp00001-0000-4000-8000-000000000001\",\n    \"activityId\": \"b0000001-0000-4000-8000-000000000001\",\n    \"journalText\": \"Walked all maize rows on the east side. Found caterpillars in 3 plants and crushed them.\",\n    \"photoUrls\": [\"/uploads/f0000001-0000-4000-8000-000000000001/b0000001-0000-4000-8000-000000000001/photo-123.jpg\"],\n    \"status\": \"VERIFIED\",\n    \"verifiedAt\": \"2026-06-03T14:00:00.000Z\"\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T14:00:00.000Z\" }\n}"
+            },
+            {
+              "name": "201 Created (pending)",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"cmp00001-0000-4000-8000-000000000002\",\n    \"activityId\": \"b0000001-0000-4000-8000-000000000001\",\n    \"journalText\": \"Quick check done\",\n    \"photoUrls\": [],\n    \"status\": \"PENDING\",\n    \"verifiedAt\": null\n  },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T14:05:00.000Z\" }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Legacy farmers (deprecated)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+      },
+      "description": "Requires `:farmerId` to match JWT subject. Prefer `/api/me/*` instead.",
+      "item": [
+        {
+          "name": "POST farmers (410)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/farmers"
+          },
+          "response": [
+            {
+              "name": "410 Gone",
+              "status": "Gone",
+              "code": 410,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": { \"message\": \"Use POST /api/auth/register instead\" },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:00:00.000Z\" }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get home (legacy)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/farmers/{{farmerId}}/home"
+          },
+          "response": [
+            {
+              "name": "200 OK — same shape as /api/me/home",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": { \"weekStrip\": [], \"templateCards\": [], \"todaySection\": { \"title\": \"Today\", \"activities\": [], \"tips\": [] }, \"activePlanId\": null },\n  \"meta\": { \"requestId\": \"...\", \"generatedAt\": \"2026-06-03T10:00:00.000Z\" }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

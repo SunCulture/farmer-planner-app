@@ -1,5 +1,6 @@
 import React, { useState } from "react"
 import {
+  ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +17,7 @@ import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { api } from "@/services/api"
 import {
   card,
   forest50,
@@ -31,10 +33,59 @@ import {
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
-import { api } from "@/services/api"
+import { markOnboardingComplete, saveAuthToken, saveFarmerProfile } from "../application/farmer-profile-store"
+import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
 
-import { saveFarmerProfile } from "../application/farmer-profile-store"
-import { CROPS, GOALS, LIVESTOCK, REGIONS } from "../infrastructure/mock-data"
+// Display-only emoji lookups — purely cosmetic, not data
+const CROP_EMOJI: Record<string, string> = {
+  maize: "🌽",
+  beans: "🫘",
+  tomatoes: "🍅",
+  kale: "🥬",
+  potatoes: "🥔",
+  onions: "🧅",
+  capsicum: "🫑",
+  watermelon: "🍉",
+  avocado: "🥑",
+  mango: "🥭",
+  banana: "🍌",
+  coffee: "☕",
+  tea: "🍵",
+}
+const LIVESTOCK_EMOJI: Record<string, string> = {
+  cattle: "🐄",
+  chickens: "🐔",
+  goats: "🐐",
+  sheep: "🐑",
+  pigs: "🐷",
+  rabbits: "🐰",
+  ducks: "🦆",
+  bees: "🐝",
+}
+const GOAL_EMOJI: Record<string, string> = {
+  MAKE_MONEY: "💰",
+  FOOD_SECURITY: "🌽",
+  SAVE_TIME: "⏰",
+  REDUCE_LOSSES: "📉",
+  LIVESTOCK_HEALTH: "🐄",
+  MODERN_FARMING: "📚",
+}
+const REGION_EMOJI: Record<string, string> = {
+  nairobi: "🏙️",
+  nakuru: "🌽",
+  kisumu: "🌊",
+  mombasa: "☀️",
+  eldoret: "🥬",
+  kitale: "🌽",
+  machakos: "⛰️",
+  nyeri: "🍃",
+  meru: "🌱",
+  thika: "🍍",
+  kisii: "🫐",
+  kakamega: "🌧️",
+  garissa: "🌵",
+  narok: "🦁",
+}
 
 // ---------------------------------------------------------------------------
 // Types (UI-local — not the same as the API entity)
@@ -46,18 +97,20 @@ type FarmSizeUI = "small" | "medium" | "large"
 
 interface DraftProfile {
   name: string
-  location: string
+  location: string // region name — display label
+  locationSlug: string // region slug — used as county in API patch
   farmType: FarmTypeUI | null
   crops: string[]
   livestock: string[]
   workStyle: WorkStyleUI | null
   farmSize: FarmSizeUI | null
-  goals: string[]
+  goals: string[] // goal slugs (e.g. "MAKE_MONEY")
 }
 
 const INITIAL_DRAFT: DraftProfile = {
   name: "",
   location: "",
+  locationSlug: "",
   farmType: null,
   crops: [],
   livestock: [],
@@ -72,7 +125,7 @@ const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
   large: 7.5,
 }
 
-// Steps: 0=welcome  1=name  2=location  3=farmType  4=species  5=helpers  6=farmSize  7=goals  8=success
+// Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers  6=farmSize  7=goals  8=success
 const PROGRESS_STEPS = 7
 
 const W = Dimensions.get("window").width
@@ -86,32 +139,143 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0)
   const [draft, setDraft] = useState<DraftProfile>(INITIAL_DRAFT)
   const [locationQuery, setLocationQuery] = useState("")
+
+  // Auth step state
+  const [authMode, setAuthMode] = useState<"login" | "register">("login")
+  const [authName, setAuthName] = useState("")
+  const [authEmail, setAuthEmail] = useState("")
+  const [authPassword, setAuthPassword] = useState("")
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  // Finish step state
+  const [finishLoading, setFinishLoading] = useState(false)
+  const [finishError, setFinishError] = useState<string | null>(null)
+
   const router = useRouter()
   const insets = useSafeAreaInsets()
 
+  const cropsQuery = useCrops()
+  const livestockQuery = useLivestock()
+  const regionsQuery = useRegions()
+  const goalsQuery = useGoals()
+
   const goNext = () => setStep((s) => s + 1)
   const goBack = () => setStep((s) => Math.max(0, s - 1))
-  const skipToDashboard = () => router.replace("/(tabs)/" as any)
 
-  const handleFinish = async () => {
-    const profile = {
-      name: draft.name,
-      location: { label: draft.location, county: draft.location, country: "Kenya" },
-      productionType: (draft.farmType === "crops" ? "CROPS" : "LIVESTOCK") as import("../domain/entities/farmer-profile").ProductionType,
-      cropIds: draft.crops,
-      livestockIds: draft.livestock,
-      helpersLevel: (draft.workStyle === "solo" ? "SOLO" : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
-      acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
-      goalSlugs: draft.goals,
+  const handleAuth = async () => {
+    setAuthError(null)
+    setAuthLoading(true)
+    try {
+      let res
+      if (authMode === "login") {
+        res = await api.login({ email: authEmail.trim(), password: authPassword })
+      } else {
+        res = await api.register({
+          email: authEmail.trim(),
+          password: authPassword,
+          name: authName.trim(),
+        })
+      }
+
+      console.log("[auth] status:", res.status, "ok:", res.ok, "data:", JSON.stringify(res.data))
+
+      if (!res.ok || !res.data?.data?.accessToken) {
+        const msg =
+          (res.data as any)?.error?.message ??
+          res.originalError?.message ??
+          `Request failed (${res.status ?? "no response"})`
+        setAuthError(msg)
+        return
+      }
+
+      const { accessToken, farmer } = res.data.data
+      saveAuthToken(accessToken)
+      api.setAuthToken(accessToken)
+
+      if (farmer.displayName) {
+        setDraft((d) => ({ ...d, name: farmer.displayName }))
+      }
+
+      if (authMode === "login") {
+        const profileRes = await api.getOnboarding()
+        if (profileRes.ok && profileRes.data?.data) {
+          const d = profileRes.data.data
+          saveFarmerProfile({
+            name: d.name,
+            location: d.location ?? { label: "", county: "", country: "" },
+            productionType: d.productionType ?? "CROPS",
+            cropIds: d.cropIds,
+            livestockIds: d.livestockIds,
+            helpersLevel: d.helpersLevel ?? "SOLO",
+            acreage: d.acreage ?? 1,
+            goalSlugs: d.goalSlugs,
+          })
+        } else {
+          markOnboardingComplete()
+        }
+        router.replace("/(tabs)/" as any)
+      } else {
+        setStep(1)
+      }
+    } finally {
+      setAuthLoading(false)
     }
-    saveFarmerProfile(profile)
-    await api.patchOnboarding(profile)
-    await api.completeOnboarding()
-    setStep(8)
   }
 
+  const handleFinish = async () => {
+    setFinishError(null)
+    setFinishLoading(true)
+    try {
+      const profile = {
+        name: draft.name,
+        location: { label: draft.location, county: draft.locationSlug, country: "Kenya" },
+        productionType: (draft.farmType === "crops"
+          ? "CROPS"
+          : "LIVESTOCK") as import("../domain/entities/farmer-profile").ProductionType,
+        cropIds: draft.crops,
+        livestockIds: draft.livestock,
+        helpersLevel: (draft.workStyle === "solo"
+          ? "SOLO"
+          : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
+        acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
+        goalSlugs: draft.goals,
+      }
+      saveFarmerProfile(profile)
+
+      const patchRes = await api.patchOnboarding(profile)
+      if (!patchRes.ok) {
+        const msg =
+          (patchRes.data as any)?.error?.message ??
+          patchRes.originalError?.message ??
+          `Save failed (${patchRes.status ?? "no response"})`
+        setFinishError(msg)
+        return
+      }
+
+      const completeRes = await api.completeOnboarding()
+      if (!completeRes.ok) {
+        const msg =
+          (completeRes.data as any)?.error?.message ??
+          completeRes.originalError?.message ??
+          `Could not complete onboarding (${completeRes.status ?? "no response"})`
+        setFinishError(msg)
+        return
+      }
+
+      setStep(8)
+    } finally {
+      setFinishLoading(false)
+    }
+  }
+
+  const authCtaEnabled =
+    authEmail.trim().includes("@") &&
+    authPassword.length >= 6 &&
+    (authMode === "login" || authName.trim().length >= 2) &&
+    !authLoading
+
   const ctaEnabled =
-    step === 0 ||
     (step === 1 && draft.name.trim().length >= 2) ||
     (step === 2 && draft.location !== "") ||
     (step === 3 && draft.farmType !== null) ||
@@ -121,18 +285,17 @@ export default function OnboardingScreen() {
     (step === 6 && draft.farmSize !== null) ||
     (step === 7 && draft.goals.length > 0)
 
-  const ctaLabel =
-    step === 0 ? "Start My Farm Plan  →" : step === 7 ? "Build My Farm Plan 🌱" : "Continue  →"
-
+  const ctaLabel = step === 7 ? "Build My Farm Plan 🌱" : "Continue  →"
   const ctaOnPress = step === 7 ? handleFinish : goNext
 
-  const isWelcome = step === 0
+  const isAuth = step === 0
   const isSuccess = step === 8
-  const showHeader = !isWelcome && !isSuccess
+  const showHeader = !isAuth && !isSuccess
 
+  const allRegions = regionsQuery.data ?? []
   const filteredRegions = locationQuery
-    ? REGIONS.filter((r) => r.name.toLowerCase().includes(locationQuery.toLowerCase()))
-    : REGIONS
+    ? allRegions.filter((r) => r.name.toLowerCase().includes(locationQuery.toLowerCase()))
+    : allRegions
 
   // ---- Success screen -------------------------------------------------------
 
@@ -193,6 +356,120 @@ export default function OnboardingScreen() {
 
   // ---- Main flow (steps 0-7) ------------------------------------------------
 
+  // ---- Auth screen (step 0) — rendered separately, no scroll wrapper --------
+
+  if (isAuth) {
+    return (
+      <KeyboardAvoidingView
+        style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={$authScroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Brand badge */}
+          <View style={$authBadge}>
+            <Text style={$authBadgeText}>✦ Tujiweze</Text>
+          </View>
+
+          <Text style={$authHeading}>
+            {authMode === "login" ? "Welcome back 👋" : "Create your account 🌱"}
+          </Text>
+          <Text style={$authSubtitle}>
+            {authMode === "login"
+              ? "Sign in to continue your farming journey."
+              : "Enter your email to get started."}
+          </Text>
+
+          {/* Name — register only */}
+          {authMode === "register" && (
+            <>
+              <Text style={$fieldLabel}>Full name</Text>
+              <TextInput
+                style={$authInput}
+                value={authName}
+                onChangeText={(v) => {
+                  setAuthName(v)
+                  setAuthError(null)
+                }}
+                placeholder="John Kamau"
+                placeholderTextColor={ink4}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </>
+          )}
+
+          {/* Email */}
+          <Text style={$fieldLabel}>Email</Text>
+          <TextInput
+            style={$authInput}
+            value={authEmail}
+            onChangeText={(v) => {
+              setAuthEmail(v)
+              setAuthError(null)
+            }}
+            placeholder="you@example.com"
+            placeholderTextColor={ink4}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          {/* Password */}
+          <Text style={$fieldLabel}>Password</Text>
+          <TextInput
+            style={$authInput}
+            value={authPassword}
+            onChangeText={(v) => {
+              setAuthPassword(v)
+              setAuthError(null)
+            }}
+            placeholder="••••••••"
+            placeholderTextColor={ink4}
+            secureTextEntry
+          />
+
+          {/* Error */}
+          {authError ? <Text style={$authErrorText}>{authError}</Text> : null}
+
+          {/* Primary CTA */}
+          <TouchableOpacity
+            style={[$ctaBtn, !authCtaEnabled && $ctaBtnDisabled, { marginTop: spacing.s4 }]}
+            onPress={handleAuth}
+            disabled={!authCtaEnabled}
+            activeOpacity={0.85}
+          >
+            {authLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={$ctaBtnText}>
+                {authMode === "login" ? "Sign in  →" : "Create account  →"}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Mode toggle */}
+          <TouchableOpacity
+            style={$authToggle}
+            onPress={() => {
+              setAuthMode((m) => (m === "login" ? "register" : "login"))
+              setAuthName("")
+              setAuthError(null)
+            }}
+          >
+            <Text style={$authToggleText}>
+              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+              <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    )
+  }
+
   return (
     <View style={$root}>
       {/* Header with progress bar */}
@@ -222,32 +499,10 @@ export default function OnboardingScreen() {
       >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[
-            $scrollContent,
-            isWelcome && $scrollWelcome,
-            !isWelcome && { paddingTop: spacing.s6 },
-          ]}
+          contentContainerStyle={[$scrollContent, { paddingTop: spacing.s6 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ---- Welcome ---- */}
-          {step === 0 && (
-            <>
-              <View style={$welcomeBadge}>
-                <Text style={$welcomeBadgeText}>✦ Tujiweze</Text>
-              </View>
-              <View style={$heroContainer}>
-                <Text style={$heroEmoji}>🧑‍🌾</Text>
-              </View>
-              <View style={$welcomeTextBlock}>
-                <Text style={$welcomeHeading}>{"Let's grow smarter\ntogether 🌱"}</Text>
-                <Text style={$welcomeSubtitle}>
-                  {"AI-powered farming plans,\npersonalised for African farmers."}
-                </Text>
-              </View>
-            </>
-          )}
-
           {/* ---- Name ---- */}
           {step === 1 && (
             <>
@@ -286,29 +541,46 @@ export default function OnboardingScreen() {
                   placeholderTextColor={ink4}
                 />
               </View>
-              <View style={$grid}>
-                {filteredRegions.map((region) => {
-                  const selected = draft.location === region.name
-                  return (
-                    <Pressable
-                      key={region.id}
-                      style={[$locationCard, selected && $locationCardSelected]}
-                      onPress={() => setDraft((d) => ({ ...d, location: region.name }))}
-                    >
-                      <Text style={{ fontSize: 22 }}>{region.emoji}</Text>
-                      <Text style={[$locationName, selected && { color: forest500 }]}>
-                        {region.name}
-                      </Text>
-                      <Text style={$locationTemp}>{region.temp}</Text>
-                      {selected && (
-                        <View style={$locationCheck}>
-                          <Ionicons name="checkmark-circle" size={18} color={forest500} />
-                        </View>
-                      )}
-                    </Pressable>
-                  )
-                })}
-              </View>
+              {regionsQuery.isLoading ? (
+                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+              ) : (
+                <View style={$grid}>
+                  {filteredRegions.map((region) => {
+                    const selected = draft.location === region.name
+                    const emoji = REGION_EMOJI[region.slug] ?? "📍"
+                    const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
+                    return (
+                      <Pressable
+                        key={region.id}
+                        style={[$locationCard, selected && $locationCardSelected]}
+                        onPress={() =>
+                          setDraft((d) => ({
+                            ...d,
+                            location: region.name,
+                            locationSlug: region.slug,
+                          }))
+                        }
+                      >
+                        <Text style={{ fontSize: 22 }}>{emoji}</Text>
+                        <Text style={[$locationName, selected && { color: forest500 }]}>
+                          {region.name}
+                        </Text>
+                        {tempLabel && <Text style={$locationTemp}>{tempLabel}</Text>}
+                        {region.weather && (
+                          <Text style={$locationWeatherDesc} numberOfLines={1}>
+                            {region.weather.description}
+                          </Text>
+                        )}
+                        {selected && (
+                          <View style={$locationCheck}>
+                            <Ionicons name="checkmark-circle" size={18} color={forest500} />
+                          </View>
+                        )}
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              )}
             </>
           )}
 
@@ -371,33 +643,40 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              <View style={$grid}>
-                {CROPS.map((crop) => {
-                  const selected = draft.crops.includes(crop.id)
-                  return (
-                    <Pressable
-                      key={crop.id}
-                      style={[$speciesCard, selected && $speciesCardSelected]}
-                      onPress={() =>
-                        setDraft((d) => ({
-                          ...d,
-                          crops: d.crops.includes(crop.id)
-                            ? d.crops.filter((c) => c !== crop.id)
-                            : [...d.crops, crop.id],
-                        }))
-                      }
-                    >
-                      <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{crop.emoji}</Text>
-                      <Text style={[$speciesLabel, selected && { color: forest500 }]}>
-                        {crop.name}
-                      </Text>
-                      <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
-                        {selected && <Ionicons name="checkmark" size={10} color={card} />}
-                      </View>
-                    </Pressable>
-                  )
-                })}
-              </View>
+              {cropsQuery.isLoading ? (
+                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+              ) : (
+                <View style={$grid}>
+                  {(cropsQuery.data ?? []).map((crop) => {
+                    const selected = draft.crops.includes(crop.id)
+                    const emoji = CROP_EMOJI[crop.slug] ?? "🌱"
+                    return (
+                      <Pressable
+                        key={crop.id}
+                        style={[$speciesCard, selected && $speciesCardSelected]}
+                        onPress={() =>
+                          setDraft((d) => ({
+                            ...d,
+                            crops: d.crops.includes(crop.id)
+                              ? d.crops.filter((c) => c !== crop.id)
+                              : [...d.crops, crop.id],
+                          }))
+                        }
+                      >
+                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
+                        <Text style={[$speciesLabel, selected && { color: forest500 }]}>
+                          {crop.name}
+                        </Text>
+                        <View
+                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
+                        >
+                          {selected && <Ionicons name="checkmark" size={10} color={card} />}
+                        </View>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              )}
             </>
           )}
 
@@ -406,33 +685,40 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              <View style={$grid}>
-                {LIVESTOCK.map((animal) => {
-                  const selected = draft.livestock.includes(animal.id)
-                  return (
-                    <Pressable
-                      key={animal.id}
-                      style={[$speciesCard, selected && $speciesCardSelected]}
-                      onPress={() =>
-                        setDraft((d) => ({
-                          ...d,
-                          livestock: d.livestock.includes(animal.id)
-                            ? d.livestock.filter((a) => a !== animal.id)
-                            : [...d.livestock, animal.id],
-                        }))
-                      }
-                    >
-                      <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{animal.emoji}</Text>
-                      <Text style={[$speciesLabel, selected && { color: forest500 }]}>
-                        {animal.name}
-                      </Text>
-                      <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
-                        {selected && <Ionicons name="checkmark" size={10} color={card} />}
-                      </View>
-                    </Pressable>
-                  )
-                })}
-              </View>
+              {livestockQuery.isLoading ? (
+                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+              ) : (
+                <View style={$grid}>
+                  {(livestockQuery.data ?? []).map((animal) => {
+                    const selected = draft.livestock.includes(animal.id)
+                    const emoji = LIVESTOCK_EMOJI[animal.slug] ?? "🐾"
+                    return (
+                      <Pressable
+                        key={animal.id}
+                        style={[$speciesCard, selected && $speciesCardSelected]}
+                        onPress={() =>
+                          setDraft((d) => ({
+                            ...d,
+                            livestock: d.livestock.includes(animal.id)
+                              ? d.livestock.filter((a) => a !== animal.id)
+                              : [...d.livestock, animal.id],
+                          }))
+                        }
+                      >
+                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
+                        <Text style={[$speciesLabel, selected && { color: forest500 }]}>
+                          {animal.name}
+                        </Text>
+                        <View
+                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
+                        >
+                          {selected && <Ionicons name="checkmark" size={10} color={card} />}
+                        </View>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              )}
             </>
           )}
 
@@ -546,30 +832,35 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
               <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
-              <View style={$grid}>
-                {GOALS.map((goal) => {
-                  const selected = draft.goals.includes(goal.id)
-                  return (
-                    <Pressable
-                      key={goal.id}
-                      style={[$goalCard, selected && $goalCardSelected]}
-                      onPress={() =>
-                        setDraft((d) => ({
-                          ...d,
-                          goals: d.goals.includes(goal.id)
-                            ? d.goals.filter((g) => g !== goal.id)
-                            : [...d.goals, goal.id],
-                        }))
-                      }
-                    >
-                      <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{goal.emoji}</Text>
-                      <Text style={[$goalLabel, selected && { color: forest500 }]}>
-                        {goal.name}
-                      </Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
+              {goalsQuery.isLoading ? (
+                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+              ) : (
+                <View style={$grid}>
+                  {(goalsQuery.data ?? []).map((goal) => {
+                    const selected = draft.goals.includes(goal.slug)
+                    const emoji = GOAL_EMOJI[goal.slug] ?? "🎯"
+                    return (
+                      <Pressable
+                        key={goal.id}
+                        style={[$goalCard, selected && $goalCardSelected]}
+                        onPress={() =>
+                          setDraft((d) => ({
+                            ...d,
+                            goals: d.goals.includes(goal.slug)
+                              ? d.goals.filter((g) => g !== goal.slug)
+                              : [...d.goals, goal.slug],
+                          }))
+                        }
+                      >
+                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
+                        <Text style={[$goalLabel, selected && { color: forest500 }]}>
+                          {goal.name}
+                        </Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              )}
             </>
           )}
         </ScrollView>
@@ -577,15 +868,19 @@ export default function OnboardingScreen() {
 
       {/* Footer */}
       <View style={[$footer, { paddingBottom: insets.bottom + spacing.s2 }]}>
+        {finishError ? <Text style={$finishErrorText}>{finishError}</Text> : null}
         <TouchableOpacity
-          style={[$ctaBtn, !ctaEnabled && $ctaBtnDisabled]}
+          style={[$ctaBtn, (!ctaEnabled || finishLoading) && $ctaBtnDisabled]}
           onPress={ctaOnPress}
-          disabled={!ctaEnabled}
+          disabled={!ctaEnabled || finishLoading}
           activeOpacity={0.85}
         >
-          <Text style={$ctaBtnText}>{ctaLabel}</Text>
+          {finishLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={$ctaBtnText}>{ctaLabel}</Text>
+          )}
         </TouchableOpacity>
-        {isWelcome && <Text style={$featureLine}>Free · Works offline · No complex forms</Text>}
       </View>
     </View>
   )
@@ -598,6 +893,90 @@ export default function OnboardingScreen() {
 const $root: ViewStyle = {
   flex: 1,
   backgroundColor: card,
+}
+
+// Auth screen
+const $authScroll: ViewStyle = {
+  flexGrow: 1,
+  paddingHorizontal: spacing.s5,
+  paddingTop: spacing.s6,
+  paddingBottom: spacing.s8,
+}
+
+const $authBadge: ViewStyle = {
+  alignSelf: "flex-start",
+  backgroundColor: forest500,
+  paddingHorizontal: spacing.s4,
+  paddingVertical: 6,
+  borderRadius: radii.pill,
+  marginBottom: spacing.s6,
+}
+
+const $authBadgeText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+  color: "#FFFFFF",
+  letterSpacing: 0.3,
+}
+
+const $authHeading: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 28,
+  color: ink,
+  lineHeight: 36,
+  marginBottom: spacing.s2,
+}
+
+const $authSubtitle: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 15,
+  color: ink3,
+  lineHeight: 22,
+  marginBottom: spacing.s6,
+}
+
+const $fieldLabel: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+  color: ink3,
+  marginBottom: spacing.s2,
+  marginTop: spacing.s3,
+}
+
+const $authInput: TextStyle = {
+  height: 52,
+  borderWidth: 1.5,
+  borderColor: hairline,
+  borderRadius: radii.xl,
+  paddingHorizontal: spacing.s4,
+  fontFamily: typography.primary.normal,
+  fontSize: 16,
+  color: ink,
+  backgroundColor: card,
+}
+
+const $authErrorText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: "#D94F4F",
+  marginTop: spacing.s3,
+}
+
+const $authToggle: ViewStyle = {
+  alignItems: "center",
+  paddingVertical: spacing.s4,
+  marginTop: spacing.s2,
+}
+
+const $authToggleText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 14,
+  color: ink3,
+}
+
+const $authToggleLink: TextStyle = {
+  fontFamily: typography.primary.bold,
+  color: forest500,
 }
 
 const $header: ViewStyle = {
@@ -632,63 +1011,6 @@ const $progressEmpty: ViewStyle = { backgroundColor: hairline }
 const $scrollContent: ViewStyle = {
   paddingHorizontal: spacing.s5,
   paddingBottom: spacing.s6,
-}
-
-const $scrollWelcome: ViewStyle = {
-  flexGrow: 1,
-  paddingTop: spacing.s8,
-  alignItems: "center",
-}
-
-// Welcome
-const $welcomeBadge: ViewStyle = {
-  backgroundColor: forest500,
-  paddingHorizontal: spacing.s4,
-  paddingVertical: 6,
-  borderRadius: radii.pill,
-  marginBottom: spacing.s4,
-}
-
-const $welcomeBadgeText: TextStyle = {
-  fontFamily: typography.primary.medium,
-  fontSize: 13,
-  color: "#FFFFFF",
-  letterSpacing: 0.3,
-}
-
-const $heroContainer: ViewStyle = {
-  flex: 1,
-  alignItems: "center",
-  justifyContent: "center",
-}
-
-const $heroEmoji: TextStyle = {
-  fontSize: 96,
-  lineHeight: 112,
-  textAlign: "center",
-}
-
-const $welcomeTextBlock: ViewStyle = {
-  alignItems: "center",
-  width: "100%",
-  paddingBottom: spacing.s2,
-}
-
-const $welcomeHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 30,
-  color: ink,
-  textAlign: "center",
-  lineHeight: 38,
-  marginBottom: spacing.s3,
-}
-
-const $welcomeSubtitle: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 15,
-  color: ink3,
-  textAlign: "center",
-  lineHeight: 22,
 }
 
 // Step headings
@@ -795,6 +1117,13 @@ const $locationTemp: TextStyle = {
   fontSize: 12,
   color: ink3,
   marginTop: 2,
+}
+
+const $locationWeatherDesc: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 11,
+  color: ink4,
+  marginTop: 1,
 }
 
 const $locationCheck: ViewStyle = {
@@ -969,14 +1298,6 @@ const $footer: ViewStyle = {
   gap: spacing.s1,
 }
 
-const $featureLine: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: ink3,
-  textAlign: "center",
-  marginBottom: spacing.s2,
-}
-
 const $ctaBtn: ViewStyle = {
   backgroundColor: forest500,
   borderRadius: radii.pill,
@@ -989,22 +1310,19 @@ const $ctaBtnDisabled: ViewStyle = {
   backgroundColor: hairline,
 }
 
+const $finishErrorText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: "#D94F4F",
+  textAlign: "center",
+  marginBottom: spacing.s2,
+}
+
 const $ctaBtnText: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 16,
   color: "#FFFFFF",
   letterSpacing: 0.2,
-}
-
-const $skipBtn: ViewStyle = {
-  alignItems: "center",
-  paddingVertical: spacing.s3,
-}
-
-const $skipText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink3,
 }
 
 // Success screen
