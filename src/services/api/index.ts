@@ -55,6 +55,25 @@ export interface GoalItem {
   illustrationKey: string
 }
 
+export interface RegionWeather {
+  temperature: number
+  feelsLike: number
+  humidity: number
+  description: string
+  windSpeed: number
+  iconCode: string
+}
+
+export interface RegionItem {
+  id: string
+  countryId: string
+  name: string
+  slug: string
+  latitude: number
+  longitude: number
+  weather?: RegionWeather
+}
+
 export interface OnboardingStep {
   key: string
   label: string
@@ -146,6 +165,13 @@ export class Api {
 
   async listGoals() {
     return this.apisauce.get<{ goals: GoalItem[] }>("/api/catalog/goals")
+  }
+
+  async listRegions(weather?: boolean) {
+    return this.apisauce.get<{ regions: RegionItem[] }>(
+      "/api/catalog/regions",
+      weather ? { weather: "true" } : undefined,
+    )
   }
 
   // ---- Onboarding (authenticated) --------------------------------------------
