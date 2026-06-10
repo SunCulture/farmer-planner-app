@@ -1,5 +1,6 @@
 import React, { useState } from "react"
 import {
+  ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
@@ -31,10 +32,13 @@ import {
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
-import { api } from "@/services/api"
+import { getApiErrorMessage, getValidationDetails } from "@/shared/infrastructure/api-error"
 
+import { mapDraftToProfile } from "../application/map-profile"
 import { saveFarmerProfile } from "../application/farmer-profile-store"
-import { CROPS, GOALS, LIVESTOCK, REGIONS } from "../infrastructure/mock-data"
+import { useOnboardingCatalog } from "../application/use-onboarding-catalog"
+import { REGIONS } from "../infrastructure/mock-data"
+import { completeOnboardingProfile, patchOnboardingProfile } from "../infrastructure/onboarding-api"
 
 // ---------------------------------------------------------------------------
 // Types (UI-local — not the same as the API entity)
@@ -93,21 +97,28 @@ export default function OnboardingScreen() {
   const goBack = () => setStep((s) => Math.max(0, s - 1))
   const skipToDashboard = () => router.replace("/(tabs)/" as any)
 
+  const [finishError, setFinishError] = useState<string | null>(null)
+  const [isFinishing, setIsFinishing] = useState(false)
+  const { crops: catalogCrops, livestock: catalogLivestock, goals: catalogGoals, isLoading: catalogLoading } =
+    useOnboardingCatalog()
+
   const handleFinish = async () => {
-    const profile = {
-      name: draft.name,
-      location: { label: draft.location, county: draft.location, country: "Kenya" },
-      productionType: (draft.farmType === "crops" ? "CROPS" : "LIVESTOCK") as import("../domain/entities/farmer-profile").ProductionType,
-      cropIds: draft.crops,
-      livestockIds: draft.livestock,
-      helpersLevel: (draft.workStyle === "solo" ? "SOLO" : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
-      acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
-      goalSlugs: draft.goals,
+    setFinishError(null)
+    setIsFinishing(true)
+    const profile = mapDraftToProfile(draft)
+    try {
+      saveFarmerProfile(profile)
+      await patchOnboardingProfile(profile)
+      await completeOnboardingProfile()
+      setStep(8)
+    } catch (err) {
+      const details = getValidationDetails(err)
+      setFinishError(
+        details.length > 0 ? details.join("\n") : getApiErrorMessage(err),
+      )
+    } finally {
+      setIsFinishing(false)
     }
-    saveFarmerProfile(profile)
-    await api.patchOnboarding(profile)
-    await api.completeOnboarding()
-    setStep(8)
   }
 
   const ctaEnabled =
@@ -372,7 +383,10 @@ export default function OnboardingScreen() {
               <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
               <View style={$grid}>
-                {CROPS.map((crop) => {
+                {catalogLoading ? (
+                  <ActivityIndicator color={forest500} style={{ marginTop: spacing.s4 }} />
+                ) : null}
+                {catalogCrops.map((crop) => {
                   const selected = draft.crops.includes(crop.id)
                   return (
                     <Pressable
@@ -407,7 +421,10 @@ export default function OnboardingScreen() {
               <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
               <View style={$grid}>
-                {LIVESTOCK.map((animal) => {
+                {catalogLoading ? (
+                  <ActivityIndicator color={forest500} style={{ marginTop: spacing.s4 }} />
+                ) : null}
+                {catalogLivestock.map((animal) => {
                   const selected = draft.livestock.includes(animal.id)
                   return (
                     <Pressable
@@ -547,7 +564,10 @@ export default function OnboardingScreen() {
               <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
               <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
               <View style={$grid}>
-                {GOALS.map((goal) => {
+                {catalogLoading ? (
+                  <ActivityIndicator color={forest500} style={{ marginTop: spacing.s4 }} />
+                ) : null}
+                {catalogGoals.map((goal) => {
                   const selected = draft.goals.includes(goal.id)
                   return (
                     <Pressable

@@ -7,4 +7,5 @@
  */
 export default {
   API_URL: "https://d9b0-197-155-74-246.ngrok-free.app/",
+  DEV_ACCESS_TOKEN: "",
 }

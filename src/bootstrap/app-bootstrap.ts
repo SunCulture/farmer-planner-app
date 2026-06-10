@@ -1,6 +1,7 @@
 import { initDatabase } from "@/shared/infrastructure/database"
 
 import { container } from "./container"
+import { initDevAuth } from "./dev-auth"
 import { createQueryClient } from "./query-client"
 import registerInfrastructure from "./register-infrastructure"
 import SqliteSyncEngine from "../shared/infrastructure/sqlite-sync-engine"
@@ -9,6 +10,8 @@ export const queryClient = createQueryClient()
 
 export async function initAppBootstrap(): Promise<void> {
   console.debug("BOOTSTRAP: initAppBootstrap() starting")
+
+  initDevAuth()
 
   const db = await initDatabase()
   console.debug("BOOTSTRAP: initDatabase() finished")
