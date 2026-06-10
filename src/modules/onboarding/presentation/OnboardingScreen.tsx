@@ -17,6 +17,7 @@ import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { api } from "@/services/api"
 import {
   card,
   forest50,
@@ -32,29 +33,58 @@ import {
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
-import { api } from "@/services/api"
-
-import { saveAuthToken, saveFarmerProfile } from "../application/farmer-profile-store"
+import { markOnboardingComplete, saveAuthToken, saveFarmerProfile } from "../application/farmer-profile-store"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
 
 // Display-only emoji lookups — purely cosmetic, not data
 const CROP_EMOJI: Record<string, string> = {
-  maize: "🌽", beans: "🫘", tomatoes: "🍅", kale: "🥬", potatoes: "🥔",
-  onions: "🧅", capsicum: "🫑", watermelon: "🍉", avocado: "🥑", mango: "🥭",
-  banana: "🍌", coffee: "☕", tea: "🍵",
+  maize: "🌽",
+  beans: "🫘",
+  tomatoes: "🍅",
+  kale: "🥬",
+  potatoes: "🥔",
+  onions: "🧅",
+  capsicum: "🫑",
+  watermelon: "🍉",
+  avocado: "🥑",
+  mango: "🥭",
+  banana: "🍌",
+  coffee: "☕",
+  tea: "🍵",
 }
 const LIVESTOCK_EMOJI: Record<string, string> = {
-  cattle: "🐄", chickens: "🐔", goats: "🐐", sheep: "🐑", pigs: "🐷",
-  rabbits: "🐰", ducks: "🦆", bees: "🐝",
+  cattle: "🐄",
+  chickens: "🐔",
+  goats: "🐐",
+  sheep: "🐑",
+  pigs: "🐷",
+  rabbits: "🐰",
+  ducks: "🦆",
+  bees: "🐝",
 }
 const GOAL_EMOJI: Record<string, string> = {
-  MAKE_MONEY: "💰", FOOD_SECURITY: "🌽", SAVE_TIME: "⏰",
-  REDUCE_LOSSES: "📉", LIVESTOCK_HEALTH: "🐄", MODERN_FARMING: "📚",
+  MAKE_MONEY: "💰",
+  FOOD_SECURITY: "🌽",
+  SAVE_TIME: "⏰",
+  REDUCE_LOSSES: "📉",
+  LIVESTOCK_HEALTH: "🐄",
+  MODERN_FARMING: "📚",
 }
 const REGION_EMOJI: Record<string, string> = {
-  nairobi: "🏙️", nakuru: "🌽", kisumu: "🌊", mombasa: "☀️", eldoret: "🥬",
-  kitale: "🌽", machakos: "⛰️", nyeri: "🍃", meru: "🌱", thika: "🍍",
-  kisii: "🫐", kakamega: "🌧️", garissa: "🌵", narok: "🦁",
+  nairobi: "🏙️",
+  nakuru: "🌽",
+  kisumu: "🌊",
+  mombasa: "☀️",
+  eldoret: "🥬",
+  kitale: "🌽",
+  machakos: "⛰️",
+  nyeri: "🍃",
+  meru: "🌱",
+  thika: "🍍",
+  kisii: "🫐",
+  kakamega: "🌧️",
+  garissa: "🌵",
+  narok: "🦁",
 }
 
 // ---------------------------------------------------------------------------
@@ -67,14 +97,14 @@ type FarmSizeUI = "small" | "medium" | "large"
 
 interface DraftProfile {
   name: string
-  location: string      // region name — display label
-  locationSlug: string  // region slug — used as county in API patch
+  location: string // region name — display label
+  locationSlug: string // region slug — used as county in API patch
   farmType: FarmTypeUI | null
   crops: string[]
   livestock: string[]
   workStyle: WorkStyleUI | null
   farmSize: FarmSizeUI | null
-  goals: string[]       // goal slugs (e.g. "MAKE_MONEY")
+  goals: string[] // goal slugs (e.g. "MAKE_MONEY")
 }
 
 const INITIAL_DRAFT: DraftProfile = {
@@ -141,7 +171,11 @@ export default function OnboardingScreen() {
       if (authMode === "login") {
         res = await api.login({ email: authEmail.trim(), password: authPassword })
       } else {
-        res = await api.register({ email: authEmail.trim(), password: authPassword, name: authName.trim() })
+        res = await api.register({
+          email: authEmail.trim(),
+          password: authPassword,
+          name: authName.trim(),
+        })
       }
 
       console.log("[auth] status:", res.status, "ok:", res.ok, "data:", JSON.stringify(res.data))
@@ -149,7 +183,8 @@ export default function OnboardingScreen() {
       if (!res.ok || !res.data?.data?.accessToken) {
         const msg =
           (res.data as any)?.error?.message ??
-          (res.originalError?.message ?? `Request failed (${res.status ?? "no response"})`)
+          res.originalError?.message ??
+          `Request failed (${res.status ?? "no response"})`
         setAuthError(msg)
         return
       }
@@ -163,6 +198,22 @@ export default function OnboardingScreen() {
       }
 
       if (authMode === "login") {
+        const profileRes = await api.getOnboarding()
+        if (profileRes.ok && profileRes.data?.data) {
+          const d = profileRes.data.data
+          saveFarmerProfile({
+            name: d.name,
+            location: d.location ?? { label: "", county: "", country: "" },
+            productionType: d.productionType ?? "CROPS",
+            cropIds: d.cropIds,
+            livestockIds: d.livestockIds,
+            helpersLevel: d.helpersLevel ?? "SOLO",
+            acreage: d.acreage ?? 1,
+            goalSlugs: d.goalSlugs,
+          })
+        } else {
+          markOnboardingComplete()
+        }
         router.replace("/(tabs)/" as any)
       } else {
         setStep(1)
@@ -339,7 +390,10 @@ export default function OnboardingScreen() {
               <TextInput
                 style={$authInput}
                 value={authName}
-                onChangeText={(v) => { setAuthName(v); setAuthError(null) }}
+                onChangeText={(v) => {
+                  setAuthName(v)
+                  setAuthError(null)
+                }}
                 placeholder="John Kamau"
                 placeholderTextColor={ink4}
                 autoCapitalize="words"
@@ -353,7 +407,10 @@ export default function OnboardingScreen() {
           <TextInput
             style={$authInput}
             value={authEmail}
-            onChangeText={(v) => { setAuthEmail(v); setAuthError(null) }}
+            onChangeText={(v) => {
+              setAuthEmail(v)
+              setAuthError(null)
+            }}
             placeholder="you@example.com"
             placeholderTextColor={ink4}
             keyboardType="email-address"
@@ -366,7 +423,10 @@ export default function OnboardingScreen() {
           <TextInput
             style={$authInput}
             value={authPassword}
-            onChangeText={(v) => { setAuthPassword(v); setAuthError(null) }}
+            onChangeText={(v) => {
+              setAuthPassword(v)
+              setAuthError(null)
+            }}
             placeholder="••••••••"
             placeholderTextColor={ink4}
             secureTextEntry
@@ -401,12 +461,8 @@ export default function OnboardingScreen() {
             }}
           >
             <Text style={$authToggleText}>
-              {authMode === "login"
-                ? "Don't have an account? "
-                : "Already have an account? "}
-              <Text style={$authToggleLink}>
-                {authMode === "login" ? "Register" : "Sign in"}
-              </Text>
+              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+              <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -447,7 +503,6 @@ export default function OnboardingScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-
           {/* ---- Name ---- */}
           {step === 1 && (
             <>
@@ -612,7 +667,9 @@ export default function OnboardingScreen() {
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {crop.name}
                         </Text>
-                        <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        <View
+                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
+                        >
                           {selected && <Ionicons name="checkmark" size={10} color={card} />}
                         </View>
                       </Pressable>
@@ -652,7 +709,9 @@ export default function OnboardingScreen() {
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {animal.name}
                         </Text>
-                        <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        <View
+                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
+                        >
                           {selected && <Ionicons name="checkmark" size={10} color={card} />}
                         </View>
                       </Pressable>

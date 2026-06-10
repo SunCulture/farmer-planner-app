@@ -1,9 +1,27 @@
 import { ApisauceInstance, create } from "apisauce"
 
 import Config from "@/config"
-import type { FarmerLocation, FarmerProfile, HelpersLevel, ProductionType } from "@/modules/onboarding/domain/entities/farmer-profile"
+import type { FarmerLocation, HelpersLevel, ProductionType } from "@/modules/onboarding/domain/entities/farmer-profile"
 
+import type {
+  ActivityDetailDto,
+  DayCompletionsDto,
+  DayPlanDto,
+  EnrollPlanBody,
+  GeneratePlanBody,
+  GeneratedPlanDto,
+  HomeDataDto,
+  PatchPlanBody,
+  PlanChatResponseDto,
+  PlanRecommendationDto,
+  PlanTemplateDto,
+} from "./planner-types"
 import type { ApiConfig } from "./types"
+import { unwrap, unwrapRaw } from "./unwrap"
+
+export { ApiRequestError, unwrap, unwrapRaw } from "./unwrap"
+export type { ApiEnvelope, ApiErrorBody } from "./unwrap"
+export type * from "./planner-types"
 
 export const DEFAULT_API_CONFIG: ApiConfig = {
   url: Config.API_URL,
@@ -186,6 +204,76 @@ export class Api {
 
   async completeOnboarding() {
     return this.apisauce.post<{ data: Pick<OnboardingData, "farmerId" | "onboardingCompletedAt" | "suggestedStep" | "steps"> }>("/api/me/onboarding/complete")
+  }
+
+  // ---- Home & plans (authenticated) -----------------------------------------
+
+  async getHome(): Promise<HomeDataDto> {
+    const response = await this.apisauce.get("/api/me/home")
+    return unwrap<HomeDataDto>(response)
+  }
+
+  async getPlanRecommendations(): Promise<{ recommendations: PlanRecommendationDto[] }> {
+    const response = await this.apisauce.get("/api/me/plans/recommendations")
+    return unwrap<{ recommendations: PlanRecommendationDto[] }>(response)
+  }
+
+  async generatePlan(body: GeneratePlanBody): Promise<GeneratedPlanDto> {
+    const response = await this.apisauce.post("/api/me/plans/generate", body)
+    return unwrap<GeneratedPlanDto>(response)
+  }
+
+  async enrollPlan(body: EnrollPlanBody): Promise<{ planId: string }> {
+    const response = await this.apisauce.post("/api/me/plans", body)
+    return unwrap<{ planId: string }>(response)
+  }
+
+  async listTemplates(params?: { goal?: string; durationDays?: number }): Promise<{ templates: PlanTemplateDto[] }> {
+    const response = await this.apisauce.get("/api/templates", params)
+    return unwrapRaw<{ templates: PlanTemplateDto[] }>(response)
+  }
+
+  async getDayPlan(date: string): Promise<DayPlanDto> {
+    const response = await this.apisauce.get(`/api/me/days/${date}/plan`)
+    return unwrap<DayPlanDto>(response)
+  }
+
+  async getActivity(activityId: string): Promise<ActivityDetailDto> {
+    const response = await this.apisauce.get(`/api/me/activities/${activityId}`)
+    return unwrap<ActivityDetailDto>(response)
+  }
+
+  async getDayCompletions(date: string): Promise<DayCompletionsDto> {
+    const response = await this.apisauce.get(`/api/me/days/${date}/completions`)
+    return unwrap<DayCompletionsDto>(response)
+  }
+
+  async submitCompletion(activityId: string, formData: FormData): Promise<{
+    id: string
+    activityId: string
+    journalText: string
+    photoUrls: string[]
+    status: string
+    verifiedAt: string | null
+  }> {
+    const response = await this.apisauce.post(
+      `/api/activities/${activityId}/completions`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    )
+    return unwrap(response)
+  }
+
+  async chatPlan(planId: string, message: string): Promise<PlanChatResponseDto> {
+    const response = await this.apisauce.post(`/api/me/plans/${planId}/chat`, { message })
+    return unwrap<PlanChatResponseDto>(response)
+  }
+
+  async patchPlan(planId: string, body: PatchPlanBody): Promise<{ planId: string; updated: boolean }> {
+    const response = await this.apisauce.patch(`/api/me/plans/${planId}`, body)
+    return unwrap<{ planId: string; updated: boolean }>(response)
   }
 }
 

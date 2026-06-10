@@ -18,6 +18,10 @@ export function isOnboardingComplete(): boolean {
   return loadString(ONBOARDING_KEY) === "1"
 }
 
+export function markOnboardingComplete(): void {
+  saveString(ONBOARDING_KEY, "1")
+}
+
 export function saveAuthToken(token: string): void {
   saveString(AUTH_TOKEN_KEY, token)
 }

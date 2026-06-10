@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react"
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -13,9 +14,14 @@ import {
 } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import * as ImagePicker from "expo-image-picker"
+import { useQueryClient } from "@tanstack/react-query"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_CLEARANCE } from "@/app/(tabs)/_layout"
+import { ApiErrorView } from "@/components/ApiErrorView"
+import { getApiErrorMessage } from "@/shared/infrastructure/api-error"
+import { plannerKeys } from "@/shared/query-keys"
 import {
   card,
   cardBorder,
@@ -36,19 +42,18 @@ import {
   statusGoodBg,
 } from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
-import { buildActivitiesForDate } from "@/modules/plan/infrastructure/activities-calendar"
 
-import type { JournalEntry } from "../domain/entities/journal-entry"
-import { addEntry, getAllEntries } from "../infrastructure/journal-service"
+import {
+  buildTimelineDates,
+  todayStr,
+  useJournalTimeline,
+} from "../application/use-journal-timeline"
+import { useSubmitCompletion } from "../application/use-submit-completion"
+import type { DayCompletionActivity, DaySummary } from "../domain/entities/completion"
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
 
 function dateStrDaysAgo(n: number): string {
   const d = new Date()
@@ -121,28 +126,58 @@ function EntryForm({
 }) {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const submitCompletion = useSubmitCompletion()
 
   const [notes, setNotes] = useState("")
-  const [photoCount, setPhotoCount] = useState(0)
-  const [isSaving, setIsSaving] = useState(false)
+  const [photoUris, setPhotoUris] = useState<string[]>([])
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const isActivityLinked = Boolean(activityId && activityName)
+  const canVerify = notes.trim().length >= 20 && photoUris.length >= 1
 
-  function handleSave() {
-    if (!notes.trim()) return
-    setIsSaving(true)
-    setTimeout(() => {
-      addEntry({ date, notes, photoCount, activityId, activityName, activityIcon })
-      router.back()
-    }, 250)
+  async function handlePhoto(source: "camera" | "gallery") {
+    const permission =
+      source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync()
+
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow camera or photo access to attach farm photos.")
+      return
+    }
+
+    const result =
+      source === "camera"
+        ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false })
+        : await ImagePicker.launchImageLibraryAsync({
+            quality: 0.8,
+            allowsMultipleSelection: true,
+            selectionLimit: 5 - photoUris.length,
+          })
+
+    if (!result.canceled && result.assets.length > 0) {
+      setPhotoUris((prev) => [...prev, ...result.assets.map((a) => a.uri)].slice(0, 5))
+    }
   }
 
-  function handlePhoto(source: "camera" | "gallery") {
-    setPhotoCount((n) => n + 1)
-    Alert.alert(
-      "Photo attached",
-      `${source === "camera" ? "Camera" : "Gallery"} integration coming soon. Photo count updated.`,
-    )
+  async function handleSave() {
+    if (!notes.trim()) return
+    if (!activityId) {
+      Alert.alert("Activity required", "Link this entry to an activity from Home or Plan.")
+      return
+    }
+
+    setSaveError(null)
+    try {
+      await submitCompletion.mutateAsync({
+        activityId,
+        journalText: notes.trim(),
+        photoUris,
+      })
+      router.back()
+    } catch (err) {
+      setSaveError(getApiErrorMessage(err))
+    }
   }
 
   return (
@@ -190,20 +225,24 @@ function EntryForm({
 
         {/* ── Photo upload ── */}
         <Text style={$sectionLabel}>Upload Farm Photo</Text>
+        <Text style={$verifyHint}>
+          Add a photo and 20+ characters to get verified completion status.
+        </Text>
         <View style={$photoRow}>
           <TouchableOpacity
-            style={[$photoBtn, $photoBtnSolid, photoCount > 0 && $photoBtnSet]}
+            style={[$photoBtn, $photoBtnSolid, photoUris.length > 0 && $photoBtnSet]}
             onPress={() => handlePhoto("camera")}
             activeOpacity={0.8}
+            disabled={photoUris.length >= 5}
           >
             <Ionicons
-              name={photoCount > 0 ? "camera" : "camera-outline"}
+              name={photoUris.length > 0 ? "camera" : "camera-outline"}
               size={24}
-              color={photoCount > 0 ? forest600 : forest500}
+              color={photoUris.length > 0 ? forest600 : forest500}
             />
-            <Text style={[$photoBtnLabel, photoCount > 0 && $photoBtnLabelSet]}>Take Photo</Text>
+            <Text style={[$photoBtnLabel, photoUris.length > 0 && $photoBtnLabelSet]}>Take Photo</Text>
             <Text style={$photoBtnSub}>
-              {photoCount > 0 ? `${photoCount} attached` : "Use your camera"}
+              {photoUris.length > 0 ? `${photoUris.length} attached` : "Use your camera"}
             </Text>
           </TouchableOpacity>
 
@@ -211,12 +250,19 @@ function EntryForm({
             style={[$photoBtn, $photoBtnDashed]}
             onPress={() => handlePhoto("gallery")}
             activeOpacity={0.8}
+            disabled={photoUris.length >= 5}
           >
             <Ionicons name="images-outline" size={24} color={ink3} />
             <Text style={$photoBtnLabel}>From Gallery</Text>
             <Text style={$photoBtnSub}>Browse your photos</Text>
           </TouchableOpacity>
         </View>
+
+        {canVerify ? (
+          <Text style={$verifyReady}>Ready for verification ✓</Text>
+        ) : null}
+
+        {saveError ? <Text style={$saveError}>{saveError}</Text> : null}
 
         {/* ── Notes ── */}
         <Text style={$sectionLabel}>
@@ -243,12 +289,16 @@ function EntryForm({
             <Text style={$voiceBtnLabel}>Voice Note</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[$saveBtn, (!notes.trim() || isSaving) && $saveBtnDisabled]}
+            style={[$saveBtn, (!notes.trim() || submitCompletion.isPending) && $saveBtnDisabled]}
             onPress={handleSave}
             activeOpacity={0.85}
-            disabled={!notes.trim() || isSaving}
+            disabled={!notes.trim() || submitCompletion.isPending}
           >
-            <Text style={$saveBtnLabel}>{isSaving ? "Saving…" : "Save Entry"}</Text>
+            {submitCompletion.isPending ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={$saveBtnLabel}>Save Entry</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -260,42 +310,25 @@ function EntryForm({
 // JournalTimeline — grouped by day; default tab view
 // ---------------------------------------------------------------------------
 
-type DaySummary = {
-  date: string
-  completedActivities: Array<{ name: string; icon: string }>
-  entries: JournalEntry[]
-}
-
-function buildTimeline(): DaySummary[] {
-  const today = todayStr()
-  const allEntries = getAllEntries()
-  const days = [today, ...Array.from({ length: 13 }, (_, i) => dateStrDaysAgo(i + 1))]
-
-  return days.map((date) => {
-    const activities = buildActivitiesForDate(date)
-    const completedActivities = activities
-      .filter((a) => a.done)
-      .map((a) => ({ name: a.name, icon: a.icon }))
-    const entries = allEntries.filter((e) => e.date === date)
-    return { date, completedActivities, entries }
-  })
-}
-
 function JournalTimeline() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const today = todayStr()
 
-  const [timeline, setTimeline] = useState(() => buildTimeline())
+  const dates = useMemo(() => buildTimelineDates(), [])
+  const { timeline, isLoading, error: hasError } = useJournalTimeline(dates)
 
   useFocusEffect(
     useCallback(() => {
-      setTimeline(buildTimeline())
-    }, []),
+      dates.forEach((date) => {
+        queryClient.invalidateQueries({ queryKey: plannerKeys.dayCompletions(date) })
+      })
+    }, [queryClient, dates]),
   )
 
   const daysWithContent = useMemo(
-    () => timeline.filter((d) => d.completedActivities.length > 0 || d.entries.length > 0),
+    () => timeline.filter((d) => d.activities.length > 0),
     [timeline],
   )
 
@@ -311,7 +344,11 @@ function JournalTimeline() {
         <Text style={$screenLabel}>FARMING JOURNAL</Text>
         <Text style={$screenTitle}>My Journal</Text>
 
-        {daysWithContent.length === 0 ? (
+        {isLoading && daysWithContent.length === 0 ? (
+          <ActivityIndicator size="large" color={forest500} style={{ marginTop: spacing.s6 }} />
+        ) : hasError && daysWithContent.length === 0 ? (
+          <ApiErrorView error={hasError} title="Could not load journal" />
+        ) : daysWithContent.length === 0 ? (
           <View style={$emptyState}>
             <Text style={$emptyStateText}>
               No entries yet.{"\n"}Tap an activity on Home or Plan to start journalling.
@@ -370,27 +407,14 @@ function TimelineDay({
         <View style={$dayHeaderLine} />
       </View>
 
-      {/* Completed activities */}
-      {day.completedActivities.length > 0 && (
-        <View style={$chipsRow}>
-          {day.completedActivities.map((a) => (
-            <View key={a.name} style={$chip}>
-              <Text style={$chipIcon}>{a.icon}</Text>
-              <Ionicons name="checkmark" size={11} color={forest600} />
-              <Text style={$chipText}>{a.name}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Entry cards */}
-      {day.entries.length === 0 && isToday && (
+      {day.activities.length === 0 && isToday ? (
         <View style={$emptyDayCard}>
           <Text style={$emptyDayText}>No entries yet today.</Text>
         </View>
-      )}
-      {day.entries.map((entry) => (
-        <EntryCard key={entry.id} entry={entry} />
+      ) : null}
+
+      {day.activities.map((activity) => (
+        <CompletionCard key={activity.id} activity={activity} />
       ))}
 
       {!isLast && <View style={$connectorLine} />}
@@ -402,62 +426,34 @@ function TimelineDay({
 // EntryCard — richer view with notes, photos, AI summary
 // ---------------------------------------------------------------------------
 
-function EntryCard({ entry }: { entry: JournalEntry }) {
-  function handleViewPhotos() {
-    Alert.alert("Photos", `This entry has ${entry.photoCount} photo${entry.photoCount !== 1 ? "s" : ""}. Photo viewer coming soon.`)
-  }
+function CompletionCard({ activity }: { activity: DayCompletionActivity }) {
+  const completion = activity.completion
+  if (!completion) return null
+
+  const photoCount = completion.photoUrls.length
 
   return (
     <View style={$entryCard}>
-      {/* Activity badge (if linked) */}
-      {entry.activityName && (
-        <View style={$entryActivityRow}>
-          <Text style={$entryActivityIcon}>{entry.activityIcon}</Text>
-          <Text style={$entryActivityName}>{entry.activityName}</Text>
+      <View style={$entryActivityRow}>
+        <Text style={$entryActivityName}>{activity.title}</Text>
+        <View style={$statusPill}>
+          <Text style={$statusPillText}>{activity.status.label}</Text>
         </View>
-      )}
+      </View>
 
-      {/* ── What I did today ── */}
       <Text style={$entrySectionHeader}>What I did</Text>
-      <Text style={$entryNotes}>&ldquo;{entry.notes}&rdquo;</Text>
+      <Text style={$entryNotes}>&ldquo;{completion.journalText}&rdquo;</Text>
 
       <View style={$entryDivider} />
 
-      {/* ── Photos ── */}
-      <TouchableOpacity
-        style={$entryMetaRow}
-        onPress={entry.photoCount > 0 ? handleViewPhotos : undefined}
-        activeOpacity={entry.photoCount > 0 ? 0.7 : 1}
-      >
+      <View style={$entryMetaRow}>
         <View style={$entryMetaLeft}>
           <Ionicons name="camera-outline" size={15} color={ink3} />
           <Text style={$entryMetaLabel}>
-            {entry.photoCount > 0 ? `${entry.photoCount} photo${entry.photoCount !== 1 ? "s" : ""}` : "No photos"}
+            {photoCount > 0 ? `${photoCount} photo${photoCount !== 1 ? "s" : ""}` : "No photos"}
           </Text>
         </View>
-        {entry.photoCount > 0 && (
-          <Text style={$entryMetaAction}>View all →</Text>
-        )}
-      </TouchableOpacity>
-
-      {/* ── AI conversation ── */}
-      {entry.aiSummary ? (
-        <View style={$aiSummaryBox}>
-          <View style={$aiSummaryHeader}>
-            <Text style={$aiSummaryEmoji}>🤖</Text>
-            <Text style={$aiSummaryLabel}>AI SUMMARY</Text>
-          </View>
-          <Text style={$aiSummaryText}>{entry.aiSummary}</Text>
-        </View>
-      ) : (
-        <View style={$aiSummaryBox}>
-          <View style={$aiSummaryHeader}>
-            <Text style={$aiSummaryEmoji}>🤖</Text>
-            <Text style={$aiSummaryLabel}>AI SUMMARY</Text>
-          </View>
-          <Text style={$aiSummaryEmpty}>No AI analysis yet for this entry.</Text>
-        </View>
-      )}
+      </View>
     </View>
   )
 }
@@ -570,6 +566,28 @@ const $sectionLabel: TextStyle = {
   fontSize: 15,
   color: ink,
   marginBottom: spacing.s2,
+}
+
+const $verifyHint: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink3,
+  marginBottom: spacing.s3,
+  lineHeight: 17,
+}
+
+const $verifyReady: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 12,
+  color: forest600,
+  marginBottom: spacing.s3,
+}
+
+const $saveError: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: "#C0392B",
+  marginBottom: spacing.s3,
 }
 
 const $photoRow: ViewStyle = {
@@ -836,8 +854,22 @@ const $entryActivityRow: ViewStyle = {
 const $entryActivityIcon: TextStyle = { fontSize: 16 }
 
 const $entryActivityName: TextStyle = {
+  flex: 1,
   fontFamily: typography.primary.semiBold,
   fontSize: 13,
+  color: forest600,
+}
+
+const $statusPill: ViewStyle = {
+  backgroundColor: statusGoodBg,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.s2,
+  paddingVertical: 2,
+}
+
+const $statusPillText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 11,
   color: forest600,
 }
 

@@ -11,8 +11,9 @@ import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { loadFarmerProfile } from "@/modules/onboarding"
+import { clearAuthToken, loadFarmerProfile } from "@/modules/onboarding"
 import { useCrops, useGoals, useLivestock } from "@/modules/onboarding/application/use-catalog-queries"
+import { api } from "@/services/api"
 import {
   card,
   forest50,
@@ -26,6 +27,8 @@ import {
   paper,
   radii,
   spacing,
+  statusBad,
+  statusBadBg,
   statusGood,
   statusGoodBg,
 } from "@/theme/tapp-tokens"
@@ -191,6 +194,13 @@ export default function ProfileScreen() {
     profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
   const workStyleEmoji = profile.helpersLevel === "SOLO" ? "🧑‍🌾" : "👨‍👩‍👧"
 
+  function handleLogout() {
+    api.logout("").catch(() => {})
+    clearAuthToken()
+    api.clearAuthToken()
+    router.replace("/onboarding" as any)
+  }
+
   const showCrops = isCrops || isMixed
   const showLivestock = !isCrops || isMixed
 
@@ -312,6 +322,12 @@ export default function ProfileScreen() {
           <Ionicons name="checkmark-circle" size={16} color={statusGood} style={{ marginRight: 6 }} />
           <Text style={$completionText}>Onboarding complete · Farm plan active</Text>
         </View>
+
+        {/* ── Logout ── */}
+        <TouchableOpacity style={$logoutBtn} activeOpacity={0.7} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color={statusBad} />
+          <Text style={$logoutText}>Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   )
@@ -536,6 +552,24 @@ const $completionText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 13,
   color: statusGood,
+}
+
+const $logoutBtn: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: spacing.s2,
+  backgroundColor: statusBadBg,
+  borderRadius: radii.xl,
+  paddingVertical: spacing.s4,
+  borderWidth: 1,
+  borderColor: statusBad + "33",
+}
+
+const $logoutText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 15,
+  color: statusBad,
 }
 
 const $emptyState: ViewStyle = {
