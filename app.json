@@ -1,6 +1,6 @@
 {
-  "name": "tapit-app-react-native",
-  "slug": "tapit-app-react-native",
+  "name": "tujiweze",
+  "slug": "tujiweze",
   "scheme": "tapp",
   "version": "1.0.0",
   "orientation": "portrait",
@@ -16,7 +16,7 @@
   ],
   "android": {
     "icon": "./assets/images/app-icon-android-legacy.png",
-    "package": "com.tapitappreactnative",
+    "package": "com.tujiweze",
     "adaptiveIcon": {
       "foregroundImage": "./assets/images/app-icon-android-adaptive-foreground.png",
       "backgroundImage": "./assets/images/app-icon-android-adaptive-background.png"
@@ -27,7 +27,7 @@
   "ios": {
     "icon": "./assets/images/app-icon-ios.png",
     "supportsTablet": true,
-    "bundleIdentifier": "com.tapitappreactnative"
+    "bundleIdentifier": "com.tujiweze"
   },
   "web": {
     "favicon": "./assets/images/app-icon-web-favicon.png",

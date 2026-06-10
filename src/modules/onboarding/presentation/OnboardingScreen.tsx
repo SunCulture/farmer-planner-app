@@ -34,21 +34,24 @@ import { typography } from "@/theme/typography"
 import { api } from "@/services/api"
 
 import { saveFarmerProfile } from "../application/farmer-profile-store"
-import type { FarmSize, FarmType, WorkStyle } from "../domain/entities/farmer-profile"
 import { CROPS, GOALS, LIVESTOCK, REGIONS } from "../infrastructure/mock-data"
 
 // ---------------------------------------------------------------------------
-// Types
+// Types (UI-local — not the same as the API entity)
 // ---------------------------------------------------------------------------
+
+type FarmTypeUI = "crops" | "livestock"
+type WorkStyleUI = "solo" | "helpers"
+type FarmSizeUI = "small" | "medium" | "large"
 
 interface DraftProfile {
   name: string
   location: string
-  farmType: FarmType | null
+  farmType: FarmTypeUI | null
   crops: string[]
   livestock: string[]
-  workStyle: WorkStyle | null
-  farmSize: FarmSize | null
+  workStyle: WorkStyleUI | null
+  farmSize: FarmSizeUI | null
   goals: string[]
 }
 
@@ -61,6 +64,12 @@ const INITIAL_DRAFT: DraftProfile = {
   workStyle: null,
   farmSize: null,
   goals: [],
+}
+
+const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
+  small: 0.5,
+  medium: 2.5,
+  large: 7.5,
 }
 
 // Steps: 0=welcome  1=name  2=location  3=farmType  4=species  5=helpers  6=farmSize  7=goals  8=success
@@ -84,19 +93,20 @@ export default function OnboardingScreen() {
   const goBack = () => setStep((s) => Math.max(0, s - 1))
   const skipToDashboard = () => router.replace("/(tabs)/" as any)
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const profile = {
       name: draft.name,
-      location: draft.location,
-      farmType: draft.farmType!,
-      crops: draft.crops,
-      livestock: draft.livestock,
-      workStyle: draft.workStyle!,
-      farmSize: draft.farmSize!,
-      goals: draft.goals,
+      location: { label: draft.location, county: draft.location, country: "Kenya" },
+      productionType: (draft.farmType === "crops" ? "CROPS" : "LIVESTOCK") as import("../domain/entities/farmer-profile").ProductionType,
+      cropIds: draft.crops,
+      livestockIds: draft.livestock,
+      helpersLevel: (draft.workStyle === "solo" ? "SOLO" : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
+      acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
+      goalSlugs: draft.goals,
     }
     saveFarmerProfile(profile)
-    api.postOnboarding(profile)
+    await api.patchOnboarding(profile)
+    await api.completeOnboarding()
     setStep(8)
   }
 
@@ -224,7 +234,7 @@ export default function OnboardingScreen() {
           {step === 0 && (
             <>
               <View style={$welcomeBadge}>
-                <Text style={$welcomeBadgeText}>✦ Jipange Bana</Text>
+                <Text style={$welcomeBadgeText}>✦ Tujiweze</Text>
               </View>
               <View style={$heroContainer}>
                 <Text style={$heroEmoji}>🧑‍🌾</Text>
@@ -310,7 +320,7 @@ export default function OnboardingScreen() {
               {(
                 [
                   {
-                    id: "crops" as FarmType,
+                    id: "crops" as FarmTypeUI,
                     label: "Crops",
                     desc: "Fruits, vegetables & grains",
                     illustration: "🌳🌽🍅",
@@ -318,7 +328,7 @@ export default function OnboardingScreen() {
                     icon: "🌱",
                   },
                   {
-                    id: "livestock" as FarmType,
+                    id: "livestock" as FarmTypeUI,
                     label: "Livestock",
                     desc: "Cows, goats, chickens & more",
                     illustration: "🐄🐔🐐",
@@ -436,14 +446,14 @@ export default function OnboardingScreen() {
               {(
                 [
                   {
-                    id: "solo" as WorkStyle,
+                    id: "solo" as WorkStyleUI,
                     label: "Solo Farmer",
                     desc: "I work my farm on my own",
                     illustration: "🧑‍🌾",
                     icon: "👤",
                   },
                   {
-                    id: "helpers" as WorkStyle,
+                    id: "helpers" as WorkStyleUI,
                     label: "With Helpers",
                     desc: "I have farmhands or family help",
                     illustration: "👨‍👩‍👧",
@@ -486,21 +496,21 @@ export default function OnboardingScreen() {
               {(
                 [
                   {
-                    id: "small" as FarmSize,
+                    id: "small" as FarmSizeUI,
                     label: "Small Farm",
                     desc: "Under 1 acre",
                     emoji: "🌿🌿",
                     icon: "🌱",
                   },
                   {
-                    id: "medium" as FarmSize,
+                    id: "medium" as FarmSizeUI,
                     label: "Medium Farm",
                     desc: "1 to 5 acres",
                     emoji: "🌾🌾🌾",
                     icon: "🌿",
                   },
                   {
-                    id: "large" as FarmSize,
+                    id: "large" as FarmSizeUI,
                     label: "Large Farm",
                     desc: "Over 5 acres",
                     emoji: "🌳🌳🌳🌳",

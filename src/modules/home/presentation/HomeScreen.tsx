@@ -157,7 +157,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Weather card */}
-        <View style={$weatherCard}>
+        {/* <View style={$weatherCard}>
           <View style={$weatherIconCircle}>
             <Text style={$weatherIconEmoji}>{MOCK_WEATHER.icon}</Text>
           </View>
@@ -171,13 +171,13 @@ export default function HomeScreen() {
             <Text style={$weatherTemp}>{MOCK_WEATHER.temperature}°</Text>
             <Text style={$weatherTempLabel}>Today</Text>
           </View>
-        </View>
+        </View> */}
       </View>
 
       {/* ── Lower section: plans + activities on paper bg ── */}
       <View style={$lowerSection}>
         {/* AI Insight card */}
-        <View style={$insightCard}>
+        {/* <View style={$insightCard}>
           <View style={$insightIconWrap}>
             <Text style={$insightIconEmoji}>🤖</Text>
           </View>
@@ -185,7 +185,7 @@ export default function HomeScreen() {
             <Text style={$insightLabel}>AI INSIGHT</Text>
             <Text style={$insightText}>{MOCK_AI_INSIGHT.text}</Text>
           </View>
-        </View>
+        </View> */}
 
         {/* Farm Plan Templates */}
         <View style={$sectionHeaderRow}>

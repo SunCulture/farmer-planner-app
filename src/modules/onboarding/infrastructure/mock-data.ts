@@ -45,10 +45,10 @@ export const LIVESTOCK = [
 ] as const
 
 export const GOALS = [
-  { id: "money", name: "Make more money", emoji: "💰" },
-  { id: "harvest", name: "Increase harvest", emoji: "🌽" },
-  { id: "time", name: "Save time", emoji: "⏰" },
-  { id: "losses", name: "Reduce farm losses", emoji: "📉" },
-  { id: "livestock_health", name: "Improve livestock health", emoji: "🐄" },
-  { id: "modern", name: "Learn modern farming", emoji: "📚" },
+  { id: "MAKE_MONEY", name: "Make more money", emoji: "💰" },
+  { id: "FOOD_SECURITY", name: "Increase harvest", emoji: "🌽" },
+  { id: "SAVE_TIME", name: "Save time", emoji: "⏰" },
+  { id: "REDUCE_LOSSES", name: "Reduce farm losses", emoji: "📉" },
+  { id: "LIVESTOCK_HEALTH", name: "Improve livestock health", emoji: "🐄" },
+  { id: "MODERN_FARMING", name: "Learn modern farming", emoji: "📚" },
 ] as const

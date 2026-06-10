@@ -1,4 +1,4 @@
-// Design tokens for Jipange Bana farmer planning app
+// Design tokens for Tujiweze farmer planning app
 
 // ---------------------------------------------------------------------------
 // Surfaces & backgrounds
