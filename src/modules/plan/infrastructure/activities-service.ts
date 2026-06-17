@@ -7,8 +7,10 @@
 
 import type { PlanActivity } from "../domain/entities/activity"
 import { buildActivitiesForDate } from "./activities-calendar"
+import { api } from "@/services/api"
+import { getGeneralApiProblem } from "@/services/api/apiProblem"
 
-export const API_LIVE = false
+export const API_LIVE = true
 
 const API_LATENCY_MS = 800
 const FALLBACK_LATENCY_MS = 150
@@ -19,11 +21,38 @@ function sleep(ms: number): Promise<void> {
 
 async function fetchFromApi(dateStr: string): Promise<PlanActivity[]> {
   await sleep(API_LATENCY_MS)
-  // Simulate ~10% network error rate so the fallback path is exercised in dev
-  if (Math.random() < 0.1) {
-    throw new Error(`[activities-service] Network error fetching ${dateStr}`)
+  const response = await api.getDayPlan(dateStr)
+  const problem = getGeneralApiProblem(response)
+  if (problem) {
+    throw new Error(`[activities-service] ${problem.kind} while fetching ${dateStr}`)
   }
-  return buildActivitiesForDate(dateStr)
+
+  const rows = response.data?.data?.activities ?? response.data?.activities
+  if (!Array.isArray(rows)) {
+    throw new Error(`[activities-service] Invalid day plan shape for ${dateStr}`)
+  }
+
+  return rows.map((row: any, index: number) => ({
+    id: typeof row?.id === "string" ? row.id : `${dateStr}-${index}`,
+    name:
+      typeof row?.title === "string"
+        ? row.title
+        : typeof row?.name === "string"
+          ? row.name
+          : `Activity ${index + 1}`,
+    title: typeof row?.title === "string" ? row.title : undefined,
+    subtitle: typeof row?.subtitle === "string" ? row.subtitle : undefined,
+    description: typeof row?.description === "string" ? row.description : undefined,
+    icon: typeof row?.iconKey === "string" ? "🌾" : "🧩",
+    iconKey: typeof row?.iconKey === "string" ? row.iconKey : undefined,
+    priority: "Medium",
+    durationMinutes: 20,
+    done: false,
+    highlight:
+      row?.highlight && typeof row.highlight.text === "string"
+        ? { text: row.highlight.text, addedAt: String(row.highlight.addedAt ?? "") }
+        : null,
+  }))
 }
 
 export async function getActivitiesForDay(dateStr: string): Promise<PlanActivity[]> {

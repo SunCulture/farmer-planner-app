@@ -6,5 +6,5 @@
  * https://reactnative.dev/docs/security#storing-sensitive-info
  */
 export default {
-  API_URL: "https://d9b0-197-155-74-246.ngrok-free.app/",
+  API_URL: "https://a6f5-197-155-74-246.ngrok-free.app/",
 }

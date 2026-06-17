@@ -106,6 +106,56 @@ export interface PatchOnboardingBody {
   goalSlugs?: string[]
 }
 
+export interface ActivityHighlightResponse {
+  text: string
+  addedAt: string
+}
+
+export interface ActivityDetailResponse {
+  id: string
+  title: string
+  subtitle?: string
+  description?: string
+  status?: { code: string; label: string; color: string }
+  iconKey?: string
+  highlight: ActivityHighlightResponse | null
+  cta?: { label: string; route: string }
+  planId?: string
+  date?: string
+}
+
+export interface AskActivityQuestionBody {
+  question: string
+}
+
+export interface AskActivityQuestionData {
+  questionId: string
+  question: string
+  status: "pending" | "answered" | "failed"
+}
+
+export interface ActivityQuestionItemResponse {
+  id?: string
+  questionId?: string
+  question: string
+  answer: string | null
+  status: "pending" | "answered" | "failed"
+  relatedFaqs?: { question: string; previewAnswer: string }[]
+  createdAt: string
+}
+
+export interface DayActivityQuestionResponse {
+  activityId: string
+  activityTitle: string
+  highlight: ActivityHighlightResponse | null
+  questions: {
+    questionId: string
+    question: string
+    answer: string | null
+    createdAt: string
+  }[]
+}
+
 // ---- Api class ----------------------------------------------------------------
 
 export class Api {
@@ -186,6 +236,41 @@ export class Api {
 
   async completeOnboarding() {
     return this.apisauce.post<{ data: Pick<OnboardingData, "farmerId" | "onboardingCompletedAt" | "suggestedStep" | "steps"> }>("/api/me/onboarding/complete")
+  }
+
+  // ---- Activities + Q&A ------------------------------------------------------
+
+  async getDayPlan(date: string) {
+    return this.apisauce.get<{ data?: { activities?: ActivityDetailResponse[] }; activities?: ActivityDetailResponse[] }>(
+      `/api/me/days/${date}/plan`,
+    )
+  }
+
+  async getActivityDetail(activityId: string) {
+    return this.apisauce.get<{ data?: ActivityDetailResponse; activity?: ActivityDetailResponse }>(
+      `/api/me/activities/${activityId}`,
+    )
+  }
+
+  async askActivityQuestion(activityId: string, body: AskActivityQuestionBody) {
+    return this.apisauce.post<{ data: AskActivityQuestionData }>(
+      `/api/me/activities/${activityId}/questions`,
+      body,
+    )
+  }
+
+  async getActivityQuestions(activityId: string) {
+    return this.apisauce.get<{
+      data?: { questions?: ActivityQuestionItemResponse[] }
+      questions?: ActivityQuestionItemResponse[]
+    }>(`/api/me/activities/${activityId}/questions`)
+  }
+
+  async getDayActivityQuestions(date: string) {
+    return this.apisauce.get<{
+      data?: { activities?: DayActivityQuestionResponse[] }
+      activities?: DayActivityQuestionResponse[]
+    }>(`/api/me/days/${date}/activity-questions`)
   }
 }
 

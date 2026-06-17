@@ -9,6 +9,8 @@ import appBootstrap from "@/bootstrap/app-bootstrap"
 import { container } from "@/bootstrap/container"
 import { setupNotifications, addNotificationResponseListener } from "@/bootstrap/notifications"
 import { initI18n } from "@/i18n"
+import { loadAuthToken } from "@/modules/onboarding/application/farmer-profile-store"
+import { connectActivitySSE, disconnectActivitySSE } from "@/modules/plan/infrastructure/activity-qa-sse"
 import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
@@ -72,6 +74,17 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
     const notificationSub = addNotificationResponseListener()
     return () => notificationSub.remove()
+  }, [isBootstrapInitialized])
+
+  useEffect(() => {
+    if (!isBootstrapInitialized) return
+    const token = loadAuthToken()
+    if (!token) return
+
+    connectActivitySSE(token)
+    return () => {
+      disconnectActivitySSE()
+    }
   }, [isBootstrapInitialized])
 
   useEffect(() => {

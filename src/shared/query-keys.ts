@@ -6,4 +6,11 @@ export const expensesKeys = {
   prediction: () => ["expenses", "prediction"] as const,
 }
 
+export const planKeys = {
+  all: ["plan"] as const,
+  day: (date: string) => ["plan", "day", date] as const,
+  activityQuestions: (activityId: string) => ["plan", "activity-questions", activityId] as const,
+  dayActivityQuestions: (date: string) => ["plan", "day-activity-questions", date] as const,
+}
+
 export default expensesKeys

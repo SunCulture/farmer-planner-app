@@ -13,6 +13,7 @@ import {
 } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_BOTTOM_GAP, FLOATING_NAV_HEIGHT } from "@/app/(tabs)/_layout"
@@ -42,6 +43,16 @@ import { typography } from "@/theme/typography"
 import type { PlanActivity, Priority } from "../domain/entities/activity"
 import { getActivitiesForDay } from "../infrastructure/activities-service"
 import { MOCK_BOT_GREETING, MOCK_CHAT_SUGGESTIONS } from "../infrastructure/mock-data"
+import type { ActivityHighlight, ActivityQuestion } from "../domain/entities/activity-qa"
+import {
+  askActivityQuestion,
+  getDayActivityQuestions,
+  getQuestionsForActivity,
+  isUuidLike,
+  parseAnswerStreamEvent,
+} from "../infrastructure/activity-qa-service"
+import { subscribeActivitySSE } from "../infrastructure/activity-qa-sse"
+import { applyAnswerStreamEvent, upsertActivityQuestion } from "./activity-qa-state"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -90,6 +101,9 @@ export default function PlanScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState("")
+  const [errorBanner, setErrorBanner] = useState<string | null>(null)
+  const [questionsByActivityId, setQuestionsByActivityId] = useState<Record<string, ActivityQuestion[]>>({})
+  const [insightError, setInsightError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -97,17 +111,102 @@ export default function PlanScreen() {
     setExpandedId(null)
     setChatOpen(false)
 
-    getActivitiesForDay(dateStr).then((acts) => {
-      if (!cancelled) {
-        setActivities(acts)
-        setLoadStatus("ready")
-      }
-    })
+    getActivitiesForDay(dateStr)
+      .then((acts) => {
+        if (!cancelled) {
+          setActivities(acts)
+          setLoadStatus("ready")
+        }
+      })
+      .catch((error) => {
+        console.error("[plan] failed loading activities", error)
+        if (!cancelled) {
+          setActivities([])
+          setLoadStatus("ready")
+          setErrorBanner("Could not load activities. Pull to refresh or try again shortly.")
+        }
+      })
 
     return () => {
       cancelled = true
     }
   }, [dateStr])
+
+  useEffect(() => {
+    const unsubscribe = subscribeActivitySSE("activity_answer_stream", (payload) => {
+      const event = parseAnswerStreamEvent(payload)
+      if (!event) return
+      let targetActivityId: string | null = null
+      setQuestionsByActivityId((prev) => {
+        for (const [activityId, questions] of Object.entries(prev)) {
+          if (questions.some((q) => q.questionId === event.questionId)) {
+            targetActivityId = activityId
+            break
+          }
+        }
+        return applyAnswerStreamEvent(prev, event.questionId, event)
+      })
+      if (event.error) {
+        setErrorBanner("Could not fetch one answer. You can retry that question.")
+        return
+      }
+      if (event.isHighlight && event.highlightText && targetActivityId) {
+        const nextHighlight: ActivityHighlight = {
+          text: event.highlightText,
+          addedAt: new Date().toISOString(),
+        }
+        setActivities((prev) =>
+          prev.map((item) => (item.id === targetActivityId ? { ...item, highlight: nextHighlight } : item)),
+        )
+      }
+    })
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.allSettled(
+      activities.filter((activity) => isUuidLike(activity.id)).map(async (activity) => ({
+        activityId: activity.id,
+        questions: await getQuestionsForActivity(activity.id),
+      })),
+    )
+      .then((rows) => {
+        if (cancelled) return
+        const next: Record<string, ActivityQuestion[]> = {}
+        for (const row of rows) {
+          if (row.status === "fulfilled") {
+            next[row.value.activityId] = row.value.questions
+          }
+        }
+        setQuestionsByActivityId(next)
+      })
+      .catch((error) => {
+        console.warn("[plan] could not load activity questions", error)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activities])
+
+  const dayInsights = useQuery({
+    queryKey: ["plan", "day-activity-questions", dateStr],
+    queryFn: () => getDayActivityQuestions(dateStr),
+    retry: 1,
+  })
+
+  useEffect(() => {
+    if (dayInsights.error) {
+      setInsightError("Could not load today's insights right now.")
+    } else {
+      setInsightError(null)
+    }
+  }, [dayInsights.error])
+
+  const askQuestionMutation = useMutation({
+    mutationFn: ({ activityId, question }: { activityId: string; question: string }) =>
+      askActivityQuestion(activityId, question),
+  })
 
   const doneCount = activities.filter((a) => a.done).length
   const totalCount = activities.length
@@ -127,6 +226,54 @@ export default function PlanScreen() {
     setExpandedId((prev) => (prev === id ? null : id))
   }
 
+  async function submitQuestion(activityId: string, question: string) {
+    const trimmed = question.trim()
+    if (!trimmed) return
+    if (!isUuidLike(activityId)) {
+      setErrorBanner("Q&A is unavailable while viewing local fallback activities.")
+      return
+    }
+    const tempQuestionId = `local-${Date.now()}`
+    setQuestionsByActivityId((prev) =>
+      upsertActivityQuestion(prev, activityId, {
+        questionId: tempQuestionId,
+        question: trimmed,
+        answer: null,
+        status: "pending",
+        relatedFaqs: [],
+        createdAt: new Date().toISOString(),
+      }),
+    )
+    setChatInput("")
+
+    try {
+      const ack = await askQuestionMutation.mutateAsync({ activityId, question: trimmed })
+      setQuestionsByActivityId((prev) => {
+        const current = prev[activityId] ?? []
+        const mapped = current.map((item) =>
+          item.questionId === tempQuestionId ? { ...item, questionId: ack.questionId } : item,
+        )
+        return { ...prev, [activityId]: mapped }
+      })
+    } catch (error) {
+      console.error("[plan] ask question failed", error)
+      setQuestionsByActivityId((prev) => {
+        const current = prev[activityId] ?? []
+        const mapped = current.map((item) =>
+          item.questionId === tempQuestionId ? { ...item, status: "failed" as const } : item,
+        )
+        return { ...prev, [activityId]: mapped }
+      })
+      setErrorBanner("Question was not sent. Tap retry on the failed item.")
+    }
+  }
+
+  function retryQuestion(activityId: string, questionId: string) {
+    const question = (questionsByActivityId[activityId] ?? []).find((item) => item.questionId === questionId)
+    if (!question) return
+    void submitQuestion(activityId, question.question)
+  }
+
   return (
     <KeyboardAvoidingView style={$root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
@@ -140,6 +287,11 @@ export default function PlanScreen() {
         {/* ── Header ── */}
         <Text style={$planLabel}>PLAN ON A PAGE</Text>
         <Text style={$dateHeading}>{dateLabel}</Text>
+        {errorBanner && (
+          <View style={$errorBanner}>
+            <Text style={$errorBannerText}>{errorBanner}</Text>
+          </View>
+        )}
 
         {/* ── Daily Progress card ── */}
         <View style={$progressCard}>
@@ -174,9 +326,28 @@ export default function PlanScreen() {
               activity={activity}
               dateStr={dateStr}
               isExpanded={expandedId === activity.id}
+              questions={questionsByActivityId[activity.id] ?? []}
               onToggleDone={() => toggleDone(activity.id)}
               onToggleExpand={() => toggleExpanded(activity.id)}
+              onRetryQuestion={(questionId) => retryQuestion(activity.id, questionId)}
             />
+          ))
+        )}
+
+        <Text style={[$sectionTitle, { marginTop: spacing.s4 }]}>Today's insights</Text>
+        {dayInsights.isLoading ? (
+          <Text style={$loadingText}>Loading insights…</Text>
+        ) : insightError ? (
+          <Text style={$insightErrorText}>{insightError}</Text>
+        ) : (dayInsights.data ?? []).length === 0 ? (
+          <Text style={$loadingText}>No activity insights yet for this day.</Text>
+        ) : (
+          (dayInsights.data ?? []).map((item) => (
+            <View key={item.activityId} style={$insightCard}>
+              <Text style={$insightTitle}>{item.activityTitle}</Text>
+              {item.highlight?.text ? <Text style={$insightHighlight}>💡 {item.highlight.text}</Text> : null}
+              <Text style={$insightMeta}>{item.questions.length} answered question(s)</Text>
+            </View>
           ))
         )}
       </ScrollView>
@@ -239,8 +410,29 @@ export default function PlanScreen() {
               <TouchableOpacity
                 style={[$sendBtn, !chatInput.trim() && $sendBtnDisabled]}
                 activeOpacity={0.85}
+                disabled={
+                  !chatInput.trim() ||
+                  !expandedId ||
+                  askQuestionMutation.isPending ||
+                  !isUuidLike(expandedId)
+                }
+                onPress={() => {
+                  if (!expandedId) {
+                    setErrorBanner("Expand an activity first, then ask your question.")
+                    return
+                  }
+                  if (!isUuidLike(expandedId)) {
+                    setErrorBanner("Q&A is unavailable while viewing local fallback activities.")
+                    return
+                  }
+                  void submitQuestion(expandedId, chatInput)
+                }}
               >
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                {askQuestionMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                )}
               </TouchableOpacity>
             </View>
           </>
@@ -258,14 +450,18 @@ function ActivityRow({
   activity,
   dateStr,
   isExpanded,
+  questions,
   onToggleDone,
   onToggleExpand,
+  onRetryQuestion,
 }: {
   activity: PlanActivity
   dateStr: string
   isExpanded: boolean
+  questions: ActivityQuestion[]
   onToggleDone: () => void
   onToggleExpand: () => void
+  onRetryQuestion: (questionId: string) => void
 }) {
   const router = useRouter()
   const p = priorityColor(activity.priority)
@@ -288,6 +484,7 @@ function ActivityRow({
         <View style={$activityBody}>
           <Text style={activity.done ? $activityNameDone : $activityName}>{activity.name}</Text>
           <Text style={$activityDuration}>⏱ {activity.durationMinutes} min</Text>
+          {activity.highlight?.text ? <Text style={$highlightBadge}>💡 {activity.highlight.text}</Text> : null}
         </View>
 
         <Text style={[$priorityText, { color: p.text }]}>{activity.priority}</Text>
@@ -330,6 +527,48 @@ function ActivityRow({
             <Text style={$journalLinkText}>Write journal entry</Text>
             <Ionicons name="arrow-forward" size={13} color={forest500} />
           </TouchableOpacity>
+
+          <View style={$qaSection}>
+            {!isUuidLike(activity.id) ? (
+              <Text style={$qaEmptyText}>
+                Q&A will be available once live server activities load for this day.
+              </Text>
+            ) : questions.length === 0 ? (
+              <Text style={$qaEmptyText}>No questions yet. Ask one from the assistant panel.</Text>
+            ) : (
+              questions.map((question) => (
+                <View key={question.questionId} style={$qaBubble}>
+                  <Text style={$qaQuestionText}>Q: {question.question}</Text>
+                  {question.status === "pending" ? (
+                    <View style={$qaPendingRow}>
+                      <ActivityIndicator size="small" color={forest500} />
+                      <Text style={$qaPendingText}>Getting answer…</Text>
+                    </View>
+                  ) : question.status === "failed" ? (
+                    <View style={$qaFailedRow}>
+                      <Text style={$qaFailedText}>Could not get an answer.</Text>
+                      <TouchableOpacity onPress={() => onRetryQuestion(question.questionId)}>
+                        <Text style={$qaRetryText}>Try again</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={$qaAnswerText}>{question.answer}</Text>
+                      {question.relatedFaqs.length > 0 && (
+                        <View style={$faqChipsWrap}>
+                          {question.relatedFaqs.slice(0, 3).map((faq) => (
+                            <View key={`${question.questionId}-${faq.question}`} style={$faqChip}>
+                              <Text style={$faqChipText}>{faq.question}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
         </View>
       )}
     </View>
@@ -706,4 +945,144 @@ const $sendBtn: ViewStyle = {
 
 const $sendBtnDisabled: ViewStyle = {
   backgroundColor: hairline,
+}
+
+const $errorBanner: ViewStyle = {
+  backgroundColor: statusBadBg,
+  borderColor: statusBad,
+  borderWidth: 1,
+  borderRadius: radii.lg,
+  padding: spacing.s3,
+  marginBottom: spacing.s4,
+}
+
+const $errorBannerText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  color: statusBad,
+  fontSize: 12,
+}
+
+const $highlightBadge: TextStyle = {
+  marginTop: spacing.s1,
+  fontFamily: typography.primary.medium,
+  fontSize: 11,
+  color: forest500,
+}
+
+const $qaSection: ViewStyle = {
+  marginTop: spacing.s3,
+  gap: spacing.s2,
+}
+
+const $qaEmptyText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink3,
+}
+
+const $qaBubble: ViewStyle = {
+  backgroundColor: card,
+  borderRadius: radii.lg,
+  padding: spacing.s3,
+  borderWidth: 1,
+  borderColor: hairline,
+}
+
+const $qaQuestionText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 12,
+  color: ink,
+  marginBottom: spacing.s1,
+}
+
+const $qaAnswerText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink2,
+  lineHeight: 18,
+}
+
+const $qaPendingRow: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s2,
+}
+
+const $qaPendingText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink3,
+}
+
+const $qaFailedRow: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+}
+
+const $qaFailedText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: statusBad,
+}
+
+const $qaRetryText: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 12,
+  color: forest500,
+}
+
+const $faqChipsWrap: ViewStyle = {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: spacing.s2,
+  marginTop: spacing.s2,
+}
+
+const $faqChip: ViewStyle = {
+  borderColor: forest500,
+  borderWidth: 1,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.s2,
+  paddingVertical: 3,
+}
+
+const $faqChipText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 11,
+  color: forest500,
+}
+
+const $insightCard: ViewStyle = {
+  backgroundColor: card,
+  borderColor: cardBorder,
+  borderWidth: 1,
+  borderRadius: radii.lg,
+  padding: spacing.s3,
+  marginBottom: spacing.s2,
+}
+
+const $insightTitle: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 13,
+  color: ink,
+}
+
+const $insightMeta: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink3,
+}
+
+const $insightHighlight: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 12,
+  color: forest500,
+  marginVertical: spacing.s1,
+}
+
+const $insightErrorText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: statusBad,
 }
