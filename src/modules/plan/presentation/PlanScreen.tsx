@@ -353,11 +353,13 @@ export default function PlanScreen() {
       </ScrollView>
 
       {/* ── AI Farm Assistant panel (fixed above tab bar) ── */}
-      <View style={[$aiPanel, { bottom: aiPanelBottom }, chatOpen && $aiPanelExpanded]}>
+      <View pointerEvents="box-none" style={[$aiPanelWrap, { bottom: aiPanelBottom }]}>
+      <View style={[$aiPanel, chatOpen && $aiPanelExpanded]}>
         <TouchableOpacity
           style={$aiPanelHeader}
           onPress={() => setChatOpen((v) => !v)}
           activeOpacity={0.8}
+          hitSlop={8}
         >
           <View style={$aiAvatarCircle}>
             <Text style={$aiAvatarEmoji}>🤖</Text>
@@ -437,6 +439,7 @@ export default function PlanScreen() {
             </View>
           </>
         )}
+      </View>
       </View>
     </KeyboardAvoidingView>
   )
@@ -815,15 +818,21 @@ const $journalLinkText: TextStyle = {
   color: forest500,
 }
 
-const $aiPanel: ViewStyle = {
+const $aiPanelWrap: ViewStyle = {
   position: "absolute",
   left: spacing.s4,
   right: spacing.s4,
+  zIndex: 30,
+  elevation: 30,
+}
+
+const $aiPanel: ViewStyle = {
   backgroundColor: card,
   borderRadius: radii.xl,
   borderWidth: 1,
   borderColor: hairline,
   overflow: "hidden",
+  zIndex: 30,
   ...elevation.sheet,
 }
 
