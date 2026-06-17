@@ -34,7 +34,7 @@ import { typography } from "@/theme/typography"
 
 import { api } from "@/services/api"
 
-import { saveAuthToken, saveFarmerProfile } from "../application/farmer-profile-store"
+import { saveAuthToken, saveFarmerProfile, setOnboardingComplete } from "../application/farmer-profile-store"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
 
 // Display-only emoji lookups — purely cosmetic, not data
@@ -93,6 +93,14 @@ const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
   small: 0.5,
   medium: 2.5,
   large: 7.5,
+}
+
+function buildTwoWeekGoal(draft: DraftProfile): string {
+  const primaryGoal = draft.goals[0]
+  if (primaryGoal) {
+    return `Make progress on ${primaryGoal.replaceAll("_", " ").toLowerCase()} over the next 2 weeks.`
+  }
+  return "Improve farm consistency and outcomes over the next 2 weeks."
 }
 
 // Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers  6=farmSize  7=goals  8=success
@@ -156,13 +164,14 @@ export default function OnboardingScreen() {
 
       const { accessToken, farmer } = res.data.data
       saveAuthToken(accessToken)
+      setOnboardingComplete(!!farmer.onboardingCompleted)
       api.setAuthToken(accessToken)
 
       if (farmer.displayName) {
         setDraft((d) => ({ ...d, name: farmer.displayName }))
       }
 
-      if (authMode === "login") {
+      if (authMode === "login" && farmer.onboardingCompleted) {
         router.replace("/(tabs)/" as any)
       } else {
         setStep(1)
@@ -186,13 +195,16 @@ export default function OnboardingScreen() {
         livestockIds: draft.livestock,
         helpersLevel: (draft.workStyle === "solo"
           ? "SOLO"
-          : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
+          : "SMALL_TEAM") as import("../domain/entities/farmer-profile").HelpersLevel,
         acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
         goalSlugs: draft.goals,
       }
       saveFarmerProfile(profile)
 
-      const patchRes = await api.patchOnboarding(profile)
+      const patchRes = await api.patchOnboarding({
+        ...profile,
+        twoWeekGoal: buildTwoWeekGoal(draft),
+      })
       if (!patchRes.ok) {
         const msg =
           (patchRes.data as any)?.error?.message ??
@@ -212,6 +224,7 @@ export default function OnboardingScreen() {
         return
       }
 
+      setOnboardingComplete(true)
       setStep(8)
     } finally {
       setFinishLoading(false)

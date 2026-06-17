@@ -1,5 +1,5 @@
 export type ProductionType = "CROPS" | "LIVESTOCK" | "MIXED"
-export type HelpersLevel = "SOLO" | "WITH_HELPERS"
+export type HelpersLevel = "SOLO" | "SMALL_TEAM" | "LARGE_TEAM"
 
 export interface FarmerLocation {
   label: string

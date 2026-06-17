@@ -85,6 +85,10 @@ function priorityColor(priority: Priority): { bg: string; text: string } {
   return { bg: statusGoodBg, text: statusGood }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -101,6 +105,7 @@ export default function PlanScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState("")
+  const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false)
   const [errorBanner, setErrorBanner] = useState<string | null>(null)
   const [questionsByActivityId, setQuestionsByActivityId] = useState<Record<string, ActivityQuestion[]>>({})
   const [insightError, setInsightError] = useState<string | null>(null)
@@ -189,6 +194,25 @@ export default function PlanScreen() {
     }
   }, [activities])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const pendingActivityIds = Object.entries(questionsByActivityId)
+        .filter(([, questions]) => questions.some((q) => q.status === "pending"))
+        .map(([activityId]) => activityId)
+
+      for (const activityId of pendingActivityIds) {
+        if (!isUuidLike(activityId)) continue
+        void getQuestionsForActivity(activityId)
+          .then((questions) => {
+            setQuestionsByActivityId((prev) => ({ ...prev, [activityId]: questions }))
+          })
+          .catch(() => {})
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [questionsByActivityId])
+
   const dayInsights = useQuery({
     queryKey: ["plan", "day-activity-questions", dateStr],
     queryFn: () => getDayActivityQuestions(dateStr),
@@ -217,6 +241,14 @@ export default function PlanScreen() {
   const expandedPanelHeight = 260
   const scrollPaddingBottom =
     aiPanelBottom + (chatOpen ? expandedPanelHeight : collapsedPanelHeight) + spacing.s4
+  const sendBlockedReason = !chatInput.trim()
+    ? "Type a question to send."
+    : !expandedId
+      ? "Expand an activity first to ask a contextual question."
+      : !isUuidLike(expandedId)
+        ? "Q&A is unavailable while viewing local fallback activities."
+        : null
+  const canTapSend = !!chatInput.trim() && !isSubmittingQuestion
 
   function toggleDone(id: string) {
     setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, done: !a.done } : a)))
@@ -224,6 +256,25 @@ export default function PlanScreen() {
 
   function toggleExpanded(id: string) {
     setExpandedId((prev) => (prev === id ? null : id))
+  }
+
+  async function pollQuestionUntilResolved(activityId: string, questionId: string) {
+    const maxAttempts = 10
+    const delayMs = 1500
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await sleep(delayMs)
+      try {
+        const questions = await getQuestionsForActivity(activityId)
+        setQuestionsByActivityId((prev) => ({ ...prev, [activityId]: questions }))
+        const item = questions.find((q) => q.questionId === questionId)
+        if (item && (item.status === "answered" || item.status === "failed")) {
+          return
+        }
+      } catch {
+        // retry quietly; SSE may still resolve it
+      }
+    }
   }
 
   async function submitQuestion(activityId: string, question: string) {
@@ -246,6 +297,9 @@ export default function PlanScreen() {
     )
     setChatInput("")
 
+    const submitStart = Date.now()
+    const minSpinnerMs = 450
+    setIsSubmittingQuestion(true)
     try {
       const ack = await askQuestionMutation.mutateAsync({ activityId, question: trimmed })
       setQuestionsByActivityId((prev) => {
@@ -255,6 +309,8 @@ export default function PlanScreen() {
         )
         return { ...prev, [activityId]: mapped }
       })
+      // Android environments without EventSource need a polling fallback.
+      void pollQuestionUntilResolved(activityId, ack.questionId)
     } catch (error) {
       console.error("[plan] ask question failed", error)
       setQuestionsByActivityId((prev) => {
@@ -265,6 +321,12 @@ export default function PlanScreen() {
         return { ...prev, [activityId]: mapped }
       })
       setErrorBanner("Question was not sent. Tap retry on the failed item.")
+    } finally {
+      const elapsed = Date.now() - submitStart
+      if (elapsed < minSpinnerMs) {
+        await new Promise((resolve) => setTimeout(resolve, minSpinnerMs - elapsed))
+      }
+      setIsSubmittingQuestion(false)
     }
   }
 
@@ -410,14 +472,9 @@ export default function PlanScreen() {
                 <Ionicons name="mic-outline" size={20} color={ink3} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[$sendBtn, !chatInput.trim() && $sendBtnDisabled]}
+                style={[$sendBtn, (!canTapSend || !!sendBlockedReason) && $sendBtnDisabled]}
                 activeOpacity={0.85}
-                disabled={
-                  !chatInput.trim() ||
-                  !expandedId ||
-                  askQuestionMutation.isPending ||
-                  !isUuidLike(expandedId)
-                }
+                disabled={!canTapSend}
                 onPress={() => {
                   if (!expandedId) {
                     setErrorBanner("Expand an activity first, then ask your question.")
@@ -430,13 +487,16 @@ export default function PlanScreen() {
                   void submitQuestion(expandedId, chatInput)
                 }}
               >
-                {askQuestionMutation.isPending ? (
+                {isSubmittingQuestion ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
             </View>
+            {sendBlockedReason && !isSubmittingQuestion ? (
+              <Text style={$sendHelperText}>{sendBlockedReason}</Text>
+            ) : null}
           </>
         )}
       </View>
@@ -954,6 +1014,15 @@ const $sendBtn: ViewStyle = {
 
 const $sendBtnDisabled: ViewStyle = {
   backgroundColor: hairline,
+  opacity: 0.8,
+}
+
+const $sendHelperText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 11,
+  color: ink3,
+  paddingHorizontal: spacing.s4,
+  paddingBottom: spacing.s3,
 }
 
 const $errorBanner: ViewStyle = {
