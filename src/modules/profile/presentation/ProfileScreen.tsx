@@ -31,7 +31,7 @@ import {
   statusBadBg,
   statusGood,
   statusGoodBg,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 // ---------------------------------------------------------------------------

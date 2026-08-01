@@ -23,11 +23,25 @@ if (!/^[a-z][a-z0-9_]*$/.test(name)) {
   process.exit(1)
 }
 
-// Determine next ID from existing migration files.
+// Determine next ID from the highest `id:` already recorded in an existing
+// migration file — NOT from the file count. Past migrations can be deleted
+// (e.g. when a feature is dropped) without freeing up their IDs, so counting
+// files under-counts the next ID and can produce a lower ID than migrations
+// that already ran. Since rollbackMigration() sorts applied migrations by ID
+// descending to find "most recent", a too-low ID silently corrupts rollback
+// order. Always derive the next ID from the max ID actually in use.
 const existingFiles = fs
   .readdirSync(MIGRATIONS_DIR)
   .filter((f) => f.endsWith(".ts"))
-const nextId = existingFiles.length + 1
+
+const maxExistingId = existingFiles.reduce((max, file) => {
+  const contents = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8")
+  const match = contents.match(/\bid:\s*(\d+)/)
+  const id = match ? Number(match[1]) : 0
+  return Math.max(max, id)
+}, 0)
+
+const nextId = maxExistingId + 1
 const sequence = String(nextId).padStart(6, "0")
 
 // Build filename using today's date + sequence + name.

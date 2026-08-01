@@ -99,7 +99,7 @@ Other available commands are in [package.json](package.json).
 
 - Use Ignite Red built-in components first (`Screen`, `Text`, `Button`, `TextField`, `Header`, `Card`)
 - Follow Ignite styling practices: colocated themed styles, `$`-prefixed style variables, preset-based reuse
-- Design tokens live in `src/theme/tapp-tokens.ts` — never hardcode hex values or pixel sizes in screens
+- Design tokens live in `src/theme/tujiweze-tokens.ts` — never hardcode hex values or pixel sizes in screens
 - Avoid introducing a second UI framework unless a specific gap forces it
 
 ### Data and Sync

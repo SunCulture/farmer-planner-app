@@ -15,6 +15,6 @@ Recommended structure:
 Current ADRs:
 
 - [ADR-001: Adopt TanStack Query for Server State](./001-adopt-tanstack-query.md)
-- [ADR-002: Use SQLite and Drizzle for Durable Local Data](./002-use-sqlite-and-drizzle.md)
+- [ADR-002: Use SQLite for Durable Local Data](./002-use-sqlite-and-drizzle.md)
 - [ADR-003: Define a Local-First Sync Engine Contract](./003-sync-engine-contract.md)
 - [ADR-004: Use Composition-Root Dependency Injection and Thin App Bootstrap](./004-dependency-injection-and-bootstrap.md)

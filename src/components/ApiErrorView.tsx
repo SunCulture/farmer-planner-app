@@ -5,7 +5,7 @@ import { useRouter } from "expo-router"
 import { clearAuthToken } from "@/modules/onboarding"
 import { api } from "@/services/api"
 import { getApiErrorMessage, isUnauthorizedError } from "@/shared/infrastructure/api-error"
-import { forest500, ink, ink3, radii, spacing } from "@/theme/tapp-tokens"
+import { forest500, ink, ink3, radii, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 interface ApiErrorViewProps {

@@ -1,18 +1,18 @@
 # Migrations
 
-This is the canonical reference for how Tapp manages its on-device SQLite schema. Read this before adding any new table, column, or data change.
+This is the canonical reference for how Tujiweze manages its on-device SQLite schema. Read this before adding any new table, column, or data change.
 
 Related references:
 
 - Architecture decisions: [docs/architecture.md](./architecture.md)
-- SQLite and Drizzle ADR: [docs/adr/002-use-sqlite-and-drizzle.md](./adr/002-use-sqlite-and-drizzle.md)
+- SQLite ADR: [docs/adr/002-use-sqlite-and-drizzle.md](./adr/002-use-sqlite-and-drizzle.md)
 - Code quality rules: [docs/CODE_QUALITY.md](./CODE_QUALITY.md)
 
 ---
 
 ## How It Works
 
-Tapp uses a custom sequential migration runner. There is no external migration CLI and no connection to `drizzle-kit push` or `drizzle-kit generate` at runtime.
+Tujiweze uses a custom sequential migration runner. There is no external migration CLI and no connection to `drizzle-kit push` or `drizzle-kit generate` at runtime.
 
 The runner lives at `src/shared/infrastructure/database/migrator.ts`. At app startup it:
 
@@ -30,9 +30,6 @@ The runner lives at `src/shared/infrastructure/database/migrator.ts`. At app sta
 ```
 src/shared/infrastructure/database/
   migrations/
-    2026_05_24_000001_create_categories_table.ts
-    2026_05_24_000002_create_routines_table.ts
-    2026_05_24_000003_create_expense_events_table.ts
     2026_05_24_000004_create_outbox_table.ts
     2026_05_24_000005_create_sync_checkpoints_table.ts
   migrations.ts     ← import list + MIGRATIONS array
@@ -43,6 +40,8 @@ scripts/
 ```
 
 Individual migration files own their own `up()` and `down()` logic. `migrations.ts` is only an ordered import list. The runner does not touch individual files.
+
+Migration IDs here start at `4`, not `1` — three earlier migrations (`categories`, `routines`, `expense_events`, from an earlier product iteration) were removed from `MIGRATIONS` and deleted from this directory. Their IDs were not reused; `isLegacyDatabase()` in `migrator.ts` still checks for a leftover `categories` table to stamp-and-skip pre-migration-runner installs. See the warning under "Rules" below before relying on the migration generator's auto-numbering.
 
 ---
 
@@ -204,7 +203,7 @@ Rollback is a development tool. It is not designed for production use — on-dev
 3. **Never remove or reorder entries in `MIGRATIONS`.** IDs must remain stable — the runner uses them to track what has been applied.
 4. **`down()` must mirror `up()` exactly.** An incomplete rollback leaves the database in an undefined state.
 5. **One concern per migration file.** A migration that adds a table and unrelated columns to another table is harder to roll back and harder to review.
-6. **Migration IDs are sequential integers starting at 1.** The generator assigns the next available ID automatically. Never reuse an ID.
+6. **Migration IDs are sequential integers starting at 1.** The generator assigns the next available ID by scanning existing files for the highest `id:` in use and adding one — not by counting files — so gaps left by deleted migrations (see "File Structure" above) don't produce a reused or too-low ID. Never reuse an ID.
 
 ---
 

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { card, forest500, hairline, ink3, spacing } from "@/theme/tapp-tokens"
+import { card, forest500, hairline, ink3, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 export const FLOATING_NAV_HEIGHT = 60

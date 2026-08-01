@@ -3,7 +3,7 @@ import { Text, TextStyle, View, ViewStyle } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { hasDevAuthToken } from "@/bootstrap/dev-auth"
-import { ink, ink3, spacing } from "@/theme/tapp-tokens"
+import { ink, ink3, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 export function DevAuthGate({ children }: { children: React.ReactNode }) {

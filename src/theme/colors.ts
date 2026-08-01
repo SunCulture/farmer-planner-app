@@ -2,7 +2,7 @@ import {
   card, paper, paper2, hairline, ink4, ink3, ink2, ink,
   forest100, forest300, forest500, forest600,
   statusGood, statusGoodBg, statusWarn, statusWarnBg, statusBad, statusBadBg,
-} from "./tapp-tokens"
+} from "./tujiweze-tokens"
 
 const palette = {
   neutral100: card,

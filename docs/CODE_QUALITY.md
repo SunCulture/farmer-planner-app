@@ -1,6 +1,6 @@
-# Tapp Code Quality Guide
+# Tujiweze Code Quality Guide
 
-This document defines code quality expectations for Tapp as a React Native, Expo, Ignite Red, and local-first mobile application.
+This document defines code quality expectations for Tujiweze as a React Native, Expo, Ignite Red, and local-first mobile application.
 
 It is intentionally not a copy of a web React guide. Mobile constraints, offline data, native platform boundaries, and Ignite conventions change what good code looks like here.
 
@@ -63,7 +63,7 @@ Examples:
 
 - do not invent a new server-state solution while TanStack Query is the approved direction
 - do not build a second design system while Ignite Red is the chosen presentation foundation
-- do not put durable business data into MMKV when SQLite plus Drizzle is the planned foundation
+- do not put durable business data into MMKV when SQLite is the durable local-data foundation
 
 ## What Good Code Looks Like Here
 

@@ -30,7 +30,7 @@ import {
   ink4,
   radii,
   spacing,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 import { markOnboardingComplete, saveAuthToken, saveFarmerProfile } from "../application/farmer-profile-store"

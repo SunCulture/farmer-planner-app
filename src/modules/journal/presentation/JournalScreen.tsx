@@ -40,7 +40,7 @@ import {
   radii,
   spacing,
   statusGoodBg,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 import {
