@@ -1,19 +1,18 @@
 import React from "react"
-import {
-  ScrollView,
-  Text,
-  TextStyle,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-} from "react-native"
+import { ScrollView, Text, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { container } from "@/bootstrap/container"
 import { clearAuthToken, loadFarmerProfile } from "@/modules/onboarding"
-import { useCrops, useGoals, useLivestock } from "@/modules/onboarding/application/use-catalog-queries"
+import {
+  useCrops,
+  useGoals,
+  useLivestock,
+} from "@/modules/onboarding/application/use-catalog-queries"
 import { api } from "@/services/api"
+import type { SseClient } from "@/shared/contracts/sse"
 import {
   card,
   forest50,
@@ -39,22 +38,53 @@ import { typography } from "@/theme/typography"
 // ---------------------------------------------------------------------------
 
 const CROP_EMOJI: Record<string, string> = {
-  maize: "🌽", beans: "🫘", tomatoes: "🍅", kale: "🥬", potatoes: "🥔",
-  onions: "🧅", capsicum: "🫑", watermelon: "🍉", avocado: "🥑", mango: "🥭",
-  banana: "🍌", coffee: "☕", tea: "🍵",
+  maize: "🌽",
+  beans: "🫘",
+  tomatoes: "🍅",
+  kale: "🥬",
+  potatoes: "🥔",
+  onions: "🧅",
+  capsicum: "🫑",
+  watermelon: "🍉",
+  avocado: "🥑",
+  mango: "🥭",
+  banana: "🍌",
+  coffee: "☕",
+  tea: "🍵",
 }
 const LIVESTOCK_EMOJI: Record<string, string> = {
-  cattle: "🐄", chickens: "🐔", goats: "🐐", sheep: "🐑", pigs: "🐷",
-  rabbits: "🐰", ducks: "🦆", bees: "🐝",
+  cattle: "🐄",
+  chickens: "🐔",
+  goats: "🐐",
+  sheep: "🐑",
+  pigs: "🐷",
+  rabbits: "🐰",
+  ducks: "🦆",
+  bees: "🐝",
 }
 const GOAL_EMOJI: Record<string, string> = {
-  MAKE_MONEY: "💰", FOOD_SECURITY: "🌽", SAVE_TIME: "⏰",
-  REDUCE_LOSSES: "📉", LIVESTOCK_HEALTH: "🐄", MODERN_FARMING: "📚",
+  MAKE_MONEY: "💰",
+  FOOD_SECURITY: "🌽",
+  SAVE_TIME: "⏰",
+  REDUCE_LOSSES: "📉",
+  LIVESTOCK_HEALTH: "🐄",
+  MODERN_FARMING: "📚",
 }
 const REGION_EMOJI: Record<string, string> = {
-  nairobi: "🏙️", nakuru: "🌽", kisumu: "🌊", mombasa: "☀️", eldoret: "🥬",
-  kitale: "🌽", machakos: "⛰️", nyeri: "🍃", meru: "🌱", thika: "🍍",
-  kisii: "🫐", kakamega: "🌧️", garissa: "🌵", narok: "🦁",
+  nairobi: "🏙️",
+  nakuru: "🌽",
+  kisumu: "🌊",
+  mombasa: "☀️",
+  eldoret: "🥬",
+  kitale: "🌽",
+  machakos: "⛰️",
+  nyeri: "🍃",
+  meru: "🌱",
+  thika: "🍍",
+  kisii: "🫐",
+  kakamega: "🌧️",
+  garissa: "🌵",
+  narok: "🦁",
 }
 
 // ---------------------------------------------------------------------------
@@ -81,15 +111,7 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={$sectionTitle}>{title}</Text>
 }
 
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: string
-  label: string
-  value: string
-}) {
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <View style={$infoRow}>
       <Text style={$infoIcon}>{icon}</Text>
@@ -148,7 +170,12 @@ export default function ProfileScreen() {
 
   const firstName = profile.name?.split(" ")[0] ?? "Farmer"
   const initials = profile.name
-    ? profile.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+    ? profile.name
+        .split(" ")
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
     : "F"
 
   const locationEmoji = profile.location.county
@@ -188,16 +215,20 @@ export default function ProfileScreen() {
         ? "Livestock"
         : "Mixed farming"
   const farmTypeEmoji =
-    profile.productionType === "CROPS" ? "🌱" : profile.productionType === "LIVESTOCK" ? "🐄" : "🌿🐄"
+    profile.productionType === "CROPS"
+      ? "🌱"
+      : profile.productionType === "LIVESTOCK"
+        ? "🐄"
+        : "🌿🐄"
 
-  const workStyleLabel =
-    profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
+  const workStyleLabel = profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
   const workStyleEmoji = profile.helpersLevel === "SOLO" ? "🧑‍🌾" : "👨‍👩‍👧"
 
   function handleLogout() {
     api.logout("").catch(() => {})
     clearAuthToken()
     api.clearAuthToken()
+    container.resolve<SseClient>("sseClient")?.disconnect()
     router.replace("/onboarding" as any)
   }
 
@@ -227,10 +258,14 @@ export default function ProfileScreen() {
           <Text style={$heroName}>{profile.name}</Text>
           <View style={$heroBadgeRow}>
             <View style={$heroBadge}>
-              <Text style={$heroBadgeText}>{locationEmoji} {profile.location.label}</Text>
+              <Text style={$heroBadgeText}>
+                {locationEmoji} {profile.location.label}
+              </Text>
             </View>
             <View style={$heroBadge}>
-              <Text style={$heroBadgeText}>{farmTypeEmoji} {farmTypeLabel}</Text>
+              <Text style={$heroBadgeText}>
+                {farmTypeEmoji} {farmTypeLabel}
+              </Text>
             </View>
           </View>
         </View>
@@ -245,11 +280,7 @@ export default function ProfileScreen() {
               value={`${profile.location.label}${profile.location.country ? `, ${profile.location.country}` : ""}`}
             />
             <View style={$divider} />
-            <InfoRow
-              icon={farmTypeEmoji}
-              label="Farming type"
-              value={farmTypeLabel}
-            />
+            <InfoRow icon={farmTypeEmoji} label="Farming type" value={farmTypeLabel} />
             <View style={$divider} />
             <InfoRow
               icon={acreageEmoji(profile.acreage)}
@@ -257,11 +288,7 @@ export default function ProfileScreen() {
               value={acreageLabel(profile.acreage)}
             />
             <View style={$divider} />
-            <InfoRow
-              icon={workStyleEmoji}
-              label="Work style"
-              value={workStyleLabel}
-            />
+            <InfoRow icon={workStyleEmoji} label="Work style" value={workStyleLabel} />
           </View>
         </View>
 
@@ -305,7 +332,10 @@ export default function ProfileScreen() {
           ) : (
             <View style={$goalsList}>
               {resolvedGoals.map((goal, i) => (
-                <View key={goal.name} style={[$goalItem, i < resolvedGoals.length - 1 && $goalItemBorder]}>
+                <View
+                  key={goal.name}
+                  style={[$goalItem, i < resolvedGoals.length - 1 && $goalItemBorder]}
+                >
                   <View style={$goalIconCircle}>
                     <Text style={{ fontSize: 18 }}>{goal.emoji}</Text>
                   </View>
@@ -319,7 +349,12 @@ export default function ProfileScreen() {
 
         {/* ── Onboarding completion badge ── */}
         <View style={$completionBadge}>
-          <Ionicons name="checkmark-circle" size={16} color={statusGood} style={{ marginRight: 6 }} />
+          <Ionicons
+            name="checkmark-circle"
+            size={16}
+            color={statusGood}
+            style={{ marginRight: 6 }}
+          />
           <Text style={$completionText}>Onboarding complete · Farm plan active</Text>
         </View>
 
