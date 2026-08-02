@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { ActivitySuggestionsSheetHost } from "@/modules/plan/presentation/ActivitySuggestionsSheetHost"
 import { card, forest500, hairline, ink3, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
@@ -60,11 +61,17 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
 export default function TabsLayout() {
   return (
-    <Tabs tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="plan" />
-      <Tabs.Screen name="journal" />
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props) => <FloatingTabBar {...props} />}
+        screenOptions={{ headerShown: false }}
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="plan" />
+        <Tabs.Screen name="journal" />
+      </Tabs>
+      <ActivitySuggestionsSheetHost />
+    </>
   )
 }
 

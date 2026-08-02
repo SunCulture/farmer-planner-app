@@ -9,6 +9,7 @@ export const plannerKeys = {
   recommendations: () => ["planner", "recommendations"] as const,
   templates: (filters: { goal?: string; durationDays?: number }) =>
     ["planner", "templates", filters] as const,
+  suggestions: (date: string) => ["planner", "suggestions", date] as const,
 }
 
 export default plannerKeys

@@ -8,7 +8,9 @@ import type {
 } from "@/modules/onboarding/domain/entities/farmer-profile"
 
 import type {
+  AcceptSuggestionResponseDto,
   ActivityDetailDto,
+  ActivitySuggestionDto,
   AskActivityQuestionResponseDto,
   DayActivityQuestionsDto,
   DayCompletionsDto,
@@ -24,9 +26,9 @@ import type {
   ActivityQuestionsListDto,
 } from "./planner-types"
 import type { ApiConfig } from "./types"
-import { unwrap, unwrapRaw } from "./unwrap"
+import { unwrap, unwrapRaw, unwrapVoid } from "./unwrap"
 
-export { ApiRequestError, unwrap, unwrapRaw } from "./unwrap"
+export { ApiRequestError, unwrap, unwrapRaw, unwrapVoid } from "./unwrap"
 export type { ApiEnvelope, ApiErrorBody } from "./unwrap"
 export type * from "./planner-types"
 
@@ -324,6 +326,23 @@ export class Api {
   ): Promise<{ planId: string; updated: boolean }> {
     const response = await this.apisauce.patch(`/api/me/plans/${planId}`, body)
     return unwrap<{ planId: string; updated: boolean }>(response)
+  }
+
+  // ---- Activity suggestions (AI re-queue, authenticated) ----------------------
+
+  async listActivitySuggestions(date: string): Promise<ActivitySuggestionDto[]> {
+    const response = await this.apisauce.get("/api/me/activity-suggestions", { date })
+    return unwrap<ActivitySuggestionDto[]>(response)
+  }
+
+  async acceptActivitySuggestion(id: string): Promise<AcceptSuggestionResponseDto> {
+    const response = await this.apisauce.post(`/api/me/activity-suggestions/${id}/accept`)
+    return unwrap<AcceptSuggestionResponseDto>(response)
+  }
+
+  async dismissActivitySuggestion(id: string): Promise<void> {
+    const response = await this.apisauce.post(`/api/me/activity-suggestions/${id}/dismiss`)
+    unwrapVoid(response)
   }
 }
 

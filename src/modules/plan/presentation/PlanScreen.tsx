@@ -45,6 +45,7 @@ import {
 } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
+import { ActivitySuggestionsBanner } from "./ActivitySuggestionsBanner"
 import { useDayPlan } from "../application/use-day-plan"
 import type { ActivityCard } from "../domain/entities/activity-card"
 import type { SuggestionCard } from "../domain/entities/plan-chat"
@@ -213,6 +214,8 @@ export default function PlanScreen() {
       >
         <Text style={$planLabel}>PLAN ON A PAGE</Text>
         <Text style={$dateHeading}>{dateLabel}</Text>
+
+        <ActivitySuggestionsBanner />
 
         {dayPlan?.hero ? (
           <View style={$heroCard}>

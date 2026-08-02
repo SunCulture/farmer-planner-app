@@ -233,3 +233,23 @@ export interface GeneratePlanBody {
   durationDays: number
   startDate?: string
 }
+
+// ---- Activity suggestions (AI re-queue, see backend#11/#12) ----------------
+
+export interface ActivitySuggestionDto {
+  id: string
+  title: string
+  description: string | null
+  category: string | null
+  timeOfDay: "morning" | "afternoon" | "evening" | null
+  estimatedMinutes: number | null
+  suggestedForDate: string
+  expiresAt: string
+}
+
+/** Response of `POST /me/activity-suggestions/:id/accept` — a normal
+ * activity card plus the plan/day it was appended to. */
+export interface AcceptSuggestionResponseDto extends ActivityCardDto {
+  planId: string
+  date: string
+}

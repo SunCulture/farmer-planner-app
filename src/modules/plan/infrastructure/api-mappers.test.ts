@@ -1,5 +1,10 @@
 import type {
   ActivityCardDto,
+  ActivitySuggestionDto,
+  DayPlanDto,
+} from "@/services/api/planner-types"
+
+import { mapActivityCard, mapActivitySuggestion, mapDayPlan, statusColorToUi } from "./api-mappers"
   ActivityDetailDto,
   ActivityQuestionDto,
   DayActivityQuestionsDto,
@@ -56,6 +61,20 @@ describe("api-mappers", () => {
     expect(statusColorToUi("muted")).toBe("muted")
   })
 
+  it("maps an activity suggestion dto", () => {
+    const dto: ActivitySuggestionDto = {
+      id: "s1",
+      title: "Evening water check",
+      description: "Check water levels and adjust valves.",
+      category: "irrigation",
+      timeOfDay: "evening",
+      estimatedMinutes: 15,
+      suggestedForDate: "2026-08-02",
+      expiresAt: "2026-08-03T00:00:00.000Z",
+    }
+
+    const suggestion = mapActivitySuggestion(dto)
+    expect(suggestion).toEqual(dto)
   it("maps a null/undefined highlight dto to null", () => {
     expect(mapActivityHighlight(null)).toBeNull()
     expect(mapActivityHighlight(undefined)).toBeNull()

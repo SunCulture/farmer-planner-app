@@ -93,3 +93,26 @@ export function unwrapRaw<T>(response: ApiResponse<T | ApiErrorBody | unknown>):
 
   return response.data as T
 }
+
+/**
+ * Confirms a `204 No Content` response succeeded, throwing ApiRequestError
+ * otherwise. Use for endpoints (e.g. dismiss/delete) that return no body.
+ */
+export function unwrapVoid(response: ApiResponse<ApiErrorBody | unknown>): void {
+  if (!response.ok) {
+    const body = response.data as ApiErrorBody | undefined
+    if (body?.error) {
+      throw new ApiRequestError(
+        body.error.message,
+        body.error.code,
+        response.status ?? undefined,
+        body.error.details,
+      )
+    }
+    const problem = getGeneralApiProblem(response)
+    if (problem) {
+      throw new ApiRequestError(problem.kind, problem.kind, response.status ?? undefined)
+    }
+    throw new ApiRequestError("Request failed", "UNKNOWN", response.status ?? undefined)
+  }
+}
