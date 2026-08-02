@@ -5,7 +5,7 @@ import { runMigrations } from "./migrator"
 export type Db = SQLite.SQLiteDatabase
 
 export async function getDatabase(): Promise<Db> {
-  return SQLite.openDatabaseAsync("tapp.db")
+  return SQLite.openDatabaseAsync("tujiweze.db")
 }
 
 export async function initDatabase(): Promise<Db> {

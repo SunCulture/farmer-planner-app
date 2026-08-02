@@ -1,12 +1,12 @@
-# ADR-002: Use SQLite and Drizzle for Durable Local Data
+# ADR-002: Use SQLite for Durable Local Data
 
 ## Status
 
-Accepted
+Superseded (2026-08-01) — the Drizzle ORM portion of this decision was never implemented. SQLite remains the durable on-device store, but the schema/query/migration layer is a custom raw-SQL runner, not Drizzle. See "Implementation Note" and "Update" below.
 
 ## Context
 
-The application is expected to support budgeting workflows, history, offline access, sync checkpoints, and durable device-side records. MMKV is already present and works well for fast key-value storage, but it is not a good fit for relational data, queryable history, migrations, or conflict-aware synchronization.
+The application is expected to support offline access, sync checkpoints, and durable device-side records. MMKV is already present and works well for fast key-value storage, but it is not a good fit for relational data, queryable history, migrations, or conflict-aware synchronization.
 
 The architecture needs a local store that supports:
 
@@ -17,7 +17,7 @@ The architecture needs a local store that supports:
 - an outbox and sync metadata
 - repository-backed abstractions instead of ad hoc blobs
 
-## Decision
+## Decision (original, partially superseded)
 
 Use SQLite as the durable on-device database and Drizzle ORM as the schema and query layer.
 
@@ -28,23 +28,12 @@ Scope:
 - MMKV remains in use only for lightweight preferences and non-secret key-value state
 - Secure Store is used for secrets
 
-Tables in the current schema:
-
-- categories
-- routines
-- expense_events
-- outbox
-- sync_checkpoints
-
-Future iterations will add `households`, `members`, `budgets`, `budget_categories`, `notifications_inbox` as those features are built.
-
 ## Consequences
 
 Positive:
 
 - durable structured storage that matches the local-first architecture
 - migration support for evolving features
-- typed query and repository implementations
 - explicit foundation for sync metadata and outbox processing
 
 Tradeoffs:
@@ -64,6 +53,14 @@ Operational implications:
 
 The migration runner is a custom sequential runner, not `drizzle-kit push` or `drizzle-kit generate`. Each migration is a TypeScript file with `up()` and `down()` functions tracked by a `_migrations` table. `drizzle-kit` is not used at runtime. See [docs/migrations.md](../migrations.md) for the full workflow.
 
+## Update (2026-08-01)
+
+Drizzle was never wired into the app. `drizzle-orm`/`drizzle-kit` were listed as devDependencies and a `drizzle/schema.ts` + `drizzle.config.ts` scaffold existed, but nothing in `src/` imported them, and the scaffold's schema (`categories`, `routines`, `expense_events`) described an earlier, unrelated product rather than Tujiweze's actual domain. Both the dependencies and the scaffold have been removed.
+
+The SQLite half of this decision stands: durable local data is a real, active requirement, and the custom migration runner in `src/shared/infrastructure/database` (raw SQL, no ORM) is the implementation of record. Current tables: `outbox`, `sync_checkpoints`. See [docs/migrations.md](../migrations.md) for the live workflow.
+
+If typed schema/query access becomes worth the added dependency later, that should be a new ADR rather than reviving this one, since the tradeoffs (an ORM on top of expo-sqlite vs. the current raw-SQL repositories) deserve fresh evaluation against whatever the schema looks like at that point.
+
 ## Alternatives Considered
 
 ### MMKV only
@@ -72,8 +69,8 @@ Rejected because it is not sufficient for relational querying, versioned schema 
 
 ### Raw SQLite without ORM
 
-Rejected for now because the team benefits from typed schema definitions, centralized migrations, and a more maintainable query layer.
+Originally rejected in favor of Drizzle, on the belief that typed schema definitions and a centralized query layer were worth the dependency. This is what was actually built — see "Update" above.
 
 ### WatermelonDB or Realm
 
-Rejected for now because SQLite plus Drizzle is a smaller and more explicit fit for the current architecture, with fewer additional abstractions than a heavier mobile database framework.
+Rejected because SQLite is a smaller and more explicit fit for the current architecture, with fewer additional abstractions than a heavier mobile database framework.

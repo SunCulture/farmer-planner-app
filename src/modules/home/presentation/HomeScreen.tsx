@@ -41,7 +41,7 @@ import {
   statusGoodBg,
   statusWarn,
   statusWarnBg,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 import { useHomeDashboard } from "../application/use-home-dashboard"

@@ -1,7 +1,11 @@
 import { ApisauceInstance, create } from "apisauce"
 
 import Config from "@/config"
-import type { FarmerLocation, HelpersLevel, ProductionType } from "@/modules/onboarding/domain/entities/farmer-profile"
+import type {
+  FarmerLocation,
+  HelpersLevel,
+  ProductionType,
+} from "@/modules/onboarding/domain/entities/farmer-profile"
 
 import type {
   ActivityDetailDto,
@@ -108,6 +112,8 @@ export interface OnboardingData {
   helpersLevel: HelpersLevel | null
   acreage: number | null
   goalSlugs: string[]
+  /** Free-text farmer goal for the next 2 weeks, captured at the end of onboarding. */
+  twoWeekGoal?: string | null
   onboardingCompletedAt: string | null
   suggestedStep: string | null
   steps: OnboardingStep[]
@@ -122,6 +128,7 @@ export interface PatchOnboardingBody {
   helpersLevel?: HelpersLevel
   acreage?: number
   goalSlugs?: string[]
+  twoWeekGoal?: string
 }
 
 // ---- Api class ----------------------------------------------------------------
@@ -152,11 +159,17 @@ export class Api {
   // ---- Auth ------------------------------------------------------------------
 
   async register(body: RegisterBody) {
-    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>("/api/auth/register", body)
+    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>(
+      "/api/auth/register",
+      body,
+    )
   }
 
   async login(body: LoginBody) {
-    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>("/api/auth/login", body)
+    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>(
+      "/api/auth/login",
+      body,
+    )
   }
 
   async refreshTokens(refreshToken: string) {
@@ -178,7 +191,10 @@ export class Api {
   }
 
   async searchLivestock(q?: string) {
-    return this.apisauce.get<{ livestock: LivestockItem[] }>("/api/catalog/livestock", q ? { q } : undefined)
+    return this.apisauce.get<{ livestock: LivestockItem[] }>(
+      "/api/catalog/livestock",
+      q ? { q } : undefined,
+    )
   }
 
   async listGoals() {
@@ -203,7 +219,9 @@ export class Api {
   }
 
   async completeOnboarding() {
-    return this.apisauce.post<{ data: Pick<OnboardingData, "farmerId" | "onboardingCompletedAt" | "suggestedStep" | "steps"> }>("/api/me/onboarding/complete")
+    return this.apisauce.post<{
+      data: Pick<OnboardingData, "farmerId" | "onboardingCompletedAt" | "suggestedStep" | "steps">
+    }>("/api/me/onboarding/complete")
   }
 
   // ---- Home & plans (authenticated) -----------------------------------------
@@ -228,7 +246,10 @@ export class Api {
     return unwrap<{ planId: string }>(response)
   }
 
-  async listTemplates(params?: { goal?: string; durationDays?: number }): Promise<{ templates: PlanTemplateDto[] }> {
+  async listTemplates(params?: {
+    goal?: string
+    durationDays?: number
+  }): Promise<{ templates: PlanTemplateDto[] }> {
     const response = await this.apisauce.get("/api/templates", params)
     return unwrapRaw<{ templates: PlanTemplateDto[] }>(response)
   }
@@ -248,7 +269,10 @@ export class Api {
     return unwrap<DayCompletionsDto>(response)
   }
 
-  async submitCompletion(activityId: string, formData: FormData): Promise<{
+  async submitCompletion(
+    activityId: string,
+    formData: FormData,
+  ): Promise<{
     id: string
     activityId: string
     journalText: string
@@ -271,7 +295,10 @@ export class Api {
     return unwrap<PlanChatResponseDto>(response)
   }
 
-  async patchPlan(planId: string, body: PatchPlanBody): Promise<{ planId: string; updated: boolean }> {
+  async patchPlan(
+    planId: string,
+    body: PatchPlanBody,
+  ): Promise<{ planId: string; updated: boolean }> {
     const response = await this.apisauce.patch(`/api/me/plans/${planId}`, body)
     return unwrap<{ planId: string; updated: boolean }>(response)
   }
