@@ -22,4 +22,6 @@ export interface FarmerProfile {
   helpersLevel: HelpersLevel
   acreage: number
   goalSlugs: string[]
+  /** Free-text farmer goal for the next 2 weeks, captured at the end of onboarding. */
+  twoWeekGoal?: string
 }
