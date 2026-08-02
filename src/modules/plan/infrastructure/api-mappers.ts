@@ -3,6 +3,10 @@ import type { DayCompletions } from "@/modules/journal/domain/entities/completio
 import type {
   ActivityCardDto,
   ActivitySuggestionDto,
+  ActivityDetailDto,
+  ActivityHighlightDto,
+  ActivityQuestionDto,
+  DayActivityQuestionsDto,
   DayCompletionsDto,
   DayPlanDto,
   HomeDataDto,
@@ -14,6 +18,18 @@ import type { ActivityCard } from "../domain/entities/activity-card"
 import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
 import type { DayPlan } from "../domain/entities/day-plan"
 import type { PlanChatResult } from "../domain/entities/plan-chat"
+import type { ActivityDetail } from "../domain/entities/activity-detail"
+import type { ActivityHighlight } from "../domain/entities/activity-highlight"
+import type { ActivityQuestion, DayActivityQuestions } from "../domain/entities/activity-question"
+import type { DayPlan } from "../domain/entities/day-plan"
+import type { PlanChatResult } from "../domain/entities/plan-chat"
+
+export function mapActivityHighlight(
+  dto: ActivityHighlightDto | null | undefined,
+): ActivityHighlight | null {
+  if (!dto) return null
+  return { text: dto.text, addedAt: dto.addedAt }
+}
 
 export function mapActivityCard(dto: ActivityCardDto): ActivityCard {
   return {
@@ -25,7 +41,45 @@ export function mapActivityCard(dto: ActivityCardDto): ActivityCard {
     iconKey: dto.iconKey,
     iconEmoji: iconKeyToEmoji(dto.iconKey),
     ctaLabel: dto.cta?.label,
+    highlight: mapActivityHighlight(dto.highlight),
   }
+}
+
+export function mapActivityDetail(dto: ActivityDetailDto): ActivityDetail {
+  return {
+    ...mapActivityCard(dto),
+    planId: dto.planId,
+    date: dto.date,
+    completion: dto.completion
+      ? {
+          id: dto.completion.id,
+          journalText: dto.completion.journalText,
+          photoUrls: dto.completion.photoUrls,
+          status: dto.completion.status,
+          verifiedAt: dto.completion.verifiedAt,
+        }
+      : null,
+  }
+}
+
+export function mapActivityQuestion(dto: ActivityQuestionDto): ActivityQuestion {
+  return {
+    questionId: dto.questionId,
+    question: dto.question,
+    answer: dto.answer,
+    status: dto.status,
+    relatedFaqs: dto.relatedFaqs,
+    createdAt: dto.createdAt,
+  }
+}
+
+export function mapDayActivityQuestions(dto: DayActivityQuestionsDto): DayActivityQuestions[] {
+  return dto.map((entry) => ({
+    activityId: entry.activityId,
+    activityTitle: entry.activityTitle,
+    highlight: mapActivityHighlight(entry.highlight),
+    questions: entry.questions,
+  }))
 }
 
 export function mapDayPlan(dto: DayPlanDto): DayPlan {

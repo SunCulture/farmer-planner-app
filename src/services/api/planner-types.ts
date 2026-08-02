@@ -11,6 +11,11 @@ export interface ActivityCtaDto {
   route: string
 }
 
+export interface ActivityHighlightDto {
+  text: string
+  addedAt: string
+}
+
 export interface ActivityCardDto {
   id: string
   title: string
@@ -19,6 +24,7 @@ export interface ActivityCardDto {
   status: ActivityStatusDto
   iconKey: string
   cta?: ActivityCtaDto
+  highlight?: ActivityHighlightDto | null
 }
 
 export interface PlanTipDto {
@@ -124,6 +130,54 @@ export interface ActivityCompletionDto {
   status: "PENDING" | "VERIFIED" | "REJECTED"
   verifiedAt?: string | null
 }
+
+// ---- Activity Q&A ---------------------------------------------------------
+
+export type ActivityQuestionStatusDto = "pending" | "answered" | "failed"
+
+export interface RelatedFaqDto {
+  question: string
+  previewAnswer: string
+}
+
+export interface ActivityQuestionDto {
+  questionId: string
+  question: string
+  answer: string | null
+  status: ActivityQuestionStatusDto
+  relatedFaqs: RelatedFaqDto[]
+  createdAt: string
+}
+
+export interface ActivityQuestionsListDto {
+  questions: ActivityQuestionDto[]
+}
+
+export interface AskActivityQuestionBody {
+  question: string
+}
+
+export interface AskActivityQuestionResponseDto {
+  questionId: string
+  question: string
+  status: "pending"
+}
+
+export interface DayActivityQuestionEntryDto {
+  activityId: string
+  activityTitle: string
+  highlight: ActivityHighlightDto | null
+  questions: {
+    questionId: string
+    question: string
+    answer: string | null
+    createdAt: string
+  }[]
+}
+
+export type DayActivityQuestionsDto = DayActivityQuestionEntryDto[]
+
+// ---- Journal / completions --------------------------------------------------
 
 export interface DayCompletionActivityDto {
   id: string

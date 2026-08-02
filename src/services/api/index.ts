@@ -11,6 +11,8 @@ import type {
   AcceptSuggestionResponseDto,
   ActivityDetailDto,
   ActivitySuggestionDto,
+  AskActivityQuestionResponseDto,
+  DayActivityQuestionsDto,
   DayCompletionsDto,
   DayPlanDto,
   EnrollPlanBody,
@@ -21,6 +23,7 @@ import type {
   PlanChatResponseDto,
   PlanRecommendationDto,
   PlanTemplateDto,
+  ActivityQuestionsListDto,
 } from "./planner-types"
 import type { ApiConfig } from "./types"
 import { unwrap, unwrapRaw, unwrapVoid } from "./unwrap"
@@ -264,6 +267,26 @@ export class Api {
   async getActivity(activityId: string): Promise<ActivityDetailDto> {
     const response = await this.apisauce.get(`/api/me/activities/${activityId}`)
     return unwrap<ActivityDetailDto>(response)
+  }
+
+  async getActivityQuestions(activityId: string): Promise<ActivityQuestionsListDto> {
+    const response = await this.apisauce.get(`/api/me/activities/${activityId}/questions`)
+    return unwrap<ActivityQuestionsListDto>(response)
+  }
+
+  async askActivityQuestion(
+    activityId: string,
+    question: string,
+  ): Promise<AskActivityQuestionResponseDto> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/questions`, {
+      question,
+    })
+    return unwrap<AskActivityQuestionResponseDto>(response)
+  }
+
+  async getDayActivityQuestions(date: string): Promise<DayActivityQuestionsDto> {
+    const response = await this.apisauce.get(`/api/me/days/${date}/activity-questions`)
+    return unwrap<DayActivityQuestionsDto>(response)
   }
 
   async getDayCompletions(date: string): Promise<DayCompletionsDto> {
