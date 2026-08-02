@@ -1,3 +1,5 @@
+import type { ActivityHighlight } from "./activity-highlight"
+
 export type ActivityStatusCode = "PENDING" | "VERIFIED" | "REJECTED"
 
 export interface ActivityStatus {
@@ -15,4 +17,5 @@ export interface ActivityCard {
   iconKey: string
   iconEmoji: string
   ctaLabel?: string
+  highlight: ActivityHighlight | null
 }

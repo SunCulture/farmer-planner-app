@@ -1,2 +1,8 @@
 export { default as PlanScreen } from "./presentation/PlanScreen"
+export { default as ActivityDetailScreen } from "./presentation/ActivityDetailScreen"
+export { default as ActivityQAListScreen } from "./presentation/ActivityQAListScreen"
 export { useDayPlan } from "./application/use-day-plan"
+export { useActivityDetail } from "./application/use-activity-detail"
+export { useActivityQA } from "./application/use-activity-qa"
+export type { ActivityDetail } from "./domain/entities/activity-detail"
+export type { ActivityQuestion } from "./domain/entities/activity-question"

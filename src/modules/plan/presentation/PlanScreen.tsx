@@ -242,7 +242,9 @@ export default function PlanScreen() {
             activity={activity}
             dateStr={dateStr}
             isExpanded={expandedId === activity.id}
-            onToggleExpand={() => setExpandedId((prev) => (prev === activity.id ? null : activity.id))}
+            onToggleExpand={() =>
+              setExpandedId((prev) => (prev === activity.id ? null : activity.id))
+            }
           />
         ))}
 
@@ -363,9 +365,7 @@ function ActivityRow({
 
         <View style={$activityBody}>
           <Text style={isVerified ? $activityNameDone : $activityName}>{activity.title}</Text>
-          {activity.subtitle ? (
-            <Text style={$activityDuration}>{activity.subtitle}</Text>
-          ) : null}
+          {activity.subtitle ? <Text style={$activityDuration}>{activity.subtitle}</Text> : null}
         </View>
 
         <View style={[$statusBadge, { backgroundColor: colors.bg }]}>
@@ -379,7 +379,9 @@ function ActivityRow({
 
       {isExpanded ? (
         <View style={$expandedSection}>
-          {activity.description ? <Text style={$descriptionText}>{activity.description}</Text> : null}
+          {activity.description ? (
+            <Text style={$descriptionText}>{activity.description}</Text>
+          ) : null}
 
           <TouchableOpacity
             style={$journalLink}
@@ -399,6 +401,18 @@ function ActivityRow({
           >
             <Ionicons name="journal-outline" size={14} color={forest500} />
             <Text style={$journalLinkText}>{activity.ctaLabel ?? "Log what you did"}</Text>
+            <Ionicons name="arrow-forward" size={13} color={forest500} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={$journalLink}
+            onPress={() => router.push(`/activity/${activity.id}` as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color={forest500} />
+            <Text style={$journalLinkText}>
+              {activity.highlight ? activity.highlight.text : "View details & ask a question"}
+            </Text>
             <Ionicons name="arrow-forward" size={13} color={forest500} />
           </TouchableOpacity>
         </View>
