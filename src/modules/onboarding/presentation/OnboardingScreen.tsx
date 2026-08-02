@@ -21,9 +21,7 @@ import { api } from "@/services/api"
 import {
   card,
   forest50,
-  forest100,
   forest500,
-  forest600,
   hairline,
   ink,
   ink3,
@@ -33,8 +31,19 @@ import {
 } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
-import { markOnboardingComplete, saveAuthToken, saveFarmerProfile } from "../application/farmer-profile-store"
+import OnboardingActivationStep from "./OnboardingActivationStep"
+import {
+  markOnboardingComplete,
+  saveAuthToken,
+  saveFarmerProfile,
+} from "../application/farmer-profile-store"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
+import { useCompleteOnboarding, usePatchOnboarding } from "../application/use-onboarding-mutations"
+import {
+  isValidTwoWeekGoal,
+  TWO_WEEK_GOAL_MAX_LENGTH,
+  TWO_WEEK_GOAL_MIN_LENGTH,
+} from "../domain/policies/two-week-goal"
 
 // Display-only emoji lookups — purely cosmetic, not data
 const CROP_EMOJI: Record<string, string> = {
@@ -105,6 +114,7 @@ interface DraftProfile {
   workStyle: WorkStyleUI | null
   farmSize: FarmSizeUI | null
   goals: string[] // goal slugs (e.g. "MAKE_MONEY")
+  twoWeekGoal: string // free-text goal for the next 2 weeks
 }
 
 const INITIAL_DRAFT: DraftProfile = {
@@ -117,6 +127,7 @@ const INITIAL_DRAFT: DraftProfile = {
   workStyle: null,
   farmSize: null,
   goals: [],
+  twoWeekGoal: "",
 }
 
 const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
@@ -125,8 +136,9 @@ const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
   large: 7.5,
 }
 
-// Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers  6=farmSize  7=goals  8=success
-const PROGRESS_STEPS = 7
+// Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers
+// 6=farmSize  7=goals  8=twoWeekGoal  9=activating (SSE wait -> plan day view)
+const PROGRESS_STEPS = 8
 
 const W = Dimensions.get("window").width
 const GRID_CARD_W = (W - spacing.s5 * 2 - spacing.s3) / 2
@@ -159,6 +171,8 @@ export default function OnboardingScreen() {
   const livestockQuery = useLivestock()
   const regionsQuery = useRegions()
   const goalsQuery = useGoals()
+  const patchOnboardingMutation = usePatchOnboarding()
+  const completeOnboardingMutation = useCompleteOnboarding()
 
   const goNext = () => setStep((s) => s + 1)
   const goBack = () => setStep((s) => Math.max(0, s - 1))
@@ -210,6 +224,7 @@ export default function OnboardingScreen() {
             helpersLevel: d.helpersLevel ?? "SOLO",
             acreage: d.acreage ?? 1,
             goalSlugs: d.goalSlugs,
+            twoWeekGoal: d.twoWeekGoal ?? undefined,
           })
         } else {
           markOnboardingComplete()
@@ -224,6 +239,8 @@ export default function OnboardingScreen() {
   }
 
   const handleFinish = async () => {
+    if (!isValidTwoWeekGoal(draft.twoWeekGoal)) return
+
     setFinishError(null)
     setFinishLoading(true)
     try {
@@ -240,30 +257,30 @@ export default function OnboardingScreen() {
           : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
         acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
         goalSlugs: draft.goals,
+        twoWeekGoal: draft.twoWeekGoal.trim(),
       }
       saveFarmerProfile(profile)
 
-      const patchRes = await api.patchOnboarding(profile)
-      if (!patchRes.ok) {
-        const msg =
-          (patchRes.data as any)?.error?.message ??
-          patchRes.originalError?.message ??
-          `Save failed (${patchRes.status ?? "no response"})`
-        setFinishError(msg)
+      try {
+        await patchOnboardingMutation.mutateAsync(profile)
+      } catch (err) {
+        setFinishError(err instanceof Error ? err.message : "Save failed. Please try again.")
         return
       }
 
-      const completeRes = await api.completeOnboarding()
-      if (!completeRes.ok) {
-        const msg =
-          (completeRes.data as any)?.error?.message ??
-          completeRes.originalError?.message ??
-          `Could not complete onboarding (${completeRes.status ?? "no response"})`
-        setFinishError(msg)
+      // Gate: POST /me/onboarding/complete must not be reachable without a
+      // valid twoWeekGoal — enforced above via the early return, and mirrored
+      // server-side per the backend PRD.
+      try {
+        await completeOnboardingMutation.mutateAsync()
+      } catch (err) {
+        setFinishError(
+          err instanceof Error ? err.message : "Could not complete onboarding. Please try again.",
+        )
         return
       }
 
-      setStep(8)
+      setStep(9) // -> activation wait screen (SSE), see OnboardingActivationStep
     } finally {
       setFinishLoading(false)
     }
@@ -283,78 +300,28 @@ export default function OnboardingScreen() {
       (draft.farmType === "crops" ? draft.crops.length > 0 : draft.livestock.length > 0)) ||
     (step === 5 && draft.workStyle !== null) ||
     (step === 6 && draft.farmSize !== null) ||
-    (step === 7 && draft.goals.length > 0)
+    (step === 7 && draft.goals.length > 0) ||
+    (step === 8 && isValidTwoWeekGoal(draft.twoWeekGoal))
 
-  const ctaLabel = step === 7 ? "Build My Farm Plan 🌱" : "Continue  →"
-  const ctaOnPress = step === 7 ? handleFinish : goNext
+  const ctaLabel = step === 8 ? "Build My Farm Plan 🌱" : "Continue  →"
+  const ctaOnPress = step === 8 ? handleFinish : goNext
 
   const isAuth = step === 0
-  const isSuccess = step === 8
-  const showHeader = !isAuth && !isSuccess
+  const isActivating = step === 9
+  const showHeader = !isAuth && !isActivating
 
   const allRegions = regionsQuery.data ?? []
   const filteredRegions = locationQuery
     ? allRegions.filter((r) => r.name.toLowerCase().includes(locationQuery.toLowerCase()))
     : allRegions
 
-  // ---- Success screen -------------------------------------------------------
+  // ---- Activation wait screen (SSE) ------------------------------------------
 
-  if (isSuccess) {
-    const farmTypeLabel = draft.farmType === "crops" ? "Crops" : "Livestock"
-    const farmTypeEmoji = draft.farmType === "crops" ? "🌱" : "🐄"
-    const farmSizeLabel =
-      draft.farmSize === "small"
-        ? "Small farm"
-        : draft.farmSize === "medium"
-          ? "Medium farm"
-          : "Large farm"
-    const farmSizeEmoji =
-      draft.farmSize === "small" ? "🌿" : draft.farmSize === "medium" ? "🌾" : "🌳"
-
-    return (
-      <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.s4 }]}>
-        <View style={$successCenter}>
-          <View style={$trophyCircle}>
-            <Text style={$trophyEmoji}>🏆</Text>
-          </View>
-          <Text style={$successHeading}>{"Your smart farming\njourney begins now! 🌱"}</Text>
-          <Text style={$successSubtitle}>
-            {"Welcome, "}
-            {draft.name}
-            {"! Your plan is ready.\nLet's make this season your best."}
-          </Text>
-          <View style={$tagRow}>
-            {draft.location ? (
-              <View style={$tag}>
-                <Text style={$tagText}>📍 {draft.location}</Text>
-              </View>
-            ) : null}
-            <View style={$tag}>
-              <Text style={$tagText}>
-                {farmTypeEmoji} {farmTypeLabel}
-              </Text>
-            </View>
-            {draft.farmSize ? (
-              <View style={$tag}>
-                <Text style={$tagText}>
-                  {farmSizeEmoji} {farmSizeLabel}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-        <TouchableOpacity
-          style={[$ctaBtn, { marginHorizontal: spacing.s5 }]}
-          onPress={() => router.replace("/(tabs)/" as any)}
-          activeOpacity={0.85}
-        >
-          <Text style={$ctaBtnText}>Go to My Dashboard →</Text>
-        </TouchableOpacity>
-      </View>
-    )
+  if (isActivating) {
+    return <OnboardingActivationStep />
   }
 
-  // ---- Main flow (steps 0-7) ------------------------------------------------
+  // ---- Main flow (steps 0-8) ------------------------------------------------
 
   // ---- Auth screen (step 0) — rendered separately, no scroll wrapper --------
 
@@ -863,6 +830,50 @@ export default function OnboardingScreen() {
               )}
             </>
           )}
+
+          {/* ---- 2-week goal ---- */}
+          {step === 8 && (
+            <>
+              <Text style={$stepHeading}>{"What's your #1 goal\nfor the next 2 weeks?"}</Text>
+              <Text style={$stepSubtitle}>
+                {"Be specific — this helps us personalise your daily activities."}
+              </Text>
+              <TextInput
+                style={$goalTextInput}
+                value={draft.twoWeekGoal}
+                onChangeText={(twoWeekGoal) =>
+                  setDraft((d) => ({
+                    ...d,
+                    twoWeekGoal: twoWeekGoal.slice(0, TWO_WEEK_GOAL_MAX_LENGTH),
+                  }))
+                }
+                placeholder="e.g. Get my maize planted before the next rains"
+                placeholderTextColor={ink4}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                maxLength={TWO_WEEK_GOAL_MAX_LENGTH}
+                autoFocus
+              />
+              <View style={$goalCounterRow}>
+                {draft.twoWeekGoal.trim().length > 0 &&
+                draft.twoWeekGoal.trim().length < TWO_WEEK_GOAL_MIN_LENGTH ? (
+                  <Text style={$goalHintText}>
+                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length} more character
+                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length === 1
+                      ? ""
+                      : "s"}{" "}
+                    needed
+                  </Text>
+                ) : (
+                  <View />
+                )}
+                <Text style={$goalCounterText}>
+                  {draft.twoWeekGoal.length}/{TWO_WEEK_GOAL_MAX_LENGTH}
+                </Text>
+              </View>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -1291,6 +1302,39 @@ const $goalLabel: TextStyle = {
   textAlign: "center",
 }
 
+// 2-week goal step
+const $goalTextInput: TextStyle = {
+  minHeight: 120,
+  borderWidth: 1.5,
+  borderColor: hairline,
+  borderRadius: radii.xl,
+  paddingHorizontal: spacing.s4,
+  paddingVertical: spacing.s3,
+  fontFamily: typography.primary.normal,
+  fontSize: 16,
+  color: ink,
+  backgroundColor: card,
+}
+
+const $goalCounterRow: ViewStyle = {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginTop: spacing.s2,
+}
+
+const $goalHintText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink3,
+}
+
+const $goalCounterText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink4,
+}
+
 // Footer
 const $footer: ViewStyle = {
   paddingHorizontal: spacing.s5,
@@ -1323,64 +1367,4 @@ const $ctaBtnText: TextStyle = {
   fontSize: 16,
   color: "#FFFFFF",
   letterSpacing: 0.2,
-}
-
-// Success screen
-const $successCenter: ViewStyle = {
-  flex: 1,
-  alignItems: "center",
-  justifyContent: "center",
-  paddingHorizontal: spacing.s5,
-}
-
-const $trophyCircle: ViewStyle = {
-  width: 120,
-  height: 120,
-  borderRadius: 60,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: spacing.s6,
-}
-
-const $trophyEmoji: TextStyle = {
-  fontSize: 56,
-}
-
-const $successHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 26,
-  color: ink,
-  textAlign: "center",
-  lineHeight: 34,
-  marginBottom: spacing.s3,
-}
-
-const $successSubtitle: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 15,
-  color: ink3,
-  textAlign: "center",
-  lineHeight: 22,
-  marginBottom: spacing.s6,
-}
-
-const $tagRow: ViewStyle = {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: spacing.s2,
-  justifyContent: "center",
-}
-
-const $tag: ViewStyle = {
-  backgroundColor: forest50,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s3,
-  paddingVertical: 6,
-}
-
-const $tagText: TextStyle = {
-  fontFamily: typography.primary.medium,
-  fontSize: 13,
-  color: forest500,
 }
