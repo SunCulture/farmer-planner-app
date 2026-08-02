@@ -141,4 +141,6 @@ src/
 
 Built: onboarding (farmer profile, farm details, catalog-driven crop/livestock/goal selection), Home dashboard (week strip, plan recommendations), Plan (AI plan generation/enrollment, day-plan view, activity cards, plan-audit chat), Journal (activity completions with photos, timeline, day history), Profile/settings. Backend integration is via `tujiweze-backend`'s `/api/me/*` endpoints (see `tujiweze-backend/README.md` for the contract).
 
+Not yet built, tracked as open issues: SSE client + 2-week goal onboarding step (#4), activity Q&A UI + highlight badges (#5), AI activity-suggestions bottom sheet (#6), structured plan goal-audit screen (#7, distinct from the existing plan-audit chat). See `tujiweze-backend/docs/CROSS-REPO-ROADMAP.md` for how these map to backend issues and suggested build order.
+
 For architecture rationale and target-state details beyond what's implemented, see [docs/architecture.md](docs/architecture.md) and the ADRs in [docs/adr/](docs/adr/) — treat ADRs as authoritative over this file when they conflict.
