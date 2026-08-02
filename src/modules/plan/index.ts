@@ -1,2 +1,11 @@
 export { default as PlanScreen } from "./presentation/PlanScreen"
 export { useDayPlan } from "./application/use-day-plan"
+
+export { ActivitySuggestionsBanner } from "./presentation/ActivitySuggestionsBanner"
+export { ActivitySuggestionsSheetHost } from "./presentation/ActivitySuggestionsSheetHost"
+export { useActivitySuggestions } from "./application/use-activity-suggestions"
+export { useActivitySuggestionsSheet } from "./application/use-activity-suggestions-sheet"
+export { useAcceptSuggestion } from "./application/use-accept-suggestion"
+export { useDismissSuggestion } from "./application/use-dismiss-suggestion"
+export { useUnreviewedSuggestions } from "./application/use-unreviewed-suggestions"
+export type { ActivitySuggestion, ActivityTimeOfDay } from "./domain/entities/activity-suggestion"

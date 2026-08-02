@@ -1,9 +1,16 @@
 import { api } from "@/services/api"
 import type { GeneratePlanBody, PatchPlanBody } from "@/services/api/planner-types"
 
+import {
+  mapActivityCard,
+  mapActivitySuggestion,
+  mapDayPlan,
+  mapPlanChatResult,
+} from "./api-mappers"
+import type { ActivityCard } from "../domain/entities/activity-card"
+import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
 import type { DayPlan } from "../domain/entities/day-plan"
 import type { PlanChatResult } from "../domain/entities/plan-chat"
-import { mapDayPlan, mapPlanChatResult } from "./api-mappers"
 
 export async function fetchDayPlan(date: string): Promise<DayPlan> {
   const dto = await api.getDayPlan(date)
@@ -27,4 +34,26 @@ export async function sendPlanChat(planId: string, message: string): Promise<Pla
 
 export async function patchPlanActivities(planId: string, body: PatchPlanBody): Promise<void> {
   await api.patchPlan(planId, body)
+}
+
+// ---- Activity suggestions (AI re-queue) ------------------------------------
+
+export async function fetchActivitySuggestions(date: string): Promise<ActivitySuggestion[]> {
+  const dtos = await api.listActivitySuggestions(date)
+  return dtos.map(mapActivitySuggestion)
+}
+
+export interface AcceptSuggestionResult {
+  activity: ActivityCard
+  planId: string
+  date: string
+}
+
+export async function acceptActivitySuggestion(id: string): Promise<AcceptSuggestionResult> {
+  const dto = await api.acceptActivitySuggestion(id)
+  return { activity: mapActivityCard(dto), planId: dto.planId, date: dto.date }
+}
+
+export async function dismissActivitySuggestion(id: string): Promise<void> {
+  await api.dismissActivitySuggestion(id)
 }

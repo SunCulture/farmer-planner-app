@@ -1,17 +1,19 @@
+import type { HomeDashboard } from "@/modules/home/domain/entities/home-dashboard"
+import type { DayCompletions } from "@/modules/journal/domain/entities/completion"
 import type {
   ActivityCardDto,
+  ActivitySuggestionDto,
   DayCompletionsDto,
   DayPlanDto,
   HomeDataDto,
   PlanChatResponseDto,
 } from "@/services/api/planner-types"
-import type { HomeDashboard } from "@/modules/home/domain/entities/home-dashboard"
-import type { DayCompletions } from "@/modules/journal/domain/entities/completion"
 
+import { iconKeyToEmoji } from "./icon-key-map"
 import type { ActivityCard } from "../domain/entities/activity-card"
+import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
 import type { DayPlan } from "../domain/entities/day-plan"
 import type { PlanChatResult } from "../domain/entities/plan-chat"
-import { iconKeyToEmoji } from "./icon-key-map"
 
 export function mapActivityCard(dto: ActivityCardDto): ActivityCard {
   return {
@@ -78,6 +80,19 @@ export function mapPlanChatResult(dto: PlanChatResponseDto): PlanChatResult {
     reply: dto.reply,
     confidence: dto.confidence,
     suggestionCards: dto.suggestionCards,
+  }
+}
+
+export function mapActivitySuggestion(dto: ActivitySuggestionDto): ActivitySuggestion {
+  return {
+    id: dto.id,
+    title: dto.title,
+    description: dto.description,
+    category: dto.category,
+    timeOfDay: dto.timeOfDay,
+    estimatedMinutes: dto.estimatedMinutes,
+    suggestedForDate: dto.suggestedForDate,
+    expiresAt: dto.expiresAt,
   }
 }
 

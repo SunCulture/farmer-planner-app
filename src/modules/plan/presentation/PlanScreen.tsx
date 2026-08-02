@@ -45,6 +45,7 @@ import {
 } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
+import { ActivitySuggestionsBanner } from "./ActivitySuggestionsBanner"
 import { useDayPlan } from "../application/use-day-plan"
 import type { ActivityCard } from "../domain/entities/activity-card"
 import type { SuggestionCard } from "../domain/entities/plan-chat"
@@ -214,6 +215,8 @@ export default function PlanScreen() {
         <Text style={$planLabel}>PLAN ON A PAGE</Text>
         <Text style={$dateHeading}>{dateLabel}</Text>
 
+        <ActivitySuggestionsBanner />
+
         {dayPlan?.hero ? (
           <View style={$heroCard}>
             <Text style={$heroTitle}>{dayPlan.hero.title}</Text>
@@ -242,7 +245,9 @@ export default function PlanScreen() {
             activity={activity}
             dateStr={dateStr}
             isExpanded={expandedId === activity.id}
-            onToggleExpand={() => setExpandedId((prev) => (prev === activity.id ? null : activity.id))}
+            onToggleExpand={() =>
+              setExpandedId((prev) => (prev === activity.id ? null : activity.id))
+            }
           />
         ))}
 
@@ -363,9 +368,7 @@ function ActivityRow({
 
         <View style={$activityBody}>
           <Text style={isVerified ? $activityNameDone : $activityName}>{activity.title}</Text>
-          {activity.subtitle ? (
-            <Text style={$activityDuration}>{activity.subtitle}</Text>
-          ) : null}
+          {activity.subtitle ? <Text style={$activityDuration}>{activity.subtitle}</Text> : null}
         </View>
 
         <View style={[$statusBadge, { backgroundColor: colors.bg }]}>
@@ -379,7 +382,9 @@ function ActivityRow({
 
       {isExpanded ? (
         <View style={$expandedSection}>
-          {activity.description ? <Text style={$descriptionText}>{activity.description}</Text> : null}
+          {activity.description ? (
+            <Text style={$descriptionText}>{activity.description}</Text>
+          ) : null}
 
           <TouchableOpacity
             style={$journalLink}

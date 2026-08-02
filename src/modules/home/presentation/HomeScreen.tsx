@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { FLOATING_NAV_CLEARANCE } from "@/app/(tabs)/_layout"
 import { ApiErrorView } from "@/components/ApiErrorView"
 import { loadFarmerProfile } from "@/modules/onboarding"
+import { ActivitySuggestionsBanner } from "@/modules/plan"
 import { useEnrollPlan } from "@/modules/plan/application/use-enroll-plan"
 import { useGeneratePlan } from "@/modules/plan/application/use-generate-plan"
 import type { ActivityCard } from "@/modules/plan/domain/entities/activity-card"
@@ -184,13 +185,17 @@ export default function HomeScreen() {
       </View>
 
       <View style={$lowerSection}>
+        <ActivitySuggestionsBanner />
+
         <View style={$sectionHeaderRow}>
           <Text style={$sectionTitle}>Farm Plan Templates</Text>
           {isRefetching ? <ActivityIndicator size="small" color={forest500} /> : null}
         </View>
 
         {!dashboard?.activePlanId && templateCards.length === 0 ? (
-          <Text style={$emptyHint}>No templates yet. Complete onboarding to get recommendations.</Text>
+          <Text style={$emptyHint}>
+            No templates yet. Complete onboarding to get recommendations.
+          </Text>
         ) : null}
       </View>
 
@@ -415,7 +420,12 @@ const $planSubtitle: TextStyle = {
   marginBottom: spacing.s2,
   lineHeight: 15,
 }
-const $planTags: ViewStyle = { flexDirection: "row", flexWrap: "wrap", gap: spacing.s1, marginBottom: spacing.s2 }
+const $planTags: ViewStyle = {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: spacing.s1,
+  marginBottom: spacing.s2,
+}
 const $planDaysTag: ViewStyle = {
   backgroundColor: hairline,
   borderRadius: radii.pill,
