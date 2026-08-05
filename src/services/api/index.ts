@@ -1,7 +1,11 @@
 import { ApisauceInstance, create } from "apisauce"
 
 import Config from "@/config"
-import type { FarmerLocation, FarmerProfile, HelpersLevel, ProductionType } from "@/modules/onboarding/domain/entities/farmer-profile"
+import type {
+  FarmerLocation,
+  HelpersLevel,
+  ProductionType,
+} from "@/modules/onboarding/domain/entities/farmer-profile"
 
 import type { ApiConfig } from "./types"
 
@@ -90,6 +94,7 @@ export interface OnboardingData {
   helpersLevel: HelpersLevel | null
   acreage: number | null
   goalSlugs: string[]
+  twoWeekGoal?: string | null
   onboardingCompletedAt: string | null
   suggestedStep: string | null
   steps: OnboardingStep[]
@@ -104,11 +109,23 @@ export interface PatchOnboardingBody {
   helpersLevel?: HelpersLevel
   acreage?: number
   goalSlugs?: string[]
+  twoWeekGoal?: string
 }
+
+export type ContestReaction = "too_hard" | "too_easy" | "not_relevant" | "loved_it"
 
 export interface ActivityHighlightResponse {
   text: string
   addedAt: string
+}
+
+export interface ActivityCompletionResponse {
+  id: string
+  journalText?: string | null
+  photoUrls?: string[]
+  status: string
+  outcomeNote?: string | null
+  verifiedAt?: string | null
 }
 
 export interface ActivityDetailResponse {
@@ -116,12 +133,14 @@ export interface ActivityDetailResponse {
   title: string
   subtitle?: string
   description?: string
+  educationBrief?: string
   status?: { code: string; label: string; color: string }
   iconKey?: string
   highlight: ActivityHighlightResponse | null
   cta?: { label: string; route: string }
   planId?: string
   date?: string
+  completion?: ActivityCompletionResponse | null
 }
 
 export interface AskActivityQuestionBody {
@@ -184,11 +203,17 @@ export class Api {
   // ---- Auth ------------------------------------------------------------------
 
   async register(body: RegisterBody) {
-    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>("/api/auth/register", body)
+    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>(
+      "/api/auth/register",
+      body,
+    )
   }
 
   async login(body: LoginBody) {
-    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>("/api/auth/login", body)
+    return this.apisauce.post<{ data: AuthTokens & { farmer: AuthFarmer } }>(
+      "/api/auth/login",
+      body,
+    )
   }
 
   async refreshTokens(refreshToken: string) {
@@ -210,7 +235,10 @@ export class Api {
   }
 
   async searchLivestock(q?: string) {
-    return this.apisauce.get<{ livestock: LivestockItem[] }>("/api/catalog/livestock", q ? { q } : undefined)
+    return this.apisauce.get<{ livestock: LivestockItem[] }>(
+      "/api/catalog/livestock",
+      q ? { q } : undefined,
+    )
   }
 
   async listGoals() {
@@ -235,21 +263,43 @@ export class Api {
   }
 
   async completeOnboarding() {
-    return this.apisauce.post<{ data: Pick<OnboardingData, "farmerId" | "onboardingCompletedAt" | "suggestedStep" | "steps"> }>("/api/me/onboarding/complete")
+    return this.apisauce.post<{
+      data: Pick<OnboardingData, "farmerId" | "onboardingCompletedAt" | "suggestedStep" | "steps">
+    }>("/api/me/onboarding/complete")
   }
 
   // ---- Activities + Q&A ------------------------------------------------------
 
   async getDayPlan(date: string) {
-    return this.apisauce.get<{ data?: { activities?: ActivityDetailResponse[] }; activities?: ActivityDetailResponse[] }>(
-      `/api/me/days/${date}/plan`,
-    )
+    return this.apisauce.get<{
+      data?: { activities?: ActivityDetailResponse[] }
+      activities?: ActivityDetailResponse[]
+    }>(`/api/me/days/${date}/plan`)
   }
 
   async getActivityDetail(activityId: string) {
     return this.apisauce.get<{ data?: ActivityDetailResponse; activity?: ActivityDetailResponse }>(
       `/api/me/activities/${activityId}`,
     )
+  }
+
+  async markActivityDone(activityId: string) {
+    return this.apisauce.post<{ data: ActivityCompletionResponse }>(
+      `/api/me/activities/${activityId}/done`,
+    )
+  }
+
+  async skipActivity(activityId: string, note?: string) {
+    return this.apisauce.post<{ data: ActivityCompletionResponse }>(
+      `/api/me/activities/${activityId}/skip`,
+      note ? { note } : {},
+    )
+  }
+
+  async contestActivity(activityId: string, body: { reaction: ContestReaction; note: string }) {
+    return this.apisauce.post<{
+      data: { feedbackId: string; activityId: string; status: string; message: string }
+    }>(`/api/me/activities/${activityId}/contest`, body)
   }
 
   async askActivityQuestion(activityId: string, body: AskActivityQuestionBody) {

@@ -1,18 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
-import type { ContestReaction } from "@/services/api/planner-types"
-import { plannerKeys } from "@/shared/query-keys"
+import type { ContestReaction } from "@/services/api"
+import { planKeys } from "@/shared/query-keys"
 
 import {
   contestActivity,
   markActivityDone,
   skipActivity,
-} from "../infrastructure/plan-api"
+} from "../infrastructure/activity-detail-service"
 
-function invalidateActivityQueries(queryClient: ReturnType<typeof useQueryClient>, activityId: string) {
-  queryClient.invalidateQueries({ queryKey: plannerKeys.activity(activityId) })
-  queryClient.invalidateQueries({ queryKey: plannerKeys.home() })
-  queryClient.invalidateQueries({ queryKey: plannerKeys.all })
+function invalidateActivityQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  activityId: string,
+) {
+  queryClient.invalidateQueries({ queryKey: planKeys.activity(activityId) })
+  queryClient.invalidateQueries({ queryKey: planKeys.all })
+  queryClient.invalidateQueries({ queryKey: ["home"] })
 }
 
 export function useMarkActivityDone(activityId: string) {

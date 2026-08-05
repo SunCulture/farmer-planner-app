@@ -1,5 +1,8 @@
-import type { ActivityHighlight } from "../entities/activity-highlight"
-import type { AnswerStreamPayload, ActivityQuestion } from "../entities/activity-question"
+import type {
+  ActivityAnswerStreamEvent,
+  ActivityHighlight,
+  ActivityQuestion,
+} from "../entities/activity-qa"
 
 export function createPendingQuestion(questionId: string, question: string): ActivityQuestion {
   return {
@@ -14,7 +17,7 @@ export function createPendingQuestion(questionId: string, question: string): Act
 
 export function applyAnswerStreamEvent(
   questions: ActivityQuestion[],
-  payload: AnswerStreamPayload,
+  payload: ActivityAnswerStreamEvent,
 ): ActivityQuestion[] {
   let matched = false
   const next = questions.map((q) => {
@@ -33,7 +36,9 @@ export function applyAnswerStreamEvent(
   return matched ? next : questions
 }
 
-export function extractHighlightFromEvent(payload: AnswerStreamPayload): ActivityHighlight | null {
+export function extractHighlightFromEvent(
+  payload: ActivityAnswerStreamEvent,
+): ActivityHighlight | null {
   if (payload.error || !payload.isHighlight || !payload.highlightText) return null
   return { text: payload.highlightText, addedAt: new Date().toISOString() }
 }

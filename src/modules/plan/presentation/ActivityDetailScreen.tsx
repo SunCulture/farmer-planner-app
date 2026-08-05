@@ -15,16 +15,9 @@ import {
 } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
-import { useQueryClient } from "@tanstack/react-query"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { container } from "@/bootstrap/container"
-import { ApiErrorView } from "@/components/ApiErrorView"
-import { loadAuthToken } from "@/modules/onboarding"
-import type { SseClient } from "@/shared/contracts/sse"
-import { getApiErrorMessage, isNotFoundError } from "@/shared/infrastructure/api-error"
-import { plannerKeys } from "@/shared/query-keys"
-import type { ContestReaction } from "@/services/api/planner-types"
+import type { ContestReaction } from "@/services/api"
 import {
   forest50,
   forest100,
@@ -44,9 +37,10 @@ import {
   statusGoodBg,
   statusWarn,
   statusWarnBg,
-} from "@/theme/tujiweze-tokens"
+} from "@/theme/tapp-tokens"
 import { typography } from "@/theme/typography"
 
+import { getActivityErrorMessage, isActivityNotFoundError } from "../application/activity-errors"
 import {
   useContestActivity,
   useMarkActivityDone,
@@ -54,11 +48,12 @@ import {
 } from "../application/use-activity-actions"
 import { useActivityDetail } from "../application/use-activity-detail"
 import { useActivityQA } from "../application/use-activity-qa"
-import type { ActivityHighlight } from "../domain/entities/activity-highlight"
-import { statusColorToUi } from "../infrastructure/api-mappers"
+import { ActivityErrorView } from "./components/ActivityErrorView"
 import { AskQuestionBar } from "./components/AskQuestionBar"
 import { HighlightBadge } from "./components/HighlightBadge"
 import { QuestionBubble } from "./components/QuestionBubble"
+import type { ActivityHighlight } from "../domain/entities/activity-qa"
+import { statusColorToUi } from "../domain/policies/activity-status-ui"
 
 const REACTIONS: { id: ContestReaction; label: string }[] = [
   { id: "too_hard", label: "Too hard" },
@@ -77,11 +72,17 @@ function statusUiColors(color: string): { bg: string; text: string } {
 export default function ActivityDetailScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const queryClient = useQueryClient()
   const params = useLocalSearchParams<{ activityId?: string; id?: string }>()
   const activityId = (params.activityId ?? params.id ?? "") as string
 
-  const { data: activity, isLoading, isError, error, refetch } = useActivityDetail(activityId)
+  const {
+    data: activity,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useActivityDetail(activityId)
   const markDone = useMarkActivityDone(activityId)
   const skip = useSkipActivity(activityId)
   const contest = useContestActivity(activityId)
@@ -98,25 +99,24 @@ export default function ActivityDetailScreen() {
   const [contestPending, setContestPending] = useState(false)
 
   const scrollRef = useRef<ScrollView>(null)
+  const prevFetching = useRef(false)
 
   const qa = useActivityQA(activityId, (highlight) => {
     setLocalHighlight(highlight)
   })
 
   useEffect(() => {
-    const sse = container.resolve<SseClient>("sseClient")
-    if (!sse) return
-    const token = loadAuthToken()
-    if (token) sse.connect(token)
+    setLocalHighlight(null)
+    setContestPending(false)
+    setActionError(null)
+  }, [activityId])
 
-    const unsub = sse.on<{ activityId: string }>("activity_refined", (payload) => {
-      if (payload.activityId !== activityId) return
+  useEffect(() => {
+    if (contestPending && prevFetching.current && !isFetching && activity) {
       setContestPending(false)
-      queryClient.invalidateQueries({ queryKey: plannerKeys.activity(activityId) })
-      queryClient.invalidateQueries({ queryKey: plannerKeys.home() })
-    })
-    return unsub
-  }, [activityId, queryClient])
+    }
+    prevFetching.current = isFetching
+  }, [contestPending, isFetching, activity])
 
   const highlight = localHighlight ?? activity?.highlight ?? null
 
@@ -125,7 +125,7 @@ export default function ActivityDetailScreen() {
     try {
       await markDone.mutateAsync()
     } catch (err) {
-      setActionError(getApiErrorMessage(err))
+      setActionError(getActivityErrorMessage(err))
     }
   }
 
@@ -141,13 +141,16 @@ export default function ActivityDetailScreen() {
       setSkipOpen(false)
       setSkipNote("")
     } catch (err) {
-      setActionError(getApiErrorMessage(err))
+      setActionError(getActivityErrorMessage(err))
     }
   }
 
   async function handleContestSubmit() {
     if (contestNote.trim().length < 10) {
-      Alert.alert("Add more detail", "Please write at least 10 characters so we can refine this task.")
+      Alert.alert(
+        "Add more detail",
+        "Please write at least 10 characters so we can refine this task.",
+      )
       return
     }
     setActionError(null)
@@ -157,7 +160,7 @@ export default function ActivityDetailScreen() {
       setContestPending(true)
       setContestNote("")
     } catch (err) {
-      setActionError(getApiErrorMessage(err))
+      setActionError(getActivityErrorMessage(err))
     }
   }
 
@@ -171,7 +174,7 @@ export default function ActivityDetailScreen() {
   }
 
   if (isError && !activity) {
-    if (isNotFoundError(error)) {
+    if (isActivityNotFoundError(error)) {
       return (
         <View style={[$root, $centered, { paddingTop: insets.top }]}>
           <Text style={$emptyTitle}>Activity not found</Text>
@@ -183,7 +186,14 @@ export default function ActivityDetailScreen() {
     }
     return (
       <View style={[$root, $centered, { paddingTop: insets.top }]}>
-        <ApiErrorView error={error} onRetry={() => refetch()} title="Could not load activity" />
+        <ActivityErrorView
+          error={error}
+          onRetry={() => refetch()}
+          title="Could not load activity"
+        />
+        <TouchableOpacity onPress={() => router.back()} style={$emptyLink}>
+          <Text style={$emptyLinkText}>Go back</Text>
+        </TouchableOpacity>
       </View>
     )
   }
@@ -250,7 +260,9 @@ export default function ActivityDetailScreen() {
           <TouchableOpacity
             style={[$actionBtn, $actionDone]}
             onPress={handleDone}
-            disabled={busy || activity.status.code === "DONE" || activity.status.code === "VERIFIED"}
+            disabled={
+              busy || activity.status.code === "DONE" || activity.status.code === "VERIFIED"
+            }
             activeOpacity={0.85}
           >
             {markDone.isPending ? (
@@ -314,15 +326,27 @@ export default function ActivityDetailScreen() {
             const text = qaInput.trim()
             if (!text) return
             setQaInput("")
-            await qa.ask(text)
+            try {
+              await qa.ask(text)
+            } catch (err) {
+              setActionError(getActivityErrorMessage(err))
+            }
           }}
         />
 
         {qa.isLoading ? (
-          <ActivityIndicator size="small" color={forest500} style={{ marginVertical: spacing.s3 }} />
+          <ActivityIndicator
+            size="small"
+            color={forest500}
+            style={{ marginVertical: spacing.s3 }}
+          />
         ) : null}
         {qa.isError ? (
-          <ApiErrorView error={qa.error} onRetry={() => qa.refetch()} title="Could not load Q&A" />
+          <ActivityErrorView
+            error={qa.error}
+            onRetry={() => qa.refetch()}
+            title="Could not load Q&A"
+          />
         ) : null}
         {!qa.isLoading && qa.questions.length === 0 ? (
           <Text style={$emptyQaText}>No questions yet — ask anything about this activity.</Text>
@@ -337,7 +361,12 @@ export default function ActivityDetailScreen() {
         ))}
       </ScrollView>
 
-      <Modal visible={skipOpen} animationType="slide" transparent onRequestClose={() => setSkipOpen(false)}>
+      <Modal
+        visible={skipOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSkipOpen(false)}
+      >
         <View style={$modalBackdrop}>
           <View style={[$modalSheet, { paddingBottom: insets.bottom + spacing.s4 }]}>
             <Text style={$modalTitle}>Didn&apos;t do this task</Text>
@@ -371,7 +400,12 @@ export default function ActivityDetailScreen() {
         </View>
       </Modal>
 
-      <Modal visible={contestOpen} animationType="slide" transparent onRequestClose={() => setContestOpen(false)}>
+      <Modal
+        visible={contestOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setContestOpen(false)}
+      >
         <View style={$modalBackdrop}>
           <View style={[$modalSheet, { paddingBottom: insets.bottom + spacing.s4 }]}>
             <Text style={$modalTitle}>Contest / add info</Text>

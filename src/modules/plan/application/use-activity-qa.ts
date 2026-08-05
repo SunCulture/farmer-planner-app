@@ -1,28 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 
-import { container } from "@/bootstrap/container"
-import { loadAuthToken } from "@/modules/onboarding"
-import type { SseClient } from "@/shared/contracts/sse"
-import { plannerKeys } from "@/shared/query-keys"
+import { planKeys } from "@/shared/query-keys"
 
-import type { ActivityHighlight } from "../domain/entities/activity-highlight"
-import type { ActivityQuestion, AnswerStreamPayload } from "../domain/entities/activity-question"
+import type { ActivityHighlight, ActivityQuestion } from "../domain/entities/activity-qa"
 import {
   applyAnswerStreamEvent,
   createPendingQuestion,
   extractHighlightFromEvent,
   removeQuestion,
 } from "../domain/policies/activity-qa-policy"
-import { askActivityQuestion, fetchActivityQuestions } from "../infrastructure/plan-api"
+import {
+  askActivityQuestion,
+  getQuestionsForActivity,
+  parseAnswerStreamEvent,
+} from "../infrastructure/activity-qa-service"
+import { subscribeActivitySSE } from "../infrastructure/activity-qa-sse"
 
 export function useActivityQA(
   activityId: string,
   onHighlight?: (highlight: ActivityHighlight, sourceQuestionId: string) => void,
 ) {
   const initialQuery = useQuery({
-    queryKey: plannerKeys.activityQuestions(activityId),
-    queryFn: () => fetchActivityQuestions(activityId),
+    queryKey: planKeys.activityQuestions(activityId),
+    queryFn: () => getQuestionsForActivity(activityId),
     enabled: Boolean(activityId),
   })
 
@@ -32,6 +33,11 @@ export function useActivityQA(
   onHighlightRef.current = onHighlight
 
   useEffect(() => {
+    seededRef.current = false
+    setQuestions([])
+  }, [activityId])
+
+  useEffect(() => {
     if (initialQuery.data && !seededRef.current) {
       seededRef.current = true
       setQuestions(initialQuery.data)
@@ -39,19 +45,13 @@ export function useActivityQA(
   }, [initialQuery.data])
 
   useEffect(() => {
-    const sse = container.resolve<SseClient>("sseClient")
-    if (!sse) return
-
-    const token = loadAuthToken()
-    if (token) sse.connect(token)
-
-    const unsubscribe = sse.on<AnswerStreamPayload>("activity_answer_stream", (payload) => {
-      setQuestions((prev) => applyAnswerStreamEvent(prev, payload))
-      const highlight = extractHighlightFromEvent(payload)
-      if (highlight) onHighlightRef.current?.(highlight, payload.questionId)
+    return subscribeActivitySSE("activity_answer_stream", (payload) => {
+      const event = parseAnswerStreamEvent(payload)
+      if (!event) return
+      setQuestions((prev) => applyAnswerStreamEvent(prev, event))
+      const highlight = extractHighlightFromEvent(event)
+      if (highlight) onHighlightRef.current?.(highlight, event.questionId)
     })
-
-    return unsubscribe
   }, [])
 
   const askMutation = useMutation({

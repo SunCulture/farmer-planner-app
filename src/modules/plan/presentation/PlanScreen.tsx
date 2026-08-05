@@ -545,9 +545,22 @@ function ActivityRow({
         </View>
 
         <View style={$activityBody}>
-          <Text style={activity.done ? $activityNameDone : $activityName}>{activity.name}</Text>
-          <Text style={$activityDuration}>⏱ {activity.durationMinutes} min</Text>
-          {activity.highlight?.text ? <Text style={$highlightBadge}>💡 {activity.highlight.text}</Text> : null}
+          <TouchableOpacity
+            onPress={() => {
+              if (isUuidLike(activity.id)) {
+                router.push(`/activity/${activity.id}` as any)
+              } else {
+                onToggleExpand()
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={activity.done ? $activityNameDone : $activityName}>{activity.name}</Text>
+            <Text style={$activityDuration}>⏱ {activity.durationMinutes} min</Text>
+            {activity.highlight?.text ? (
+              <Text style={$highlightBadge}>💡 {activity.highlight.text}</Text>
+            ) : null}
+          </TouchableOpacity>
         </View>
 
         <Text style={[$priorityText, { color: p.text }]}>{activity.priority}</Text>
@@ -558,6 +571,17 @@ function ActivityRow({
 
       {isExpanded && (
         <View style={$expandedSection}>
+          {isUuidLike(activity.id) ? (
+            <TouchableOpacity
+              style={$journalLink}
+              onPress={() => router.push(`/activity/${activity.id}` as any)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="open-outline" size={14} color={forest500} />
+              <Text style={$journalLinkText}>Open activity detail</Text>
+              <Ionicons name="arrow-forward" size={13} color={forest500} />
+            </TouchableOpacity>
+          ) : null}
           {activity.aiTip && (
             <View style={$aiTipRow}>
               <Text style={$aiTipEmoji}>🤖</Text>

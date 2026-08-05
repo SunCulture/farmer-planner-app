@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_CLEARANCE } from "@/app/(tabs)/_layout"
 import { loadFarmerProfile } from "@/modules/onboarding"
+import { isUuidLike } from "@/modules/plan"
 import {
   card,
   cardBorder,
@@ -107,7 +108,7 @@ export default function HomeScreen() {
 
   const firstName = profile?.name?.split(" ")[0] ?? "Farmer"
   const firstInitial = firstName.charAt(0).toUpperCase()
-  const subtitle = getDynamicSubtitle(profile?.crops ?? [])
+  const subtitle = getDynamicSubtitle(profile?.cropIds ?? [])
 
   const weekDays = useMemo(() => getWeekDays(), [])
   const remaining = MOCK_ACTIVITIES.filter((a) => !a.done).length
@@ -268,7 +269,11 @@ function ActivityCard({ activity }: { activity: TodayActivity }) {
     <TouchableOpacity
       style={$activityCard}
       activeOpacity={0.7}
-      onPress={() =>
+      onPress={() => {
+        if (isUuidLike(activity.id)) {
+          router.push(`/activity/${activity.id}` as any)
+          return
+        }
         router.push({
           pathname: "/(tabs)/journal",
           params: {
@@ -278,7 +283,7 @@ function ActivityCard({ activity }: { activity: TodayActivity }) {
             activityIcon: activity.icon,
           },
         })
-      }
+      }}
     >
       <View style={$activityIconCircle}>
         <Text style={$activityIcon}>{activity.icon}</Text>
