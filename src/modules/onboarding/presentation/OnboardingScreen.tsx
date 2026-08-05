@@ -20,9 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import {
   card,
   forest50,
-  forest100,
   forest500,
-  forest600,
   hairline,
   ink,
   ink3,
@@ -40,26 +38,37 @@ import {
   uiStepFromSuggested,
 } from "../application/resume-onboarding"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
+import { CROPS as MOCK_CROPS, GOALS as MOCK_GOALS, LIVESTOCK as MOCK_LIVESTOCK, REGIONS as MOCK_REGIONS } from "../infrastructure/mock-data"
 
-// Display-only emoji lookups — purely cosmetic, not data
-const CROP_EMOJI: Record<string, string> = {
-  maize: "🌽", beans: "🫘", tomatoes: "🍅", kale: "🥬", potatoes: "🥔",
-  onions: "🧅", capsicum: "🫑", watermelon: "🍉", avocado: "🥑", mango: "🥭",
-  banana: "🍌", coffee: "☕", tea: "🍵",
-}
-const LIVESTOCK_EMOJI: Record<string, string> = {
-  cattle: "🐄", chickens: "🐔", goats: "🐐", sheep: "🐑", pigs: "🐷",
-  rabbits: "🐰", ducks: "🦆", bees: "🐝",
-}
-const GOAL_EMOJI: Record<string, string> = {
-  MAKE_MONEY: "💰", FOOD_SECURITY: "🌽", SAVE_TIME: "⏰",
-  REDUCE_LOSSES: "📉", LIVESTOCK_HEALTH: "🐄", MODERN_FARMING: "📚",
-}
-const REGION_EMOJI: Record<string, string> = {
-  nairobi: "🏙️", nakuru: "🌽", kisumu: "🌊", mombasa: "☀️", eldoret: "🥬",
-  kitale: "🌽", machakos: "⛰️", nyeri: "🍃", meru: "🌱", thika: "🍍",
-  kisii: "🫐", kakamega: "🌧️", garissa: "🌵", narok: "🦁",
-}
+const PREVIEW_REGIONS = MOCK_REGIONS.map((r) => ({
+  id: r.id,
+  countryId: "preview",
+  name: r.name,
+  slug: r.id,
+  latitude: 0,
+  longitude: 0,
+  weather: {
+    temperature: Number.parseInt(r.temp, 10) || 0,
+    feelsLike: 0,
+    humidity: 0,
+    description: "",
+    windSpeed: 0,
+    iconCode: "",
+  },
+}))
+
+const PREVIEW_CROPS = MOCK_CROPS.map((c) => ({ id: c.id, name: c.name, slug: c.id }))
+const PREVIEW_LIVESTOCK = MOCK_LIVESTOCK.map((a) => ({
+  id: a.id,
+  name: a.name,
+  slug: a.id === "cows" ? "cattle" : a.id,
+}))
+const PREVIEW_GOALS = MOCK_GOALS.map((g) => ({
+  id: g.id,
+  name: g.name,
+  slug: g.id,
+  illustrationKey: g.id,
+}))
 
 // ---------------------------------------------------------------------------
 // Types (UI-local — not the same as the API entity)
@@ -274,39 +283,41 @@ export default function OnboardingScreen() {
     (step === 6 && draft.farmSize !== null) ||
     (step === 7 && draft.goals.length > 0)
 
-  const ctaLabel = step === 7 ? "Build My Farm Plan 🌱" : "Continue  →"
+  const ctaLabel = step === 7 ? "Build My Farm Plan" : "Continue"
   const ctaOnPress = step === 7 ? handleFinish : goNext
 
   const isAuth = step === 0
   const isSuccess = step === 8
   const showHeader = !isAuth && !isSuccess
 
-  const allRegions = regionsQuery.data ?? []
+  const allRegions =
+    regionsQuery.data && regionsQuery.data.length > 0 ? regionsQuery.data : PREVIEW_REGIONS
   const filteredRegions = locationQuery
     ? allRegions.filter((r) => r.name.toLowerCase().includes(locationQuery.toLowerCase()))
     : allRegions
+  const allCrops = cropsQuery.data && cropsQuery.data.length > 0 ? cropsQuery.data : PREVIEW_CROPS
+  const allLivestock =
+    livestockQuery.data && livestockQuery.data.length > 0 ? livestockQuery.data : PREVIEW_LIVESTOCK
+  const allGoals = goalsQuery.data && goalsQuery.data.length > 0 ? goalsQuery.data : PREVIEW_GOALS
 
   // ---- Success screen -------------------------------------------------------
 
   if (isSuccess) {
     const farmTypeLabel = draft.farmType === "crops" ? "Crops" : "Livestock"
-    const farmTypeEmoji = draft.farmType === "crops" ? "🌱" : "🐄"
     const farmSizeLabel =
       draft.farmSize === "small"
         ? "Small farm"
         : draft.farmSize === "medium"
           ? "Medium farm"
           : "Large farm"
-    const farmSizeEmoji =
-      draft.farmSize === "small" ? "🌿" : draft.farmSize === "medium" ? "🌾" : "🌳"
 
     return (
       <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.s4 }]}>
         <View style={$successCenter}>
           <View style={$trophyCircle}>
-            <Text style={$trophyEmoji}>🏆</Text>
+            <Ionicons name="checkmark-circle" size={56} color={forest500} />
           </View>
-          <Text style={$successHeading}>{"Your smart farming\njourney begins now! 🌱"}</Text>
+          <Text style={$successHeading}>{"Your smart farming\njourney begins now!"}</Text>
           <Text style={$successSubtitle}>
             {"Welcome, "}
             {draft.name}
@@ -315,19 +326,15 @@ export default function OnboardingScreen() {
           <View style={$tagRow}>
             {draft.location ? (
               <View style={$tag}>
-                <Text style={$tagText}>📍 {draft.location}</Text>
+                <Text style={$tagText}>{draft.location}</Text>
               </View>
             ) : null}
             <View style={$tag}>
-              <Text style={$tagText}>
-                {farmTypeEmoji} {farmTypeLabel}
-              </Text>
+              <Text style={$tagText}>{farmTypeLabel}</Text>
             </View>
             {draft.farmSize ? (
               <View style={$tag}>
-                <Text style={$tagText}>
-                  {farmSizeEmoji} {farmSizeLabel}
-                </Text>
+                <Text style={$tagText}>{farmSizeLabel}</Text>
               </View>
             ) : null}
           </View>
@@ -337,7 +344,7 @@ export default function OnboardingScreen() {
           onPress={() => router.replace("/(tabs)/" as any)}
           activeOpacity={0.85}
         >
-          <Text style={$ctaBtnText}>Go to My Dashboard →</Text>
+          <Text style={$ctaBtnText}>Go to My Dashboard</Text>
         </TouchableOpacity>
       </View>
     )
@@ -360,11 +367,11 @@ export default function OnboardingScreen() {
         >
           {/* Brand badge */}
           <View style={$authBadge}>
-            <Text style={$authBadgeText}>✦ Tujiweze</Text>
+            <Text style={$authBadgeText}>Tujiweze</Text>
           </View>
 
           <Text style={$authHeading}>
-            {authMode === "login" ? "Welcome back 👋" : "Create your account 🌱"}
+            {authMode === "login" ? "Welcome back" : "Create your account"}
           </Text>
           <Text style={$authSubtitle}>
             {authMode === "login"
@@ -426,7 +433,7 @@ export default function OnboardingScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={$ctaBtnText}>
-                {authMode === "login" ? "Sign in  →" : "Create account  →"}
+                {authMode === "login" ? "Sign in" : "Create account"}
               </Text>
             )}
           </TouchableOpacity>
@@ -459,9 +466,13 @@ export default function OnboardingScreen() {
       {/* Header with progress bar */}
       {showHeader && (
         <View style={[$header, { paddingTop: insets.top + spacing.s3 }]}>
-          <TouchableOpacity onPress={goBack} hitSlop={8} style={$backBtn}>
-            <Ionicons name="chevron-back" size={24} color={ink} />
-          </TouchableOpacity>
+          {step > 0 ? (
+            <TouchableOpacity onPress={goBack} hitSlop={8} style={$backBtn}>
+              <Ionicons name="chevron-back" size={24} color={ink} />
+            </TouchableOpacity>
+          ) : (
+            <View style={$backBtn} />
+          )}
           <View style={$progressBar}>
             {Array.from({ length: PROGRESS_STEPS }).map((_, i) => (
               <View
@@ -491,7 +502,6 @@ export default function OnboardingScreen() {
           {/* ---- Name ---- */}
           {step === 1 && (
             <>
-              <Text style={$stepEmoji}>👋</Text>
               <Text style={$stepHeading}>{"What should we\ncall you?"}</Text>
               <Text style={$stepSubtitle}>{"We'll personalise your experience just for you."}</Text>
               <TextInput
@@ -505,7 +515,8 @@ export default function OnboardingScreen() {
               />
               {draft.name.trim().length >= 2 && (
                 <View style={$nameConfirm}>
-                  <Text style={$nameConfirmText}>✓ Great to meet you, {draft.name.trim()}!</Text>
+                  <Ionicons name="checkmark-circle" size={16} color={forest500} />
+                  <Text style={$nameConfirmText}>Great to meet you, {draft.name.trim()}!</Text>
                 </View>
               )}
             </>
@@ -526,14 +537,15 @@ export default function OnboardingScreen() {
                   placeholderTextColor={ink4}
                 />
               </View>
-              {regionsQuery.isLoading ? (
+              {regionsQuery.isLoading && !regionsQuery.data?.length ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
                   {filteredRegions.map((region) => {
                     const selected = draft.location === region.name
-                    const emoji = REGION_EMOJI[region.slug] ?? "📍"
-                    const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
+                    const tempLabel = region.weather?.temperature
+                      ? `${region.weather.temperature}°C`
+                      : null
                     return (
                       <Pressable
                         key={region.id}
@@ -546,16 +558,15 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 22 }}>{emoji}</Text>
                         <Text style={[$locationName, selected && { color: forest500 }]}>
                           {region.name}
                         </Text>
                         {tempLabel && <Text style={$locationTemp}>{tempLabel}</Text>}
-                        {region.weather && (
+                        {region.weather?.description ? (
                           <Text style={$locationWeatherDesc} numberOfLines={1}>
                             {region.weather.description}
                           </Text>
-                        )}
+                        ) : null}
                         {selected && (
                           <View style={$locationCheck}>
                             <Ionicons name="checkmark-circle" size={18} color={forest500} />
@@ -580,17 +591,11 @@ export default function OnboardingScreen() {
                     id: "crops" as FarmTypeUI,
                     label: "Crops",
                     desc: "Fruits, vegetables & grains",
-                    illustration: "🌳🌽🍅",
-                    illustrationBg: forest50,
-                    icon: "🌱",
                   },
                   {
                     id: "livestock" as FarmTypeUI,
                     label: "Livestock",
                     desc: "Cows, goats, chickens & more",
-                    illustration: "🐄🐔🐐",
-                    illustrationBg: "#FDF3E7",
-                    icon: "🐄",
                   },
                 ] as const
               ).map((opt) => {
@@ -598,24 +603,19 @@ export default function OnboardingScreen() {
                 return (
                   <Pressable
                     key={opt.id}
-                    style={[$bigCard, selected && $bigCardSelected]}
+                    style={[$sizeCard, selected && $sizeCardSelected]}
                     onPress={() =>
                       setDraft((d) => ({ ...d, farmType: opt.id, crops: [], livestock: [] }))
                     }
                   >
-                    <View style={[$bigCardIllustration, { backgroundColor: opt.illustrationBg }]}>
-                      <Text style={{ fontSize: 44 }}>{opt.illustration}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[$sizeLabel, selected && { color: forest500 }]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={$sizeDesc}>{opt.desc}</Text>
                     </View>
-                    <View style={$bigCardFooter}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.icon} {opt.label}
-                        </Text>
-                        <Text style={$bigCardDesc}>{opt.desc}</Text>
-                      </View>
-                      <View style={[$radio, selected && $radioSelected]}>
-                        {selected && <View style={$radioDot} />}
-                      </View>
+                    <View style={[$radio, selected && $radioSelected]}>
+                      {selected && <View style={$radioDot} />}
                     </View>
                   </Pressable>
                 )
@@ -628,13 +628,12 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {cropsQuery.isLoading ? (
+              {cropsQuery.isLoading && !cropsQuery.data?.length ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
-                  {(cropsQuery.data ?? []).map((crop) => {
+                  {allCrops.map((crop) => {
                     const selected = draft.crops.includes(crop.id)
-                    const emoji = CROP_EMOJI[crop.slug] ?? "🌱"
                     return (
                       <Pressable
                         key={crop.id}
@@ -648,7 +647,6 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {crop.name}
                         </Text>
@@ -668,13 +666,12 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {livestockQuery.isLoading ? (
+              {livestockQuery.isLoading && !livestockQuery.data?.length ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
-                  {(livestockQuery.data ?? []).map((animal) => {
+                  {allLivestock.map((animal) => {
                     const selected = draft.livestock.includes(animal.id)
-                    const emoji = LIVESTOCK_EMOJI[animal.slug] ?? "🐾"
                     return (
                       <Pressable
                         key={animal.id}
@@ -688,7 +685,6 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {animal.name}
                         </Text>
@@ -716,15 +712,11 @@ export default function OnboardingScreen() {
                     id: "solo" as WorkStyleUI,
                     label: "Solo Farmer",
                     desc: "I work my farm on my own",
-                    illustration: "🧑‍🌾",
-                    icon: "👤",
                   },
                   {
                     id: "helpers" as WorkStyleUI,
                     label: "With Helpers",
                     desc: "I have farmhands or family help",
-                    illustration: "👨‍👩‍👧",
-                    icon: "👥",
                   },
                 ] as const
               ).map((opt) => {
@@ -732,22 +724,17 @@ export default function OnboardingScreen() {
                 return (
                   <Pressable
                     key={opt.id}
-                    style={[$bigCard, selected && $bigCardSelected]}
+                    style={[$sizeCard, selected && $sizeCardSelected]}
                     onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
                   >
-                    <View style={[$bigCardIllustration, { backgroundColor: "#F5F5F2" }]}>
-                      <Text style={{ fontSize: 56 }}>{opt.illustration}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[$sizeLabel, selected && { color: forest500 }]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={$sizeDesc}>{opt.desc}</Text>
                     </View>
-                    <View style={$bigCardFooter}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.icon} {opt.label}
-                        </Text>
-                        <Text style={$bigCardDesc}>{opt.desc}</Text>
-                      </View>
-                      <View style={[$radio, selected && $radioSelected]}>
-                        {selected && <View style={$radioDot} />}
-                      </View>
+                    <View style={[$radio, selected && $radioSelected]}>
+                      {selected && <View style={$radioDot} />}
                     </View>
                   </Pressable>
                 )
@@ -766,22 +753,16 @@ export default function OnboardingScreen() {
                     id: "small" as FarmSizeUI,
                     label: "Small Farm",
                     desc: "Under 1 acre",
-                    emoji: "🌿🌿",
-                    icon: "🌱",
                   },
                   {
                     id: "medium" as FarmSizeUI,
                     label: "Medium Farm",
                     desc: "1 to 5 acres",
-                    emoji: "🌾🌾🌾",
-                    icon: "🌿",
                   },
                   {
                     id: "large" as FarmSizeUI,
                     label: "Large Farm",
                     desc: "Over 5 acres",
-                    emoji: "🌳🌳🌳🌳",
-                    icon: "🍃",
                   },
                 ] as const
               ).map((opt) => {
@@ -792,10 +773,9 @@ export default function OnboardingScreen() {
                     style={[$sizeCard, selected && $sizeCardSelected]}
                     onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
                   >
-                    <Text style={{ fontSize: 32, marginRight: spacing.s4 }}>{opt.emoji}</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={[$sizeLabel, selected && { color: forest500 }]}>
-                        {opt.icon} {opt.label}
+                        {opt.label}
                       </Text>
                       <Text style={$sizeDesc}>{opt.desc}</Text>
                     </View>
@@ -813,13 +793,12 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
               <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
-              {goalsQuery.isLoading ? (
+              {goalsQuery.isLoading && !goalsQuery.data?.length ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
-                  {(goalsQuery.data ?? []).map((goal) => {
+                  {allGoals.map((goal) => {
                     const selected = draft.goals.includes(goal.slug)
-                    const emoji = GOAL_EMOJI[goal.slug] ?? "🎯"
                     return (
                       <Pressable
                         key={goal.id}
@@ -833,7 +812,6 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
                         <Text style={[$goalLabel, selected && { color: forest500 }]}>
                           {goal.name}
                         </Text>
@@ -995,11 +973,6 @@ const $scrollContent: ViewStyle = {
 }
 
 // Step headings
-const $stepEmoji: TextStyle = {
-  fontSize: 40,
-  marginBottom: spacing.s4,
-}
-
 const $stepHeading: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 26,
@@ -1031,6 +1004,9 @@ const $nameInput: TextStyle = {
 }
 
 const $nameConfirm: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
   backgroundColor: forest50,
   borderRadius: radii.lg,
   paddingVertical: spacing.s3,
@@ -1038,6 +1014,7 @@ const $nameConfirm: ViewStyle = {
 }
 
 const $nameConfirmText: TextStyle = {
+  flex: 1,
   fontFamily: typography.primary.normal,
   fontSize: 14,
   color: forest500,
@@ -1111,46 +1088,6 @@ const $locationCheck: ViewStyle = {
   position: "absolute",
   top: spacing.s2,
   right: spacing.s2,
-}
-
-// Big cards (farm type, helpers)
-const $bigCard: ViewStyle = {
-  backgroundColor: card,
-  borderRadius: radii.xl,
-  borderWidth: 1.5,
-  borderColor: hairline,
-  marginBottom: spacing.s4,
-  overflow: "hidden",
-}
-
-const $bigCardSelected: ViewStyle = {
-  borderColor: forest500,
-}
-
-const $bigCardIllustration: ViewStyle = {
-  height: 110,
-  alignItems: "center",
-  justifyContent: "center",
-}
-
-const $bigCardFooter: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingHorizontal: spacing.s4,
-  paddingVertical: spacing.s4,
-}
-
-const $bigCardLabel: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 15,
-  color: ink,
-  marginBottom: 2,
-}
-
-const $bigCardDesc: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink3,
 }
 
 // Radio
@@ -1322,10 +1259,6 @@ const $trophyCircle: ViewStyle = {
   alignItems: "center",
   justifyContent: "center",
   marginBottom: spacing.s6,
-}
-
-const $trophyEmoji: TextStyle = {
-  fontSize: 56,
 }
 
 const $successHeading: TextStyle = {

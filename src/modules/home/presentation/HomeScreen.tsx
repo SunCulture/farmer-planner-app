@@ -124,7 +124,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={$header}>
           <View style={{ flex: 1 }}>
-            <Text style={$greeting}>Good morning, {firstName} 👋</Text>
+            <Text style={$greeting}>Good morning, {firstName}</Text>
             <Text style={$greetingSubtitle}>{subtitle}</Text>
           </View>
           <TouchableOpacity
@@ -216,11 +216,10 @@ export default function HomeScreen() {
               style={[$planCard, { backgroundColor: plan.bgColor }]}
               activeOpacity={0.8}
             >
-              <Text style={$planEmoji}>{plan.emoji}</Text>
               <Text style={$planName}>{plan.name}</Text>
               <View style={$planTags}>
                 <View style={$planDaysTag}>
-                  <Text style={$planDaysText}>⏱ {plan.days} Days</Text>
+                  <Text style={$planDaysText}>{plan.days} Days</Text>
                 </View>
                 <View style={[$planDiffTag, { backgroundColor: diff.bg }]}>
                   <Text style={[$planDiffText, { color: diff.text }]}>{plan.difficulty}</Text>
@@ -280,14 +279,10 @@ function ActivityCard({ activity }: { activity: TodayActivity }) {
             date: todayStr(),
             activityId: activity.id,
             activityName: activity.name,
-            activityIcon: activity.icon,
           },
         })
       }}
     >
-      <View style={$activityIconCircle}>
-        <Text style={$activityIcon}>{activity.icon}</Text>
-      </View>
       <View style={$activityBody}>
         <View style={$activityTitleRow}>
           <Text style={$activityName}>{activity.name}</Text>
@@ -295,7 +290,7 @@ function ActivityCard({ activity }: { activity: TodayActivity }) {
             <Text style={[$priorityText, { color: p.text }]}>{activity.priority}</Text>
           </View>
         </View>
-        <Text style={$activityDuration}>⏱ {activity.durationMinutes} min</Text>
+        <Text style={$activityDuration}>{activity.durationMinutes} min</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={ink4} />
     </TouchableOpacity>
@@ -553,11 +548,6 @@ const $planCard: ViewStyle = {
   ...elevation.card,
 }
 
-const $planEmoji: TextStyle = {
-  fontSize: 36,
-  marginBottom: spacing.s3,
-}
-
 const $planName: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 13,
@@ -622,20 +612,6 @@ const $activityCard: ViewStyle = {
   paddingVertical: spacing.s4,
   marginBottom: spacing.s3,
   ...elevation.card,
-}
-
-const $activityIconCircle: ViewStyle = {
-  width: 38,
-  height: 38,
-  borderRadius: 19,
-  backgroundColor: "#E8F4FC",
-  alignItems: "center",
-  justifyContent: "center",
-  marginRight: spacing.s3,
-}
-
-const $activityIcon: TextStyle = {
-  fontSize: 18,
 }
 
 const $activityBody: ViewStyle = {

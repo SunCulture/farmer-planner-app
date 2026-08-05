@@ -24,7 +24,7 @@ describe("mapActivityDetail", () => {
 
     expect(detail.title).toBe("Scout for fall armyworm")
     expect(detail.educationBrief).toContain("scouting")
-    expect(detail.iconEmoji).toBe("🐛")
+    expect(detail.iconEmoji).toBe("")
     expect(detail.status.code).toBe("PENDING")
     expect(detail.highlight?.text).toContain("underside")
   })
@@ -37,15 +37,15 @@ describe("mapActivityDetail", () => {
     })
     expect(detail.status.label).toBe("Not started")
     expect(detail.iconKey).toBe("task")
-    expect(detail.iconEmoji).toBe("🧩")
+    expect(detail.iconEmoji).toBe("")
   })
 })
 
 describe("iconKeyToEmoji", () => {
-  test("maps known and unknown keys", () => {
-    expect(iconKeyToEmoji("water")).toBe("💧")
-    expect(iconKeyToEmoji("unknown-key")).toBe("🧩")
-    expect(iconKeyToEmoji(null)).toBe("🧩")
+  test("returns empty string (emoji icons removed)", () => {
+    expect(iconKeyToEmoji("water")).toBe("")
+    expect(iconKeyToEmoji("unknown-key")).toBe("")
+    expect(iconKeyToEmoji(null)).toBe("")
   })
 })
 

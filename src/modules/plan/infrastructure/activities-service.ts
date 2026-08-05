@@ -43,7 +43,7 @@ async function fetchFromApi(dateStr: string): Promise<PlanActivity[]> {
     title: typeof row?.title === "string" ? row.title : undefined,
     subtitle: typeof row?.subtitle === "string" ? row.subtitle : undefined,
     description: typeof row?.description === "string" ? row.description : undefined,
-    icon: typeof row?.iconKey === "string" ? "🌾" : "🧩",
+    icon: "",
     iconKey: typeof row?.iconKey === "string" ? row.iconKey : undefined,
     priority: "Medium",
     durationMinutes: 20,

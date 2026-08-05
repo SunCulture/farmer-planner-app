@@ -223,7 +223,6 @@ export default function ActivityDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={$titleRow}>
-          <Text style={$titleIcon}>{activity.iconEmoji}</Text>
           <Text style={$title}>{activity.title}</Text>
         </View>
 
@@ -306,7 +305,6 @@ export default function ActivityDetailScreen() {
                 date: activity.date,
                 activityId: activity.id,
                 activityName: activity.title,
-                activityIcon: activity.iconEmoji,
                 mode: "new",
               },
             })
@@ -483,7 +481,6 @@ const $titleRow: ViewStyle = {
   gap: spacing.s2,
   marginBottom: spacing.s3,
 }
-const $titleIcon: TextStyle = { fontSize: 22 }
 const $title: TextStyle = {
   flex: 1,
   fontFamily: typography.primary.bold,

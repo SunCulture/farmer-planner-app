@@ -26,21 +26,8 @@ export class ActivityDetailError extends Error {
   }
 }
 
-const ICON_EMOJI: Record<string, string> = {
-  "field-work": "🌾",
-  "money": "💰",
-  "market": "🏪",
-  "water": "💧",
-  "pest-scout": "🐛",
-  "calendar": "📅",
-  "eye": "👀",
-  "storage": "📦",
-  "task": "🧩",
-}
-
-export function iconKeyToEmoji(iconKey?: string | null): string {
-  if (!iconKey) return "🧩"
-  return ICON_EMOJI[iconKey] ?? "🧩"
+export function iconKeyToEmoji(_iconKey?: string | null): string {
+  return ""
 }
 
 function mapApiProblem(response: any): ActivityDetailError | null {

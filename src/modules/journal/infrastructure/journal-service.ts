@@ -36,7 +36,6 @@ const SEED: Seed[] = [
     notes: "Great morning! Good soil moisture today. Plants are looking healthy across all rows.",
     photoCount: 3,
     activityName: "Water crops",
-    activityIcon: "💧",
     aiSummary: "Morning irrigation is well-timed. Soil moisture looks optimal — consider checking the east row tomorrow as it tends to dry faster.",
   },
   {
@@ -44,7 +43,6 @@ const SEED: Seed[] = [
     notes: "Tomatoes looking healthy. Need to watch the lower leaves for early blight signs.",
     photoCount: 1,
     activityName: "Pest & disease inspection",
-    activityIcon: "🔍",
     aiSummary: "Early blight risk is elevated this week given humidity. A preventive copper fungicide application in 2–3 days would reduce risk.",
   },
   {
@@ -58,7 +56,6 @@ const SEED: Seed[] = [
     notes: "Found aphids on the kale. Applied neem spray before dusk. Will check again tomorrow.",
     photoCount: 2,
     activityName: "Apply pesticide spray",
-    activityIcon: "🫧",
     aiSummary: "Neem oil application is a good organic first response. Reapply after 5–7 days if colonies persist. Beneficial insects may return once pressure drops.",
   },
   {
@@ -66,7 +63,6 @@ const SEED: Seed[] = [
     notes: "Good harvest session. 35 bags ready for market delivery.",
     photoCount: 0,
     activityName: "Harvest kale",
-    activityIcon: "🥬",
     aiSummary: "Strong yield for the season. Leaving the crown intact will allow regrowth in 2–3 weeks for a second cut.",
   },
 ]

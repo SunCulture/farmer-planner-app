@@ -407,7 +407,7 @@ export default function PlanScreen() {
           (dayInsights.data ?? []).map((item) => (
             <View key={item.activityId} style={$insightCard}>
               <Text style={$insightTitle}>{item.activityTitle}</Text>
-              {item.highlight?.text ? <Text style={$insightHighlight}>💡 {item.highlight.text}</Text> : null}
+              {item.highlight?.text ? <Text style={$insightHighlight}>{item.highlight.text}</Text> : null}
               <Text style={$insightMeta}>{item.questions.length} answered question(s)</Text>
             </View>
           ))
@@ -423,10 +423,8 @@ export default function PlanScreen() {
           activeOpacity={0.8}
           hitSlop={8}
         >
-          <View style={$aiAvatarCircle}>
-            <Text style={$aiAvatarEmoji}>🤖</Text>
-          </View>
-          <Text style={$aiPanelTitle}>Al Farm Assistant</Text>
+          <View style={$aiAvatarCircle} />
+          <Text style={$aiPanelTitle}>AI Farm Assistant</Text>
           <View style={$aiDot} />
           <Ionicons
             name={chatOpen ? "chevron-down" : "chevron-up"}
@@ -540,10 +538,6 @@ function ActivityRow({
           {activity.done && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
         </TouchableOpacity>
 
-        <View style={$activityIconCircle}>
-          <Text style={$activityIcon}>{activity.icon}</Text>
-        </View>
-
         <View style={$activityBody}>
           <TouchableOpacity
             onPress={() => {
@@ -556,9 +550,9 @@ function ActivityRow({
             activeOpacity={0.7}
           >
             <Text style={activity.done ? $activityNameDone : $activityName}>{activity.name}</Text>
-            <Text style={$activityDuration}>⏱ {activity.durationMinutes} min</Text>
+            <Text style={$activityDuration}>{activity.durationMinutes} min</Text>
             {activity.highlight?.text ? (
-              <Text style={$highlightBadge}>💡 {activity.highlight.text}</Text>
+              <Text style={$highlightBadge}>{activity.highlight.text}</Text>
             ) : null}
           </TouchableOpacity>
         </View>
@@ -584,7 +578,6 @@ function ActivityRow({
           ) : null}
           {activity.aiTip && (
             <View style={$aiTipRow}>
-              <Text style={$aiTipEmoji}>🤖</Text>
               <Text style={$aiTipText}>
                 <Text style={$aiTipBold}>AI tip: </Text>
                 {activity.aiTip}
@@ -592,7 +585,7 @@ function ActivityRow({
             </View>
           )}
           {activity.tools && activity.tools.length > 0 && (
-            <Text style={$toolsText}>📦 Tools: {activity.tools.join(" · ")}</Text>
+            <Text style={$toolsText}>Tools: {activity.tools.join(" · ")}</Text>
           )}
 
           <TouchableOpacity
@@ -604,7 +597,6 @@ function ActivityRow({
                   date: dateStr,
                   activityId: activity.id,
                   activityName: activity.name,
-                  activityIcon: activity.icon,
                 },
               })
             }
@@ -798,19 +790,6 @@ const $checkboxDone: ViewStyle = {
   borderColor: forest500,
 }
 
-const $activityIconCircle: ViewStyle = {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-}
-
-const $activityIcon: TextStyle = {
-  fontSize: 18,
-}
-
 const $activityBody: ViewStyle = {
   flex: 1,
 }
@@ -858,12 +837,6 @@ const $aiTipRow: ViewStyle = {
   flexDirection: "row",
   alignItems: "flex-start",
   marginBottom: spacing.s2,
-}
-
-const $aiTipEmoji: TextStyle = {
-  fontSize: 15,
-  marginRight: spacing.s2,
-  marginTop: 1,
 }
 
 const $aiTipText: TextStyle = {
@@ -939,10 +912,6 @@ const $aiAvatarCircle: ViewStyle = {
   backgroundColor: forest50,
   alignItems: "center",
   justifyContent: "center",
-}
-
-const $aiAvatarEmoji: TextStyle = {
-  fontSize: 16,
 }
 
 const $aiPanelTitle: TextStyle = {
