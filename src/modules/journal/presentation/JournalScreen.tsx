@@ -170,9 +170,6 @@ function EntryForm({
         {/* ── Context: activity card OR date label ── */}
         {isActivityLinked ? (
           <View style={$activityCtxCard}>
-            <View style={$activityCtxIconCircle}>
-              <Text style={$activityCtxIcon}>{activityIcon}</Text>
-            </View>
             <View style={{ flex: 1 }}>
               <Text style={$activityCtxName}>{activityName}</Text>
               <Text style={$activityCtxDate}>{formatLongDate(date)}</Text>
@@ -262,7 +259,7 @@ function EntryForm({
 
 type DaySummary = {
   date: string
-  completedActivities: Array<{ name: string; icon: string }>
+  completedActivities: Array<{ name: string }>
   entries: JournalEntry[]
 }
 
@@ -275,7 +272,7 @@ function buildTimeline(): DaySummary[] {
     const activities = buildActivitiesForDate(date)
     const completedActivities = activities
       .filter((a) => a.done)
-      .map((a) => ({ name: a.name, icon: a.icon }))
+      .map((a) => ({ name: a.name }))
     const entries = allEntries.filter((e) => e.date === date)
     return { date, completedActivities, entries }
   })
@@ -375,7 +372,6 @@ function TimelineDay({
         <View style={$chipsRow}>
           {day.completedActivities.map((a) => (
             <View key={a.name} style={$chip}>
-              <Text style={$chipIcon}>{a.icon}</Text>
               <Ionicons name="checkmark" size={11} color={forest600} />
               <Text style={$chipText}>{a.name}</Text>
             </View>
@@ -412,7 +408,6 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
       {/* Activity badge (if linked) */}
       {entry.activityName && (
         <View style={$entryActivityRow}>
-          <Text style={$entryActivityIcon}>{entry.activityIcon}</Text>
           <Text style={$entryActivityName}>{entry.activityName}</Text>
         </View>
       )}
@@ -436,7 +431,7 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
           </Text>
         </View>
         {entry.photoCount > 0 && (
-          <Text style={$entryMetaAction}>View all →</Text>
+          <Text style={$entryMetaAction}>View all</Text>
         )}
       </TouchableOpacity>
 
@@ -444,7 +439,6 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
       {entry.aiSummary ? (
         <View style={$aiSummaryBox}>
           <View style={$aiSummaryHeader}>
-            <Text style={$aiSummaryEmoji}>🤖</Text>
             <Text style={$aiSummaryLabel}>AI SUMMARY</Text>
           </View>
           <Text style={$aiSummaryText}>{entry.aiSummary}</Text>
@@ -452,7 +446,6 @@ function EntryCard({ entry }: { entry: JournalEntry }) {
       ) : (
         <View style={$aiSummaryBox}>
           <View style={$aiSummaryHeader}>
-            <Text style={$aiSummaryEmoji}>🤖</Text>
             <Text style={$aiSummaryLabel}>AI SUMMARY</Text>
           </View>
           <Text style={$aiSummaryEmpty}>No AI analysis yet for this entry.</Text>
@@ -512,17 +505,6 @@ const $activityCtxCard: ViewStyle = {
   marginBottom: spacing.s5,
   ...elevation.card,
 }
-
-const $activityCtxIconCircle: ViewStyle = {
-  width: 44,
-  height: 44,
-  borderRadius: 22,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-}
-
-const $activityCtxIcon: TextStyle = { fontSize: 22 }
 
 const $activityCtxName: TextStyle = {
   fontFamily: typography.primary.bold,
@@ -788,8 +770,6 @@ const $chip: ViewStyle = {
   paddingVertical: 5,
 }
 
-const $chipIcon: TextStyle = { fontSize: 12 }
-
 const $chipText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 12,
@@ -832,8 +812,6 @@ const $entryActivityRow: ViewStyle = {
   paddingTop: spacing.s4,
   paddingBottom: spacing.s2,
 }
-
-const $entryActivityIcon: TextStyle = { fontSize: 16 }
 
 const $entryActivityName: TextStyle = {
   fontFamily: typography.primary.semiBold,
@@ -907,8 +885,6 @@ const $aiSummaryHeader: ViewStyle = {
   gap: spacing.s2,
   marginBottom: spacing.s2,
 }
-
-const $aiSummaryEmoji: TextStyle = { fontSize: 14 }
 
 const $aiSummaryLabel: TextStyle = {
   fontFamily: typography.primary.bold,

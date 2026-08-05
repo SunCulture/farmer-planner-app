@@ -8,4 +8,4 @@ export const MOCK_CHAT_SUGGESTIONS = [
 ]
 
 export const MOCK_BOT_GREETING =
-  "Hi! I'm your AI farming assistant 🌾 Ask me anything about today's plan."
+  "Hi! I'm your AI farming assistant. Ask me anything about today's plan."

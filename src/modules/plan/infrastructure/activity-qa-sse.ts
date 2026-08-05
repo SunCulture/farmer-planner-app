@@ -1,3 +1,5 @@
+import Config from "@/config"
+
 type SSEHandler = (payload: unknown) => void
 
 const listeners = new Map<string, Set<SSEHandler>>()
@@ -5,9 +7,13 @@ const listeners = new Map<string, Set<SSEHandler>>()
 let eventSource: EventSource | null = null
 let lastToken: string | null = null
 
+const TRACKED_EVENTS = ["activity_answer_stream", "activity_refined", "ping"] as const
+
 function buildUrl(token: string): string {
-  const safeBase = "/api/me/events"
-  return `${safeBase}?token=${encodeURIComponent(token)}`
+  const base = String(Config.API_URL ?? "").replace(/\/$/, "")
+  const path = "/api/me/events"
+  const url = base ? `${base}${path}` : path
+  return `${url}?token=${encodeURIComponent(token)}`
 }
 
 function emit(eventName: string, payload: unknown) {
@@ -46,10 +52,13 @@ export function connectActivitySSE(token: string): EventSource | null {
 
   lastToken = token
   eventSource = new EventSource(buildUrl(token))
-  eventSource.addEventListener("activity_answer_stream", (event) =>
-    onRawEvent("activity_answer_stream", event as MessageEvent),
-  )
-  eventSource.addEventListener("ping", () => {})
+  for (const eventName of TRACKED_EVENTS) {
+    if (eventName === "ping") {
+      eventSource.addEventListener("ping", () => {})
+      continue
+    }
+    eventSource.addEventListener(eventName, (event) => onRawEvent(eventName, event as MessageEvent))
+  }
   eventSource.onerror = (error) => {
     console.warn("[activity-qa-sse] stream error; waiting for auto-reconnect", error)
   }

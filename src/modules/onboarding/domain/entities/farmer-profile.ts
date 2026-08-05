@@ -16,4 +16,5 @@ export interface FarmerProfile {
   helpersLevel: HelpersLevel
   acreage: number
   goalSlugs: string[]
+  twoWeekGoal?: string
 }
