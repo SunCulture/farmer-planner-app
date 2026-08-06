@@ -29,6 +29,9 @@
     "build:android:device": "eas build --profile development:device --platform android --local",
     "build:android:preview": "eas build --profile preview --platform android --local",
     "build:android:prod": "eas build --profile production --platform android --local",
+    "eas:android:development": "eas build --profile development --platform android --non-interactive",
+    "eas:android:preview": "eas build --profile preview --platform android --non-interactive",
+    "eas:android:production": "eas build --profile production --platform android --non-interactive",
     "migrate:make": "node scripts/make-migration.js"
   },
   "dependencies": {

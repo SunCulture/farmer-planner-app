@@ -7,7 +7,14 @@ const AUTH_TOKEN_KEY = "auth.accessToken"
 
 export function saveFarmerProfile(profile: FarmerProfile): void {
   save(PROFILE_KEY, profile)
-  saveString(ONBOARDING_KEY, "1")
+}
+
+export function setOnboardingComplete(complete: boolean): void {
+  if (complete) {
+    saveString(ONBOARDING_KEY, "1")
+    return
+  }
+  remove(ONBOARDING_KEY)
 }
 
 export function loadFarmerProfile(): FarmerProfile | null {

@@ -120,6 +120,7 @@ export interface GeneratedPlanDto {
 export interface ActivityDetailDto extends ActivityCardDto {
   planId: string
   date: string
+  educationBrief?: string
   completion: ActivityCompletionDto | null
 }
 

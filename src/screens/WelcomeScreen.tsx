@@ -64,7 +64,7 @@ const $bottomContainer: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
 
 const $welcomeLogo: ThemedStyle<ImageStyle> = ({ spacing }) => ({
   height: 88,
-  width: "100%",
+  width: 88,
   marginBottom: spacing.xxl,
 })
 

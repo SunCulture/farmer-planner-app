@@ -1,10 +1,13 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   Text,
+  TextInput,
   TextStyle,
   TouchableOpacity,
   View,
@@ -15,14 +18,18 @@ import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ApiErrorView } from "@/components/ApiErrorView"
+import type { ContestReaction } from "@/services/api"
 import { isNotFoundError } from "@/shared/infrastructure/api-error"
 import {
   forest50,
+  forest100,
   forest500,
+  forest600,
   hairline,
   ink,
   ink2,
   ink3,
+  ink4,
   paper,
   radii,
   spacing,
@@ -35,6 +42,12 @@ import {
 } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
+import { getActivityErrorMessage } from "../application/activity-errors"
+import {
+  useContestActivity,
+  useMarkActivityDone,
+  useSkipActivity,
+} from "../application/use-activity-actions"
 import { useActivityDetail } from "../application/use-activity-detail"
 import { useActivityQA } from "../application/use-activity-qa"
 import type { ActivityHighlight } from "../domain/entities/activity-highlight"
@@ -42,6 +55,13 @@ import { statusColorToUi } from "../infrastructure/api-mappers"
 import { AskQuestionBar } from "./components/AskQuestionBar"
 import { HighlightBadge } from "./components/HighlightBadge"
 import { QuestionBubble } from "./components/QuestionBubble"
+
+const REACTIONS: { id: ContestReaction; label: string }[] = [
+  { id: "too_hard", label: "Too hard" },
+  { id: "too_easy", label: "Too easy" },
+  { id: "not_relevant", label: "Not relevant" },
+  { id: "loved_it", label: "Loved it" },
+]
 
 function statusUiColors(color: string): { bg: string; text: string } {
   const ui = statusColorToUi(color)
@@ -56,20 +76,53 @@ export default function ActivityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const activityId = typeof id === "string" ? id : ""
 
-  const { data: activity, isLoading, isError, error, refetch } = useActivityDetail(activityId)
+  const {
+    data: activity,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useActivityDetail(activityId)
+  const markDone = useMarkActivityDone(activityId)
+  const skip = useSkipActivity(activityId)
+  const contest = useContestActivity(activityId)
 
   const [localHighlight, setLocalHighlight] = useState<ActivityHighlight | null>(null)
   const [highlightSourceId, setHighlightSourceId] = useState<string | null>(null)
   const [input, setInput] = useState("")
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const [skipOpen, setSkipOpen] = useState(false)
+  const [skipNote, setSkipNote] = useState("")
+  const [contestOpen, setContestOpen] = useState(false)
+  const [contestReaction, setContestReaction] = useState<ContestReaction>("not_relevant")
+  const [contestNote, setContestNote] = useState("")
+  const [contestPending, setContestPending] = useState(false)
 
   const scrollRef = useRef<ScrollView>(null)
   const qaSectionY = useRef(0)
   const questionYs = useRef<Map<string, number>>(new Map())
+  const prevFetching = useRef(false)
 
   const qa = useActivityQA(activityId, (highlight, sourceQuestionId) => {
     setLocalHighlight(highlight)
     setHighlightSourceId(sourceQuestionId)
   })
+
+  useEffect(() => {
+    setLocalHighlight(null)
+    setHighlightSourceId(null)
+    setContestPending(false)
+    setActionError(null)
+  }, [activityId])
+
+  useEffect(() => {
+    if (contestPending && prevFetching.current && !isFetching && activity) {
+      setContestPending(false)
+    }
+    prevFetching.current = isFetching
+  }, [contestPending, isFetching, activity])
 
   const highlight = localHighlight ?? activity?.highlight ?? null
 
@@ -82,11 +135,60 @@ export default function ActivityDetailScreen() {
     const text = input.trim()
     if (!text) return
     setInput("")
-    await qa.ask(text)
+    setActionError(null)
+    try {
+      await qa.ask(text)
+    } catch (err) {
+      setActionError(getActivityErrorMessage(err))
+    }
   }
 
   function handleFaqPress(faqQuestion: string) {
     setInput(faqQuestion)
+  }
+
+  async function handleDone() {
+    setActionError(null)
+    try {
+      await markDone.mutateAsync()
+    } catch (err) {
+      setActionError(getActivityErrorMessage(err))
+    }
+  }
+
+  function handleSkip() {
+    setSkipNote("")
+    setSkipOpen(true)
+  }
+
+  async function handleSkipSubmit() {
+    setActionError(null)
+    try {
+      await skip.mutateAsync(skipNote.trim() || undefined)
+      setSkipOpen(false)
+      setSkipNote("")
+    } catch (err) {
+      setActionError(getActivityErrorMessage(err))
+    }
+  }
+
+  async function handleContestSubmit() {
+    if (contestNote.trim().length < 10) {
+      Alert.alert(
+        "Add more detail",
+        "Please write at least 10 characters so we can refine this task.",
+      )
+      return
+    }
+    setActionError(null)
+    try {
+      await contest.mutateAsync({ reaction: contestReaction, note: contestNote.trim() })
+      setContestOpen(false)
+      setContestPending(true)
+      setContestNote("")
+    } catch (err) {
+      setActionError(getActivityErrorMessage(err))
+    }
   }
 
   if (isLoading && !activity) {
@@ -119,6 +221,8 @@ export default function ActivityDetailScreen() {
   if (!activity) return null
 
   const colors = statusUiColors(activity.status.color)
+  const education = activity.educationBrief?.trim() || activity.description?.trim() || null
+  const busy = markDone.isPending || skip.isPending || contest.isPending
 
   return (
     <KeyboardAvoidingView style={$root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -135,18 +239,17 @@ export default function ActivityDetailScreen() {
         ref={scrollRef}
         style={$scroll}
         contentContainerStyle={[$scrollContent, { paddingBottom: insets.bottom + spacing.s10 }]}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={$titleRow}>
-          <Text style={$titleIcon}>{activity.iconEmoji}</Text>
+          {activity.iconEmoji ? <Text style={$titleIcon}>{activity.iconEmoji}</Text> : null}
           <Text style={$title}>{activity.title}</Text>
         </View>
 
         {highlight ? (
           <HighlightBadge highlight={highlight} onPress={scrollToHighlightSource} />
         ) : null}
-
-        {activity.description ? <Text style={$description}>{activity.description}</Text> : null}
 
         <View style={$metaRow}>
           {activity.subtitle ? (
@@ -159,8 +262,64 @@ export default function ActivityDetailScreen() {
           </View>
         </View>
 
+        {contestPending ? (
+          <View style={$pendingBanner}>
+            <ActivityIndicator size="small" color={forest600} />
+            <Text style={$pendingBannerText}>Updating this task with your feedback…</Text>
+          </View>
+        ) : null}
+
+        <Text style={$sectionTitle}>Why this matters</Text>
+        {education ? (
+          <Text style={$educationText}>{education}</Text>
+        ) : (
+          <Text style={$emptyQaText}>Education for this task will appear here.</Text>
+        )}
+
+        {actionError ? <Text style={$actionError}>{actionError}</Text> : null}
+
+        <View style={$actionsRow}>
+          <TouchableOpacity
+            style={[$actionBtn, $actionDone]}
+            onPress={handleDone}
+            disabled={
+              busy || activity.status.code === "DONE" || activity.status.code === "VERIFIED"
+            }
+            activeOpacity={0.85}
+          >
+            {markDone.isPending ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={18} color="#FFF" />
+                <Text style={$actionDoneText}>Done</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[$actionBtn, $actionSecondary]}
+            onPress={handleSkip}
+            disabled={busy}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="close-circle-outline" size={18} color={ink2} />
+            <Text style={$actionSecondaryText}>Didn&apos;t do</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[$actionBtn, $actionSecondary]}
+            onPress={() => setContestOpen(true)}
+            disabled={busy}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={ink2} />
+            <Text style={$actionSecondaryText}>Contest</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
-          style={$completeBtn}
+          style={$journalLink}
           activeOpacity={0.85}
           onPress={() =>
             router.push({
@@ -175,7 +334,11 @@ export default function ActivityDetailScreen() {
             })
           }
         >
-          <Text style={$completeBtnText}>{activity.ctaLabel ?? "Complete"}</Text>
+          <Ionicons name="journal-outline" size={16} color={forest500} />
+          <Text style={$journalLinkText}>
+            {activity.ctaLabel ?? "Log in journal (optional for Verified)"}
+          </Text>
+          <Ionicons name="arrow-forward" size={14} color={forest500} />
         </TouchableOpacity>
 
         <View style={$divider} onLayout={(e) => (qaSectionY.current = e.nativeEvent.layout.y)} />
@@ -230,6 +393,97 @@ export default function ActivityDetailScreen() {
           </TouchableOpacity>
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={skipOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSkipOpen(false)}
+      >
+        <View style={$modalBackdrop}>
+          <View style={[$modalSheet, { paddingBottom: insets.bottom + spacing.s4 }]}>
+            <Text style={$modalTitle}>Didn&apos;t do this task</Text>
+            <Text style={$modalHint}>Optional: tell us why you skipped it.</Text>
+            <TextInput
+              style={$contestInput}
+              value={skipNote}
+              onChangeText={setSkipNote}
+              placeholder="Reason (optional)"
+              placeholderTextColor={ink4}
+              multiline
+              textAlignVertical="top"
+            />
+            <View style={$modalActions}>
+              <TouchableOpacity style={$modalCancel} onPress={() => setSkipOpen(false)}>
+                <Text style={$modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={$modalSubmit}
+                onPress={handleSkipSubmit}
+                disabled={skip.isPending}
+              >
+                {skip.isPending ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={$modalSubmitText}>Skip task</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={contestOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setContestOpen(false)}
+      >
+        <View style={$modalBackdrop}>
+          <View style={[$modalSheet, { paddingBottom: insets.bottom + spacing.s4 }]}>
+            <Text style={$modalTitle}>Contest / add info</Text>
+            <Text style={$modalHint}>Tell us what to change about this task.</Text>
+            <View style={$reactionRow}>
+              {REACTIONS.map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[$reactionChip, contestReaction === r.id && $reactionChipActive]}
+                  onPress={() => setContestReaction(r.id)}
+                >
+                  <Text style={[$reactionText, contestReaction === r.id && $reactionTextActive]}>
+                    {r.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={$contestInput}
+              value={contestNote}
+              onChangeText={setContestNote}
+              placeholder="What should we change? (min 10 characters)"
+              placeholderTextColor={ink4}
+              multiline
+              textAlignVertical="top"
+            />
+            <View style={$modalActions}>
+              <TouchableOpacity style={$modalCancel} onPress={() => setContestOpen(false)}>
+                <Text style={$modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={$modalSubmit}
+                onPress={handleContestSubmit}
+                disabled={contest.isPending}
+              >
+                {contest.isPending ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={$modalSubmitText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   )
 }
@@ -271,17 +525,12 @@ const $title: TextStyle = {
   color: ink,
   lineHeight: 28,
 }
-const $description: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 14,
-  color: ink2,
-  lineHeight: 20,
-  marginBottom: spacing.s4,
-}
 const $metaRow: ViewStyle = {
   flexDirection: "row",
+  flexWrap: "wrap",
   gap: spacing.s2,
-  marginBottom: spacing.s5,
+  marginBottom: spacing.s4,
+  alignItems: "center",
 }
 const $categoryChip: ViewStyle = {
   backgroundColor: forest50,
@@ -303,28 +552,68 @@ const $statusBadgeText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 12,
 }
-const $completeBtn: ViewStyle = {
-  backgroundColor: forest500,
-  borderRadius: radii.pill,
-  paddingVertical: spacing.s4,
-  alignItems: "center",
-  marginBottom: spacing.s6,
-}
-const $completeBtnText: TextStyle = {
-  fontFamily: typography.primary.semiBold,
-  fontSize: 15,
-  color: "#FFFFFF",
-}
-const $divider: ViewStyle = {
-  borderTopWidth: 1,
-  borderTopColor: hairline,
-  marginBottom: spacing.s5,
-}
 const $sectionTitle: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 16,
   color: ink,
   marginBottom: spacing.s3,
+}
+const $educationText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 14,
+  color: ink2,
+  lineHeight: 21,
+  marginBottom: spacing.s4,
+}
+const $actionsRow: ViewStyle = {
+  flexDirection: "row",
+  gap: spacing.s2,
+  marginBottom: spacing.s3,
+}
+const $actionBtn: ViewStyle = {
+  flex: 1,
+  minHeight: 48,
+  borderRadius: radii.lg,
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "row",
+  gap: spacing.s1,
+  paddingHorizontal: spacing.s2,
+}
+const $actionDone: ViewStyle = { backgroundColor: forest500 }
+const $actionDoneText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+  color: "#FFF",
+}
+const $actionSecondary: ViewStyle = {
+  backgroundColor: forest50,
+  borderWidth: 1,
+  borderColor: forest100,
+}
+const $actionSecondaryText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 12,
+  color: ink2,
+}
+const $journalLink: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s2,
+  paddingVertical: spacing.s3,
+  marginBottom: spacing.s2,
+}
+const $journalLinkText: TextStyle = {
+  flex: 1,
+  fontFamily: typography.primary.medium,
+  fontSize: 14,
+  color: forest500,
+}
+const $divider: ViewStyle = {
+  borderTopWidth: 1,
+  borderTopColor: hairline,
+  marginBottom: spacing.s5,
+  marginTop: spacing.s2,
 }
 const $loadingText: TextStyle = {
   fontFamily: typography.primary.normal,
@@ -350,6 +639,27 @@ const $emptyQaText: TextStyle = {
   color: ink3,
   marginBottom: spacing.s4,
 }
+const $actionError: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+  color: statusBad,
+  marginBottom: spacing.s3,
+}
+const $pendingBanner: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s2,
+  backgroundColor: forest50,
+  borderRadius: radii.lg,
+  padding: spacing.s3,
+  marginBottom: spacing.s3,
+}
+const $pendingBannerText: TextStyle = {
+  flex: 1,
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+  color: forest600,
+}
 const $viewAllLink: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
@@ -363,4 +673,85 @@ const $viewAllLinkText: TextStyle = {
   fontFamily: typography.primary.semiBold,
   fontSize: 13,
   color: forest500,
+}
+const $modalBackdrop: ViewStyle = {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.4)",
+  justifyContent: "flex-end",
+}
+const $modalSheet: ViewStyle = {
+  backgroundColor: paper,
+  borderTopLeftRadius: radii.xl,
+  borderTopRightRadius: radii.xl,
+  padding: spacing.s5,
+}
+const $modalTitle: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 18,
+  color: ink,
+  marginBottom: spacing.s1,
+}
+const $modalHint: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink3,
+  marginBottom: spacing.s4,
+}
+const $reactionRow: ViewStyle = {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: spacing.s2,
+  marginBottom: spacing.s3,
+}
+const $reactionChip: ViewStyle = {
+  borderRadius: radii.pill,
+  borderWidth: 1,
+  borderColor: hairline,
+  paddingHorizontal: spacing.s3,
+  paddingVertical: spacing.s2,
+}
+const $reactionChipActive: ViewStyle = {
+  backgroundColor: forest50,
+  borderColor: forest500,
+}
+const $reactionText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+  color: ink3,
+}
+const $reactionTextActive: TextStyle = { color: forest600 }
+const $contestInput: TextStyle = {
+  minHeight: 100,
+  borderWidth: 1,
+  borderColor: hairline,
+  borderRadius: radii.lg,
+  padding: spacing.s3,
+  fontFamily: typography.primary.normal,
+  fontSize: 14,
+  color: ink,
+  marginBottom: spacing.s4,
+}
+const $modalActions: ViewStyle = { flexDirection: "row", gap: spacing.s3 }
+const $modalCancel: ViewStyle = {
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "center",
+  paddingVertical: spacing.s3,
+}
+const $modalCancelText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  color: ink3,
+}
+const $modalSubmit: ViewStyle = {
+  flex: 1,
+  backgroundColor: forest500,
+  borderRadius: radii.lg,
+  alignItems: "center",
+  justifyContent: "center",
+  paddingVertical: spacing.s3,
+  minHeight: 48,
+}
+const $modalSubmitText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  color: "#FFF",
 }

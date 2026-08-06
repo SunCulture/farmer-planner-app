@@ -1,10 +1,8 @@
 /**
- * These are configuration settings for the dev environment.
+ * Dev-only config overrides (__DEV__ === true).
  *
- * Do not include API secrets in this file or anywhere in your JS.
- *
- * https://reactnative.dev/docs/security#storing-sensitive-info
+ * API_URL is not set here — it comes from EXPO_PUBLIC_API_URL
+ * (see `api-url.ts` / `index.ts`). Keep environment-specific non-secret
+ * flags here if needed later.
  */
-export default {
-  API_URL: "http://10.0.2.2:3000",
-}
+export default {}

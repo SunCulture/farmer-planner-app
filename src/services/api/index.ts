@@ -136,6 +136,25 @@ export interface PatchOnboardingBody {
   twoWeekGoal?: string
 }
 
+/** Reaction payload for POST /api/me/activities/:id/contest */
+export type ContestReaction = "too_hard" | "too_easy" | "not_relevant" | "loved_it"
+
+export interface ActivityActionCompletionResponse {
+  id: string
+  journalText?: string | null
+  photoUrls?: string[]
+  status: string
+  outcomeNote?: string | null
+  verifiedAt?: string | null
+}
+
+export interface ContestActivityResponse {
+  feedbackId: string
+  activityId: string
+  status: string
+  message: string
+}
+
 // ---- Api class ----------------------------------------------------------------
 
 export class Api {
@@ -267,6 +286,29 @@ export class Api {
   async getActivity(activityId: string): Promise<ActivityDetailDto> {
     const response = await this.apisauce.get(`/api/me/activities/${activityId}`)
     return unwrap<ActivityDetailDto>(response)
+  }
+
+  /** Mark activity done — returns raw Apisauce response for activity-detail-service. */
+  async markActivityDone(activityId: string) {
+    return this.apisauce.post<{ data: ActivityActionCompletionResponse }>(
+      `/api/me/activities/${activityId}/done`,
+    )
+  }
+
+  /** Skip activity — returns raw Apisauce response for activity-detail-service. */
+  async skipActivity(activityId: string, note?: string) {
+    return this.apisauce.post<{ data: ActivityActionCompletionResponse }>(
+      `/api/me/activities/${activityId}/skip`,
+      note ? { note } : {},
+    )
+  }
+
+  /** Contest activity feedback — returns raw Apisauce response for activity-detail-service. */
+  async contestActivity(activityId: string, body: { reaction: ContestReaction; note: string }) {
+    return this.apisauce.post<{ data: ContestActivityResponse }>(
+      `/api/me/activities/${activityId}/contest`,
+      body,
+    )
   }
 
   async getActivityQuestions(activityId: string): Promise<ActivityQuestionsListDto> {

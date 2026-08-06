@@ -4,6 +4,8 @@ import * as ReactNative from "react-native"
 
 import mockFile from "./mockFile"
 
+process.env.EXPO_PUBLIC_API_URL ??= "https://tujiweze.fly.dev"
+
 // libraries to mock
 jest.doMock("react-native", () => {
   // Extend ReactNative

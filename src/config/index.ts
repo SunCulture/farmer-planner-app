@@ -1,18 +1,12 @@
 /**
- * This file imports configuration objects from either the config.dev.js file
- * or the config.prod.js file depending on whether we are in __DEV__ or not.
+ * App configuration.
  *
- * Note that we do not gitignore these files. Unlike on web servers, just because
- * these are not checked into your repo doesn't mean that they are secure.
- * In fact, you're shipping a JavaScript bundle with every
- * config variable in plain text. Anyone who downloads your app can easily
- * extract them.
+ * API_URL always comes from EXPO_PUBLIC_API_URL (EAS env or local `.env`).
+ * Dev vs prod only merges other non-secret overrides from config.dev / config.prod.
  *
- * If you doubt this, just bundle your app, and then go look at the bundle and
- * search it for one of your config variable values. You'll find it there.
- *
- * Read more here: https://reactnative.dev/docs/security#storing-sensitive-info
+ * https://reactnative.dev/docs/security#storing-sensitive-info
  */
+import { resolveApiUrl } from "./api-url"
 import BaseConfig from "./config.base"
 import DevConfig from "./config.dev"
 import ProdConfig from "./config.prod"
@@ -23,6 +17,12 @@ if (__DEV__) {
   ExtraConfig = DevConfig
 }
 
-const Config = { ...BaseConfig, ...ExtraConfig }
+const Config = {
+  ...BaseConfig,
+  ...ExtraConfig,
+  API_URL: resolveApiUrl(),
+  /** Local/dev-only bearer token — never set this in production EAS envs. */
+  DEV_ACCESS_TOKEN: process.env.EXPO_PUBLIC_DEV_ACCESS_TOKEN?.trim() || undefined,
+}
 
 export default Config

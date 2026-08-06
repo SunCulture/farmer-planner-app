@@ -1,9 +1,14 @@
 import type { ActivityHighlight } from "./activity-highlight"
 
-export type ActivityStatusCode = "PENDING" | "VERIFIED" | "REJECTED"
+export type ActivityStatusCode =
+  | "PENDING"
+  | "DONE"
+  | "VERIFIED"
+  | "SKIPPED"
+  | "REJECTED"
 
 export interface ActivityStatus {
-  code: ActivityStatusCode
+  code: ActivityStatusCode | string
   label: string
   color: string
 }

@@ -29,63 +29,8 @@ import {
   statusBad,
   statusBadBg,
   statusGood,
-  statusGoodBg,
 } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
-
-// ---------------------------------------------------------------------------
-// Display-only emoji lookups (match onboarding)
-// ---------------------------------------------------------------------------
-
-const CROP_EMOJI: Record<string, string> = {
-  maize: "🌽",
-  beans: "🫘",
-  tomatoes: "🍅",
-  kale: "🥬",
-  potatoes: "🥔",
-  onions: "🧅",
-  capsicum: "🫑",
-  watermelon: "🍉",
-  avocado: "🥑",
-  mango: "🥭",
-  banana: "🍌",
-  coffee: "☕",
-  tea: "🍵",
-}
-const LIVESTOCK_EMOJI: Record<string, string> = {
-  cattle: "🐄",
-  chickens: "🐔",
-  goats: "🐐",
-  sheep: "🐑",
-  pigs: "🐷",
-  rabbits: "🐰",
-  ducks: "🦆",
-  bees: "🐝",
-}
-const GOAL_EMOJI: Record<string, string> = {
-  MAKE_MONEY: "💰",
-  FOOD_SECURITY: "🌽",
-  SAVE_TIME: "⏰",
-  REDUCE_LOSSES: "📉",
-  LIVESTOCK_HEALTH: "🐄",
-  MODERN_FARMING: "📚",
-}
-const REGION_EMOJI: Record<string, string> = {
-  nairobi: "🏙️",
-  nakuru: "🌽",
-  kisumu: "🌊",
-  mombasa: "☀️",
-  eldoret: "🥬",
-  kitale: "🌽",
-  machakos: "⛰️",
-  nyeri: "🍃",
-  meru: "🌱",
-  thika: "🍍",
-  kisii: "🫐",
-  kakamega: "🌧️",
-  garissa: "🌵",
-  narok: "🦁",
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -97,12 +42,6 @@ function acreageLabel(acreage: number): string {
   return "Large farm · over 5 acres"
 }
 
-function acreageEmoji(acreage: number): string {
-  if (acreage <= 1) return "🌿"
-  if (acreage <= 5) return "🌾"
-  return "🌳"
-}
-
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -111,10 +50,9 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={$sectionTitle}>{title}</Text>
 }
 
-function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={$infoRow}>
-      <Text style={$infoIcon}>{icon}</Text>
       <View style={{ flex: 1 }}>
         <Text style={$infoLabel}>{label}</Text>
         <Text style={$infoValue}>{value}</Text>
@@ -123,10 +61,9 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
   )
 }
 
-function TagChip({ emoji, label }: { emoji: string; label: string }) {
+function TagChip({ label }: { label: string }) {
   return (
     <View style={$chip}>
-      <Text style={$chipEmoji}>{emoji}</Text>
       <Text style={$chipLabel}>{label}</Text>
     </View>
   )
@@ -168,7 +105,6 @@ export default function ProfileScreen() {
     )
   }
 
-  const firstName = profile.name?.split(" ")[0] ?? "Farmer"
   const initials = profile.name
     ? profile.name
         .split(" ")
@@ -178,10 +114,6 @@ export default function ProfileScreen() {
         .toUpperCase()
     : "F"
 
-  const locationEmoji = profile.location.county
-    ? (REGION_EMOJI[profile.location.county] ?? "📍")
-    : "📍"
-
   const isCrops = profile.productionType === "CROPS"
   const isMixed = profile.productionType === "MIXED"
 
@@ -189,23 +121,21 @@ export default function ProfileScreen() {
   const allCrops = cropsQuery.data ?? []
   const resolvedCrops = profile.cropIds.map((id) => {
     const found = allCrops.find((c) => c.id === id)
-    const slug = found?.slug ?? id
-    return { name: found?.name ?? id, emoji: CROP_EMOJI[slug] ?? "🌱" }
+    return { name: found?.name ?? id }
   })
 
   // Resolve livestock names from catalog, fallback to slug
   const allLivestock = livestockQuery.data ?? []
   const resolvedLivestock = profile.livestockIds.map((id) => {
     const found = allLivestock.find((a) => a.id === id)
-    const slug = found?.slug ?? id
-    return { name: found?.name ?? id, emoji: LIVESTOCK_EMOJI[slug] ?? "🐾" }
+    return { name: found?.name ?? id }
   })
 
   // Resolve goal names from catalog, fallback to slug
   const allGoals = goalsQuery.data ?? []
   const resolvedGoals = profile.goalSlugs.map((slug) => {
     const found = allGoals.find((g) => g.slug === slug)
-    return { name: found?.name ?? slug, emoji: GOAL_EMOJI[slug] ?? "🎯" }
+    return { name: found?.name ?? slug }
   })
 
   const farmTypeLabel =
@@ -214,15 +144,8 @@ export default function ProfileScreen() {
       : profile.productionType === "LIVESTOCK"
         ? "Livestock"
         : "Mixed farming"
-  const farmTypeEmoji =
-    profile.productionType === "CROPS"
-      ? "🌱"
-      : profile.productionType === "LIVESTOCK"
-        ? "🐄"
-        : "🌿🐄"
 
   const workStyleLabel = profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
-  const workStyleEmoji = profile.helpersLevel === "SOLO" ? "🧑‍🌾" : "👨‍👩‍👧"
 
   function handleLogout() {
     api.logout("").catch(() => {})
@@ -258,14 +181,10 @@ export default function ProfileScreen() {
           <Text style={$heroName}>{profile.name}</Text>
           <View style={$heroBadgeRow}>
             <View style={$heroBadge}>
-              <Text style={$heroBadgeText}>
-                {locationEmoji} {profile.location.label}
-              </Text>
+              <Text style={$heroBadgeText}>{profile.location.label}</Text>
             </View>
             <View style={$heroBadge}>
-              <Text style={$heroBadgeText}>
-                {farmTypeEmoji} {farmTypeLabel}
-              </Text>
+              <Text style={$heroBadgeText}>{farmTypeLabel}</Text>
             </View>
           </View>
         </View>
@@ -275,20 +194,15 @@ export default function ProfileScreen() {
           <SectionHeader title="Farm Identity" />
           <View style={$card}>
             <InfoRow
-              icon="📍"
               label="Location"
               value={`${profile.location.label}${profile.location.country ? `, ${profile.location.country}` : ""}`}
             />
             <View style={$divider} />
-            <InfoRow icon={farmTypeEmoji} label="Farming type" value={farmTypeLabel} />
+            <InfoRow label="Farming type" value={farmTypeLabel} />
             <View style={$divider} />
-            <InfoRow
-              icon={acreageEmoji(profile.acreage)}
-              label="Farm size"
-              value={acreageLabel(profile.acreage)}
-            />
+            <InfoRow label="Farm size" value={acreageLabel(profile.acreage)} />
             <View style={$divider} />
-            <InfoRow icon={workStyleEmoji} label="Work style" value={workStyleLabel} />
+            <InfoRow label="Work style" value={workStyleLabel} />
           </View>
         </View>
 
@@ -301,7 +215,7 @@ export default function ProfileScreen() {
             ) : (
               <View style={$chipRow}>
                 {resolvedCrops.map((crop) => (
-                  <TagChip key={crop.name} emoji={crop.emoji} label={crop.name} />
+                  <TagChip key={crop.name} label={crop.name} />
                 ))}
               </View>
             )}
@@ -317,7 +231,7 @@ export default function ProfileScreen() {
             ) : (
               <View style={$chipRow}>
                 {resolvedLivestock.map((animal) => (
-                  <TagChip key={animal.name} emoji={animal.emoji} label={animal.name} />
+                  <TagChip key={animal.name} label={animal.name} />
                 ))}
               </View>
             )}
@@ -336,9 +250,6 @@ export default function ProfileScreen() {
                   key={goal.name}
                   style={[$goalItem, i < resolvedGoals.length - 1 && $goalItemBorder]}
                 >
-                  <View style={$goalIconCircle}>
-                    <Text style={{ fontSize: 18 }}>{goal.emoji}</Text>
-                  </View>
                   <Text style={$goalLabel}>{goal.name}</Text>
                   <Ionicons name="checkmark-circle" size={18} color={statusGood} />
                 </View>
@@ -486,12 +397,6 @@ const $infoRow: ViewStyle = {
   gap: spacing.s3,
 }
 
-const $infoIcon: TextStyle = {
-  fontSize: 20,
-  width: 28,
-  textAlign: "center",
-}
-
 const $infoLabel: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 12,
@@ -508,7 +413,6 @@ const $infoValue: TextStyle = {
 const $divider: ViewStyle = {
   height: 1,
   backgroundColor: hairline,
-  marginLeft: 28 + spacing.s3,
 }
 
 const $chipRow: ViewStyle = {
@@ -526,11 +430,6 @@ const $chip: ViewStyle = {
   borderColor: forest100,
   paddingHorizontal: spacing.s3,
   paddingVertical: spacing.s2,
-  gap: 6,
-}
-
-const $chipEmoji: TextStyle = {
-  fontSize: 16,
 }
 
 const $chipLabel: TextStyle = {
@@ -558,15 +457,6 @@ const $goalItem: ViewStyle = {
 const $goalItemBorder: ViewStyle = {
   borderBottomWidth: 1,
   borderBottomColor: hairline,
-}
-
-const $goalIconCircle: ViewStyle = {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
 }
 
 const $goalLabel: TextStyle = {

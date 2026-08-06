@@ -3,20 +3,17 @@ import type { GeneratePlanBody, PatchPlanBody } from "@/services/api/planner-typ
 
 import {
   mapActivityCard,
-  mapActivitySuggestion,
-  mapDayPlan,
-  mapPlanChatResult,
-} from "./api-mappers"
-import type { ActivityCard } from "../domain/entities/activity-card"
-import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
   mapActivityDetail,
   mapActivityQuestion,
+  mapActivitySuggestion,
   mapDayActivityQuestions,
   mapDayPlan,
   mapPlanChatResult,
 } from "./api-mappers"
+import type { ActivityCard } from "../domain/entities/activity-card"
 import type { ActivityDetail } from "../domain/entities/activity-detail"
 import type { ActivityQuestion, DayActivityQuestions } from "../domain/entities/activity-question"
+import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
 import type { DayPlan } from "../domain/entities/day-plan"
 import type { PlanChatResult } from "../domain/entities/plan-chat"
 

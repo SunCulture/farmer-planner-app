@@ -81,9 +81,13 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
+.env
+.env.local
+.env.*.local
 
 # Configurations
 !env.js
+!.env.example
 
 /coverage
 

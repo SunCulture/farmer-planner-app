@@ -1,12 +1,8 @@
 import type {
   ActivityCardDto,
-  ActivitySuggestionDto,
-  DayPlanDto,
-} from "@/services/api/planner-types"
-
-import { mapActivityCard, mapActivitySuggestion, mapDayPlan, statusColorToUi } from "./api-mappers"
   ActivityDetailDto,
   ActivityQuestionDto,
+  ActivitySuggestionDto,
   DayActivityQuestionsDto,
   DayPlanDto,
 } from "@/services/api/planner-types"
@@ -16,6 +12,7 @@ import {
   mapActivityDetail,
   mapActivityHighlight,
   mapActivityQuestion,
+  mapActivitySuggestion,
   mapDayActivityQuestions,
   mapDayPlan,
   statusColorToUi,
@@ -32,10 +29,10 @@ describe("api-mappers", () => {
     cta: { label: "Log", route: "/activities/a1" },
   }
 
-  it("maps activity card with emoji icon", () => {
+  it("maps activity card fields", () => {
     const card = mapActivityCard(activityDto)
     expect(card.title).toBe("Scout maize")
-    expect(card.iconEmoji).toBe("🔍")
+    expect(card.iconKey).toBe("pest-scout")
     expect(card.ctaLabel).toBe("Log")
   })
 
@@ -75,6 +72,8 @@ describe("api-mappers", () => {
 
     const suggestion = mapActivitySuggestion(dto)
     expect(suggestion).toEqual(dto)
+  })
+
   it("maps a null/undefined highlight dto to null", () => {
     expect(mapActivityHighlight(null)).toBeNull()
     expect(mapActivityHighlight(undefined)).toBeNull()
@@ -102,12 +101,13 @@ describe("api-mappers", () => {
     expect(card.highlight).toBeNull()
   })
 
-  it("maps activity detail, including completion and highlight", () => {
+  it("maps activity detail, including completion, highlight, and educationBrief", () => {
     const dto: ActivityDetailDto = {
       ...activityDto,
       highlight: { text: "Tip", addedAt: "2026-06-03T10:00:00Z" },
       planId: "p1",
       date: "2026-06-03",
+      educationBrief: "Why scouting matters",
       completion: {
         id: "c1",
         journalText: "Done",
@@ -120,6 +120,7 @@ describe("api-mappers", () => {
     const detail = mapActivityDetail(dto)
     expect(detail.planId).toBe("p1")
     expect(detail.date).toBe("2026-06-03")
+    expect(detail.educationBrief).toBe("Why scouting matters")
     expect(detail.highlight?.text).toBe("Tip")
     expect(detail.completion?.id).toBe("c1")
   })

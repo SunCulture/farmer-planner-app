@@ -36,7 +36,12 @@ import {
   markOnboardingComplete,
   saveAuthToken,
   saveFarmerProfile,
+  setOnboardingComplete,
 } from "../application/farmer-profile-store"
+import {
+  draftFromOnboardingData,
+  uiStepFromSuggested,
+} from "../application/resume-onboarding"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
 import { useCompleteOnboarding, usePatchOnboarding } from "../application/use-onboarding-mutations"
 import {
@@ -205,13 +210,15 @@ export default function OnboardingScreen() {
 
       const { accessToken, farmer } = res.data.data
       saveAuthToken(accessToken)
+      setOnboardingComplete(!!farmer.onboardingCompleted)
       api.setAuthToken(accessToken)
 
       if (farmer.displayName) {
         setDraft((d) => ({ ...d, name: farmer.displayName }))
       }
 
-      if (authMode === "login") {
+      // Completed onboarding → load profile and go home
+      if (authMode === "login" && farmer.onboardingCompleted) {
         const profileRes = await api.getOnboarding()
         if (profileRes.ok && profileRes.data?.data) {
           const d = profileRes.data.data
@@ -230,9 +237,34 @@ export default function OnboardingScreen() {
           markOnboardingComplete()
         }
         router.replace("/(tabs)/" as any)
-      } else {
-        setStep(1)
+        return
       }
+
+      // Incomplete onboarding on login → resume draft at suggested step
+      if (authMode === "login" && !farmer.onboardingCompleted) {
+        const onboardingRes = await api.getOnboarding()
+        if (onboardingRes.ok && onboardingRes.data?.data) {
+          const data = onboardingRes.data.data
+          const snap = draftFromOnboardingData(data)
+          setDraft({
+            name: snap.name || farmer.displayName || "",
+            location: snap.location,
+            locationSlug: snap.locationSlug,
+            farmType: snap.farmType,
+            crops: snap.crops,
+            livestock: snap.livestock,
+            workStyle: snap.workStyle,
+            farmSize: snap.farmSize,
+            goals: snap.goals,
+            twoWeekGoal: snap.twoWeekGoal,
+          })
+          if (snap.location) setLocationQuery(snap.location)
+          setStep(uiStepFromSuggested(data.suggestedStep ?? farmer.suggestedStep))
+          return
+        }
+      }
+
+      setStep(1)
     } finally {
       setAuthLoading(false)
     }

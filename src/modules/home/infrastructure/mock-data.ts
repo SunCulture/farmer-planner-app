@@ -8,7 +8,6 @@ export type WeatherData = {
   condition: string
   description: string
   temperature: number
-  icon: string
 }
 
 export type AIInsight = {
@@ -19,7 +18,6 @@ export type AIInsight = {
 export type FarmPlanTemplate = {
   id: string
   name: string
-  emoji: string
   days: number
   difficulty: Difficulty
   bgColor: string
@@ -31,7 +29,6 @@ export type TodayActivity = {
   priority: Priority
   durationMinutes: number
   done: boolean
-  icon: string
 }
 
 export const MOCK_WEATHER: WeatherData = {
@@ -39,7 +36,6 @@ export const MOCK_WEATHER: WeatherData = {
   condition: "Sunny",
   description: "Good planting weather · Low humidity",
   temperature: 24,
-  icon: "☀️",
 }
 
 export const MOCK_AI_INSIGHT: AIInsight = {
@@ -51,7 +47,6 @@ export const MOCK_FARM_PLANS: FarmPlanTemplate[] = [
   {
     id: "tomato-5",
     name: "5-Day Tomato Plan",
-    emoji: "🍅",
     days: 5,
     difficulty: "Easy",
     bgColor: "#FFFFFF",
@@ -59,7 +54,6 @@ export const MOCK_FARM_PLANS: FarmPlanTemplate[] = [
   {
     id: "maize-20",
     name: "20-Day Maize Boost",
-    emoji: "🌽",
     days: 20,
     difficulty: "Medium",
     bgColor: "#FDF3E7",
@@ -67,7 +61,6 @@ export const MOCK_FARM_PLANS: FarmPlanTemplate[] = [
   {
     id: "kale-14",
     name: "14-Day Kale Cycle",
-    emoji: "🥬",
     days: 14,
     difficulty: "Easy",
     bgColor: "#EBF5EB",
@@ -75,7 +68,6 @@ export const MOCK_FARM_PLANS: FarmPlanTemplate[] = [
   {
     id: "beans-30",
     name: "30-Day Bean Master",
-    emoji: "🫘",
     days: 30,
     difficulty: "Hard",
     bgColor: "#FFFFFF",
@@ -89,7 +81,6 @@ export const MOCK_ACTIVITIES: TodayActivity[] = [
     priority: "High",
     durationMinutes: 15,
     done: false,
-    icon: "💧",
   },
   {
     id: "act-2",
@@ -97,7 +88,6 @@ export const MOCK_ACTIVITIES: TodayActivity[] = [
     priority: "Medium",
     durationMinutes: 30,
     done: false,
-    icon: "🌿",
   },
   {
     id: "act-3",
@@ -105,6 +95,5 @@ export const MOCK_ACTIVITIES: TodayActivity[] = [
     priority: "Low",
     durationMinutes: 20,
     done: false,
-    icon: "🔍",
   },
 ]

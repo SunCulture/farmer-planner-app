@@ -12,4 +12,13 @@ export const plannerKeys = {
   suggestions: (date: string) => ["planner", "suggestions", date] as const,
 }
 
+/** Develop-era plan keys — still used by activity done/skip/contest actions. */
+export const planKeys = {
+  all: ["plan"] as const,
+  day: (date: string) => ["plan", "day", date] as const,
+  activity: (activityId: string) => ["plan", "activity", activityId] as const,
+  activityQuestions: (activityId: string) => ["plan", "activity-questions", activityId] as const,
+  dayActivityQuestions: (date: string) => ["plan", "day-activity-questions", date] as const,
+}
+
 export default plannerKeys

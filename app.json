@@ -21,8 +21,7 @@
       "foregroundImage": "./assets/images/app-icon-android-adaptive-foreground.png",
       "backgroundImage": "./assets/images/app-icon-android-adaptive-background.png"
     },
-    "allowBackup": false,
-    "edgeToEdgeEnabled": true
+    "allowBackup": false
   },
   "ios": {
     "icon": "./assets/images/app-icon-ios.png",
@@ -67,7 +66,7 @@
     },
     "router": {},
     "eas": {
-      "projectId": "78b37240-265f-40cc-8846-18f95a4923b2"
+      "projectId": "f169b92e-3f9d-4ad5-9146-6d3993c7257d"
     }
   }
 }

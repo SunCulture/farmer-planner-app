@@ -285,7 +285,7 @@ export function buildActivitiesForDate(dateStr: string): PlanActivity[] {
     return {
       id: `${dateStr}-${i}`,
       name: t.name,
-      icon: t.icon,
+      icon: "",
       priority: t.priority,
       durationMinutes: t.durationMinutes,
       // For past days mark the first two as done so the progress bar feels alive

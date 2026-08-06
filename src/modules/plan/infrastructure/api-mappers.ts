@@ -15,12 +15,10 @@ import type {
 
 import { iconKeyToEmoji } from "./icon-key-map"
 import type { ActivityCard } from "../domain/entities/activity-card"
-import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
-import type { DayPlan } from "../domain/entities/day-plan"
-import type { PlanChatResult } from "../domain/entities/plan-chat"
 import type { ActivityDetail } from "../domain/entities/activity-detail"
 import type { ActivityHighlight } from "../domain/entities/activity-highlight"
 import type { ActivityQuestion, DayActivityQuestions } from "../domain/entities/activity-question"
+import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
 import type { DayPlan } from "../domain/entities/day-plan"
 import type { PlanChatResult } from "../domain/entities/plan-chat"
 
@@ -50,6 +48,7 @@ export function mapActivityDetail(dto: ActivityDetailDto): ActivityDetail {
     ...mapActivityCard(dto),
     planId: dto.planId,
     date: dto.date,
+    educationBrief: dto.educationBrief,
     completion: dto.completion
       ? {
           id: dto.completion.id,

@@ -44,7 +44,7 @@ const $badge: ViewStyle = {
   gap: spacing.s2,
 }
 
-const $icon: ViewStyle = { marginTop: 1 }
+const $icon: TextStyle = { marginTop: 1 }
 
 const $text: TextStyle = {
   flex: 1,
