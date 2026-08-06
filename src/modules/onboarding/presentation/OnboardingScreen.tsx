@@ -2,10 +2,7 @@ import React, { useState } from "react"
 import {
   ActivityIndicator,
   Dimensions,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   TextStyle,
@@ -15,10 +12,14 @@ import {
 } from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import {
+  KeyboardAwareScrollView,
+  KeyboardAvoidingView,
+} from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { api } from "@/services/api"
-import { getApiErrorMessage } from "@/shared/infrastructure/api-error"
+import { getApiErrorMessage, problemFromResponse } from "@/shared/infrastructure/api-error"
 import {
   card,
   forest50,
@@ -35,7 +36,7 @@ import { typography } from "@/theme/typography"
 import OnboardingActivationStep from "./OnboardingActivationStep"
 import {
   markOnboardingComplete,
-  saveAuthToken,
+  saveAuthSession,
   saveFarmerProfile,
   setOnboardingComplete,
 } from "../application/farmer-profile-store"
@@ -180,15 +181,28 @@ export default function OnboardingScreen() {
 
   const handleAuth = async () => {
     setAuthError(null)
+
+    const email = authEmail.trim().toLowerCase()
+    const password = authPassword
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    if (!emailOk) {
+      setAuthError("Enter a valid email address (e.g. you@example.com).")
+      return
+    }
+    if (authMode === "register" && password.length < 8) {
+      setAuthError("Password must be at least 8 characters.")
+      return
+    }
+
     setAuthLoading(true)
     try {
       let res
       if (authMode === "login") {
-        res = await api.login({ email: authEmail.trim(), password: authPassword })
+        res = await api.login({ email, password })
       } else {
         res = await api.register({
-          email: authEmail.trim(),
-          password: authPassword,
+          email,
+          password,
           name: authName.trim(),
         })
       }
@@ -196,7 +210,9 @@ export default function OnboardingScreen() {
       console.log("[auth] status:", res.status, "ok:", res.ok, "data:", JSON.stringify(res.data))
 
       if (!res.ok || !res.data?.data?.accessToken) {
+        const apiErr = problemFromResponse(res)
         const msg =
+          (apiErr ? getApiErrorMessage(apiErr) : null) ??
           (res.data as any)?.error?.message ??
           res.originalError?.message ??
           `Request failed (${res.status ?? "no response"})`
@@ -204,8 +220,8 @@ export default function OnboardingScreen() {
         return
       }
 
-      const { accessToken, farmer } = res.data.data
-      saveAuthToken(accessToken)
+      const { accessToken, refreshToken, farmer } = res.data.data
+      saveAuthSession(accessToken, refreshToken)
       setOnboardingComplete(!!farmer.onboardingCompleted)
       api.setAuthToken(accessToken)
 
@@ -305,6 +321,7 @@ export default function OnboardingScreen() {
         return
       }
 
+      markOnboardingComplete()
       setStep(9) // -> activation wait screen (SSE), see OnboardingActivationStep
     } finally {
       setFinishLoading(false)
@@ -354,12 +371,13 @@ export default function OnboardingScreen() {
     return (
       <KeyboardAvoidingView
         style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior="padding"
       >
-        <ScrollView
+        <KeyboardAwareScrollView
           contentContainerStyle={$authScroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={spacing.s6}
         >
           {/* Brand badge */}
           <View style={$authBadge}>
@@ -400,7 +418,7 @@ export default function OnboardingScreen() {
             style={$authInput}
             value={authEmail}
             onChangeText={(v) => {
-              setAuthEmail(v)
+              setAuthEmail(v.replace(/\s/g, ""))
               setAuthError(null)
             }}
             placeholder="you@example.com"
@@ -408,6 +426,8 @@ export default function OnboardingScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
           />
 
           {/* Password */}
@@ -422,6 +442,8 @@ export default function OnboardingScreen() {
             placeholder="••••••••"
             placeholderTextColor={ink4}
             secureTextEntry
+            autoComplete={authMode === "login" ? "password" : "new-password"}
+            textContentType="password"
           />
 
           {/* Error */}
@@ -457,7 +479,7 @@ export default function OnboardingScreen() {
               <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     )
   }
@@ -485,16 +507,13 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        contentContainerStyle={[$scrollContent, { paddingTop: spacing.s6 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={spacing.s10}
       >
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={[$scrollContent, { paddingTop: spacing.s6 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
           {/* ---- Name ---- */}
           {step === 1 && (
             <>
@@ -899,8 +918,7 @@ export default function OnboardingScreen() {
               </View>
             </>
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       {/* Footer */}
       <View style={[$footer, { paddingBottom: insets.bottom + spacing.s2 }]}>

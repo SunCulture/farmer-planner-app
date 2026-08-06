@@ -1,12 +1,10 @@
-import React, { useCallback, useRef, useState } from "react"
+import React, { useCallback, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
+  Dimensions,
   ScrollView,
   Text,
-  TextInput,
   TextStyle,
   TouchableOpacity,
   View,
@@ -47,6 +45,7 @@ import {
 import { typography } from "@/theme/typography"
 
 import { ActivitySuggestionsBanner } from "./ActivitySuggestionsBanner"
+import { AiAssistantPanel, type AiChatMessage } from "./components/AiAssistantPanel"
 import { getActivityErrorMessage } from "../application/activity-errors"
 import { useMarkActivityDone, useSkipActivity } from "../application/use-activity-actions"
 import { useDayPlan } from "../application/use-day-plan"
@@ -101,15 +100,12 @@ export default function PlanScreen() {
   const generatePlan = useGeneratePlan()
   const planChat = usePlanChat(dayPlan?.planId)
 
-  type ChatMessage =
-    | { role: "user"; text: string }
-    | { role: "assistant"; text: string; suggestionCards: SuggestionCard[] }
+  type ChatMessage = AiChatMessage & { suggestionCards: SuggestionCard[] }
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState("")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const chatScrollRef = useRef<ScrollView>(null)
 
   useFocusEffect(
     useCallback(() => {
@@ -118,39 +114,50 @@ export default function PlanScreen() {
   )
 
   const activities = dayPlan?.activities ?? []
-  const doneCount = activities.filter((a) => a.status.code === "VERIFIED").length
+  const doneCount = activities.filter(
+    (a) => a.status.code === "DONE" || a.status.code === "VERIFIED",
+  ).length
   const totalCount = activities.length
   const percentage = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
   const aiPanelBottom = insets.bottom + FLOATING_NAV_BOTTOM_GAP + FLOATING_NAV_HEIGHT
   const collapsedPanelHeight = 56
-  const expandedPanelHeight = 420
+  const expandedPanelHeight = Math.min(Math.round(Dimensions.get("window").height * 0.78), 640)
   const scrollPaddingBottom =
     aiPanelBottom + (chatOpen ? expandedPanelHeight : collapsedPanelHeight) + spacing.s4
 
-  async function handleSendChat() {
-    const message = chatInput.trim()
-    if (!message || !dayPlan?.planId) return
+  async function handleSendChat(explicit?: string) {
+    const message = (explicit ?? chatInput).trim()
+    if (!message || !dayPlan?.planId || planChat.isPending) return
     setChatInput("")
-    setChatMessages((prev) => [...prev, { role: "user", text: message }])
-    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 50)
+    const userId = `u-${Date.now()}`
+    setChatMessages((prev) => [
+      ...prev,
+      { id: userId, role: "user", text: message, suggestionCards: [] },
+    ])
+    if (!chatOpen) setChatOpen(true)
     try {
       const result = await planChat.mutateAsync(message)
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", text: result.reply.plain, suggestionCards: result.suggestionCards },
+        {
+          id: result.messageId || `a-${Date.now()}`,
+          role: "assistant",
+          text: result.reply.markdown || result.reply.plain,
+          suggestionCards: result.suggestionCards,
+        },
       ])
     } catch {
       setChatMessages((prev) => [
         ...prev,
         {
+          id: `err-${Date.now()}`,
           role: "assistant",
           text: "Sorry, I could not reach the farm assistant right now.",
           suggestionCards: [],
         },
       ])
     }
-    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100)
   }
 
   async function handleStartPlan() {
@@ -206,7 +213,7 @@ export default function PlanScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={$root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <View style={$root}>
       <ScrollView
         style={{ flex: 1, backgroundColor: paper }}
         contentContainerStyle={[
@@ -231,7 +238,7 @@ export default function PlanScreen() {
           <View style={$progressCardHeader}>
             <Text style={$progressCardTitle}>Daily Progress</Text>
             <Text style={$progressDoneText}>
-              {doneCount}/{totalCount} verified
+              {doneCount}/{totalCount} done
             </Text>
           </View>
           <View style={$progressBarBg}>
@@ -266,82 +273,38 @@ export default function PlanScreen() {
         ) : null}
       </ScrollView>
 
-      <View style={[$aiPanel, { bottom: aiPanelBottom }, chatOpen && $aiPanelExpanded]}>
-        <TouchableOpacity
-          style={$aiPanelHeader}
-          onPress={() => setChatOpen((v) => !v)}
-          activeOpacity={0.8}
-        >
-          <View style={$aiAvatarCircle}>
-            <Text style={$aiAvatarEmoji}>🤖</Text>
-          </View>
-          <Text style={$aiPanelTitle}>{dayPlan?.chatCtaLabel ?? "AI Farm Assistant"}</Text>
-          <View style={$aiDot} />
-          <Ionicons
-            name={chatOpen ? "chevron-down" : "chevron-up"}
-            size={18}
-            color={ink3}
-            style={{ marginLeft: spacing.s2 }}
-          />
-        </TouchableOpacity>
-
-        {chatOpen ? (
-          <>
-            <ScrollView ref={chatScrollRef} style={$chatMessages} nestedScrollEnabled>
-              {chatMessages.length === 0 ? (
-                <View style={$chatMessageBubble}>
-                  <Text style={$chatMessageText}>
-                    Ask me about weather, pests, or whether to adjust today's plan.
-                  </Text>
-                </View>
-              ) : (
-                chatMessages.map((msg, i) => (
-                  <View key={`msg-${i}`}>
-                    <View style={msg.role === "user" ? $chatUserBubble : $chatMessageBubble}>
-                      <Text style={$chatMessageText}>{msg.text}</Text>
-                    </View>
-                    {msg.role === "assistant" &&
-                      msg.suggestionCards.length > 0 &&
-                      msg.suggestionCards.map((card) => (
-                        <View key={card.id} style={$suggestionCard}>
-                          <View style={$suggestionCardBody}>
-                            <Text style={$suggestionCardTitle}>{card.title}</Text>
-                            <Text style={$suggestionCardReason}>{card.reason}</Text>
-                          </View>
-                          <TouchableOpacity style={$suggestionCardCta} activeOpacity={0.7}>
-                            <Text style={$suggestionCardCtaText}>{card.ctaLabel}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ))}
+      <AiAssistantPanel
+        title={dayPlan?.chatCtaLabel ?? "AI Farm Assistant"}
+        expanded={chatOpen}
+        onToggle={() => setChatOpen((v) => !v)}
+        messages={chatMessages}
+        input={chatInput}
+        onChangeInput={setChatInput}
+        onSend={handleSendChat}
+        pending={planChat.isPending}
+        starterChips={CHAT_SUGGESTIONS}
+        bottomOffset={aiPanelBottom}
+        renderAfterMessage={(msg) => {
+          const cards = (msg as ChatMessage).suggestionCards
+          if (!cards || cards.length === 0) return null
+          return (
+            <>
+              {cards.map((suggestion) => (
+                <View key={suggestion.id} style={$suggestionCard}>
+                  <View style={$suggestionCardBody}>
+                    <Text style={$suggestionCardTitle}>{suggestion.title}</Text>
+                    <Text style={$suggestionCardReason}>{suggestion.reason}</Text>
                   </View>
-                ))
-              )}
-              {planChat.isPending ? <ActivityIndicator size="small" color={forest500} /> : null}
-            </ScrollView>
-
-            <View style={$chatInputRow}>
-              <TextInput
-                style={$chatInput}
-                value={chatInput}
-                onChangeText={setChatInput}
-                placeholder="Ask about your farm..."
-                placeholderTextColor={ink4}
-                returnKeyType="send"
-                onSubmitEditing={handleSendChat}
-              />
-              <TouchableOpacity
-                style={[$sendBtn, (!chatInput.trim() || planChat.isPending) && $sendBtnDisabled]}
-                activeOpacity={0.85}
-                onPress={handleSendChat}
-                disabled={!chatInput.trim() || planChat.isPending}
-              >
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : null}
-      </View>
-    </KeyboardAvoidingView>
+                  <TouchableOpacity style={$suggestionCardCta} activeOpacity={0.7}>
+                    <Text style={$suggestionCardCtaText}>{suggestion.ctaLabel}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
+          )
+        }}
+      />
+    </View>
   )
 }
 
@@ -470,23 +433,23 @@ function ActivityRow({
           {!isComplete ? (
             <View style={$inlineActionsRow}>
               <TouchableOpacity
-                style={[$inlineActionBtn, $inlineDoneBtn]}
+                style={[$inlineActionBtn, $inlineChoiceBtn]}
                 onPress={handleMarkDone}
                 disabled={busy}
                 activeOpacity={0.85}
               >
                 {markDone.isPending ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={ink2} size="small" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                    <Text style={$inlineDoneText}>Mark done</Text>
+                    <Ionicons name="checkmark-circle-outline" size={16} color={ink2} />
+                    <Text style={$inlineChoiceText}>Mark done</Text>
                   </>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[$inlineActionBtn, $inlineSkipBtn]}
+                style={[$inlineActionBtn, $inlineChoiceBtn]}
                 onPress={handleSkip}
                 disabled={busy}
                 activeOpacity={0.85}
@@ -496,7 +459,7 @@ function ActivityRow({
                 ) : (
                   <>
                     <Ionicons name="close-circle-outline" size={16} color={ink2} />
-                    <Text style={$inlineSkipText}>Didn&apos;t do</Text>
+                    <Text style={$inlineChoiceText}>Didn&apos;t do</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -741,20 +704,12 @@ const $inlineActionBtn: ViewStyle = {
   paddingVertical: spacing.s3,
   minHeight: 40,
 }
-const $inlineDoneBtn: ViewStyle = {
-  backgroundColor: forest500,
-}
-const $inlineDoneText: TextStyle = {
-  fontFamily: typography.primary.semiBold,
-  fontSize: 13,
-  color: "#FFFFFF",
-}
-const $inlineSkipBtn: ViewStyle = {
+const $inlineChoiceBtn: ViewStyle = {
   backgroundColor: card,
   borderWidth: 1,
   borderColor: cardBorder,
 }
-const $inlineSkipText: TextStyle = {
+const $inlineChoiceText: TextStyle = {
   fontFamily: typography.primary.semiBold,
   fontSize: 13,
   color: ink2,
@@ -771,115 +726,6 @@ const $tipText: TextStyle = {
   color: ink2,
   lineHeight: 18,
 }
-const $aiPanel: ViewStyle = {
-  position: "absolute",
-  left: spacing.s4,
-  right: spacing.s4,
-  backgroundColor: card,
-  borderRadius: radii.xl,
-  borderWidth: 1,
-  borderColor: cardBorder,
-  ...elevation.card,
-  overflow: "hidden",
-}
-const $aiPanelExpanded: ViewStyle = { maxHeight: 440 }
-const $aiPanelHeader: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingHorizontal: spacing.s4,
-  paddingVertical: spacing.s3,
-}
-const $aiAvatarCircle: ViewStyle = {
-  width: 32,
-  height: 32,
-  borderRadius: 16,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-  marginRight: spacing.s3,
-}
-const $aiAvatarEmoji: TextStyle = { fontSize: 16 }
-const $aiPanelTitle: TextStyle = {
-  flex: 1,
-  fontFamily: typography.primary.semiBold,
-  fontSize: 14,
-  color: ink,
-}
-const $aiDot: ViewStyle = {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: statusGood,
-}
-const $chatMessages: ViewStyle = {
-  maxHeight: 280,
-  paddingHorizontal: spacing.s4,
-  marginBottom: spacing.s2,
-}
-const $chatMessageBubble: ViewStyle = {
-  backgroundColor: forest50,
-  borderRadius: radii.lg,
-  padding: spacing.s3,
-  marginBottom: spacing.s2,
-}
-const $chatUserBubble: ViewStyle = {
-  backgroundColor: hairline,
-  borderRadius: radii.lg,
-  padding: spacing.s3,
-  marginBottom: spacing.s2,
-  alignSelf: "flex-end",
-  maxWidth: "85%",
-}
-const $chatMessageText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink2,
-  lineHeight: 18,
-}
-const $chipsScroll: ViewStyle = {
-  paddingHorizontal: spacing.s4,
-  gap: spacing.s2,
-  marginBottom: spacing.s2,
-}
-const $chip: ViewStyle = {
-  backgroundColor: forest50,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s3,
-  paddingVertical: spacing.s2,
-  borderWidth: 1,
-  borderColor: hairline,
-}
-const $chipText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: ink2,
-}
-const $chatInputRow: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingHorizontal: spacing.s4,
-  paddingBottom: spacing.s3,
-  gap: spacing.s2,
-}
-const $chatInput: TextStyle = {
-  flex: 1,
-  fontFamily: typography.primary.normal,
-  fontSize: 14,
-  color: ink,
-  backgroundColor: hairline,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s4,
-  paddingVertical: spacing.s2,
-}
-const $sendBtn: ViewStyle = {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  backgroundColor: forest500,
-  alignItems: "center",
-  justifyContent: "center",
-}
-const $sendBtnDisabled: ViewStyle = { opacity: 0.4 }
 const $suggestionCard: ViewStyle = {
   backgroundColor: forest50,
   borderRadius: radii.lg,

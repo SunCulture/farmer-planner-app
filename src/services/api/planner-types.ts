@@ -1,7 +1,7 @@
 // Shared API response shapes for planner endpoints (from Tujiweze Postman collection)
 
 export interface ActivityStatusDto {
-  code: "PENDING" | "VERIFIED" | "REJECTED"
+  code: "PENDING" | "DONE" | "VERIFIED" | "SKIPPED" | "REJECTED"
   label: string
   color: string
 }

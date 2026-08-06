@@ -4,6 +4,7 @@ import { useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Text } from "@/components/Text"
+import { markOnboardingComplete } from "@/modules/onboarding"
 import { card, forest50, forest500, ink, ink3, radii, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
@@ -22,6 +23,7 @@ export default function OnboardingActivationStep() {
 
   const navigateToPlan = () => {
     if (!payload) return
+    markOnboardingComplete()
     router.replace({
       pathname: "/(tabs)/plan" as any,
       params: { date: payload.targetDate },

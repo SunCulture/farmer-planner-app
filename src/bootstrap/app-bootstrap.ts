@@ -2,6 +2,7 @@ import { initDatabase } from "@/shared/infrastructure/database"
 import EventSourceSseClient from "@/shared/infrastructure/sse/event-source-sse-client"
 
 import { container } from "./container"
+import { hydrateAuthSession } from "./hydrate-auth"
 import { createQueryClient } from "./query-client"
 import registerInfrastructure from "./register-infrastructure"
 import SqliteSyncEngine from "../shared/infrastructure/sqlite-sync-engine"
@@ -10,6 +11,10 @@ export const queryClient = createQueryClient()
 
 export async function initAppBootstrap(): Promise<void> {
   console.debug("BOOTSTRAP: initAppBootstrap() starting")
+
+  // Restore Bearer header before any authenticated query can race.
+  hydrateAuthSession()
+  console.debug("BOOTSTRAP: auth session hydrated")
 
   const db = await initDatabase()
   console.debug("BOOTSTRAP: initDatabase() finished")

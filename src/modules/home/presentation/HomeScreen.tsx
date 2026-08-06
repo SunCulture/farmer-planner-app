@@ -90,7 +90,10 @@ export default function HomeScreen() {
   const weekStrip = dashboard?.weekStrip ?? []
   const templateCards = dashboard?.templateCards ?? []
   const todayActivities = dashboard?.todaySection.activities ?? []
-  const remaining = todayActivities.filter((a) => a.status.code !== "VERIFIED").length
+  const remaining = todayActivities.filter(
+    (a) =>
+      a.status.code !== "VERIFIED" && a.status.code !== "DONE" && a.status.code !== "SKIPPED",
+  ).length
   const isPlanActionPending = enrollPlan.isPending || generatePlan.isPending
 
   async function handleTemplatePress(template: TemplateCard) {
