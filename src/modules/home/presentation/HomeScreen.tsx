@@ -67,6 +67,10 @@ function statusUiColors(color: string): { bg: string; text: string } {
   return { bg: statusBadBg, text: statusBad }
 }
 
+function activityInitial(title: string): string {
+  return title.trim().charAt(0).toUpperCase() || "T"
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -91,8 +95,7 @@ export default function HomeScreen() {
   const templateCards = dashboard?.templateCards ?? []
   const todayActivities = dashboard?.todaySection.activities ?? []
   const remaining = todayActivities.filter(
-    (a) =>
-      a.status.code !== "VERIFIED" && a.status.code !== "DONE" && a.status.code !== "SKIPPED",
+    (a) => a.status.code !== "VERIFIED" && a.status.code !== "DONE" && a.status.code !== "SKIPPED",
   ).length
   const isPlanActionPending = enrollPlan.isPending || generatePlan.isPending
 
@@ -141,7 +144,7 @@ export default function HomeScreen() {
       <View style={[$heroCard, { paddingTop: insets.top + spacing.s4 }]}>
         <View style={$header}>
           <View style={{ flex: 1 }}>
-            <Text style={$greeting}>Good morning, {firstName} 👋</Text>
+            <Text style={$greeting}>Good morning, {firstName}</Text>
             <Text style={$greetingSubtitle}>{subtitle}</Text>
           </View>
           <TouchableOpacity
@@ -215,14 +218,16 @@ export default function HomeScreen() {
             disabled={isPlanActionPending}
             onPress={() => handleTemplatePress(plan)}
           >
-            <Text style={$planEmoji}>🌱</Text>
+            <View style={$planMark}>
+              <Text style={$planMarkText}>Plan</Text>
+            </View>
             <Text style={$planName}>{plan.title}</Text>
             <Text style={$planSubtitle} numberOfLines={2}>
               {plan.subtitle ?? plan.description}
             </Text>
             <View style={$planTags}>
               <View style={$planDaysTag}>
-                <Text style={$planDaysText}>⏱ {plan.durationDays} Days</Text>
+                <Text style={$planDaysText}>{plan.durationDays} days</Text>
               </View>
               {plan.badge ? (
                 <View style={$planBadgeTag}>
@@ -276,7 +281,7 @@ function HomeActivityCard({ activity }: { activity: ActivityCard }) {
       onPress={() => router.push(`/activity/${activity.id}` as any)}
     >
       <View style={$activityIconCircle}>
-        <Text style={$activityIcon}>{activity.iconEmoji}</Text>
+        <Text style={$activityIcon}>{activityInitial(activity.title)}</Text>
       </View>
       <View style={$activityBody}>
         <View style={$activityTitleRow}>
@@ -397,7 +402,21 @@ const $planCard: ViewStyle = {
   ...elevation.card,
 }
 const $planCardDisabled: ViewStyle = { opacity: 0.6 }
-const $planEmoji: TextStyle = { fontSize: 36, marginBottom: spacing.s2 }
+const $planMark: ViewStyle = {
+  alignSelf: "flex-start",
+  backgroundColor: forest50,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.s2,
+  paddingVertical: 3,
+  marginBottom: spacing.s2,
+}
+const $planMarkText: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 10,
+  color: forest500,
+  letterSpacing: 0.8,
+  textTransform: "uppercase",
+}
 const $planName: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 13,
@@ -477,7 +496,11 @@ const $activityIconCircle: ViewStyle = {
   justifyContent: "center",
   marginRight: spacing.s3,
 }
-const $activityIcon: TextStyle = { fontSize: 18 }
+const $activityIcon: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 14,
+  color: forest500,
+}
 const $activityBody: ViewStyle = { flex: 1 }
 const $activityTitleRow: ViewStyle = {
   flexDirection: "row",

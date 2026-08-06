@@ -104,7 +104,7 @@ export function AiAssistantPanel({
     >
       <TouchableOpacity style={$header} onPress={onToggle} activeOpacity={0.8}>
         <View style={$avatar}>
-          <Text style={$avatarEmoji}>🤖</Text>
+          <Text style={$avatarText}>AI</Text>
         </View>
         <Text style={$title} numberOfLines={1}>
           {title}
@@ -271,7 +271,12 @@ const $avatar: ViewStyle = {
   marginRight: spacing.s3,
 }
 
-const $avatarEmoji: TextStyle = { fontSize: 16 }
+const $avatarText: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 11,
+  color: forest500,
+  letterSpacing: 0.7,
+}
 
 const $title: TextStyle = {
   flex: 1,

@@ -136,8 +136,7 @@ export default function ActivityDetailScreen() {
     return messages
   }, [qa.questions])
 
-  const chatPending =
-    qa.isAsking || qa.questions.some((question) => question.status === "pending")
+  const chatPending = qa.isAsking || qa.questions.some((question) => question.status === "pending")
 
   useEffect(() => {
     setLocalHighlight(null)
@@ -354,7 +353,6 @@ export default function ActivityDetailScreen() {
                 date: activity.date,
                 activityId: activity.id,
                 activityName: activity.title,
-                activityIcon: activity.iconEmoji,
                 mode: "new",
               },
             })
@@ -374,7 +372,11 @@ export default function ActivityDetailScreen() {
 
         {qa.isError ? (
           <View style={{ marginTop: spacing.s4 }}>
-            <ApiErrorView error={qa.error} onRetry={() => qa.refetch()} title="Could not load Q&A" />
+            <ApiErrorView
+              error={qa.error}
+              onRetry={() => qa.refetch()}
+              title="Could not load Q&A"
+            />
           </View>
         ) : null}
       </KeyboardAwareScrollView>

@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { ActivityIndicator, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
 import { useRouter } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Text } from "@/components/Text"
@@ -44,7 +45,7 @@ export default function OnboardingActivationStep() {
     return (
       <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={$center}>
-          <Text style={$emoji}>⏳</Text>
+          <Ionicons name="time-outline" size={48} color={forest500} style={$statusIcon} />
           <Text style={$heading}>Something took too long.</Text>
           <Text style={$subtitle}>
             We are still building your farm plan. Tap below to check again.
@@ -65,7 +66,12 @@ export default function OnboardingActivationStep() {
     return (
       <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={$center}>
-          <Text style={$emoji}>👋</Text>
+          <Ionicons
+            name="checkmark-circle-outline"
+            size={48}
+            color={forest500}
+            style={$statusIcon}
+          />
           <Text style={$heading}>Your plan is ready!</Text>
           <View style={$tooltip}>
             <Text style={$tooltipText}>
@@ -78,7 +84,7 @@ export default function OnboardingActivationStep() {
           onPress={navigateToPlan}
           activeOpacity={0.85}
         >
-          <Text style={$ctaBtnText}>View my first activity →</Text>
+          <Text style={$ctaBtnText}>View my first activity</Text>
         </TouchableOpacity>
       </View>
     )
@@ -109,8 +115,7 @@ const $center: ViewStyle = {
   paddingHorizontal: spacing.s5,
 }
 
-const $emoji: TextStyle = {
-  fontSize: 48,
+const $statusIcon: TextStyle = {
   marginBottom: spacing.s4,
 }
 
