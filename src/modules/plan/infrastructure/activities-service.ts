@@ -34,7 +34,7 @@ async function fetchFromApi(dateStr: string): Promise<PlanActivity[]> {
     iconKey: typeof row?.iconKey === "string" ? row.iconKey : undefined,
     priority: "Medium",
     durationMinutes: 20,
-    done: row?.status?.code === "VERIFIED",
+    done: row?.status?.code === "VERIFIED" || row?.status?.code === "DONE",
     highlight:
       row?.highlight && typeof row.highlight.text === "string"
         ? { text: row.highlight.text, addedAt: String(row.highlight.addedAt ?? "") }

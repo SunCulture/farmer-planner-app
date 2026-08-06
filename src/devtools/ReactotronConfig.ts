@@ -94,7 +94,7 @@ reactotron.onCustomCommand({
  * }
  * ```
  *
- * Use this power responsibly! :)
+ * Use this power responsibly.
  */
 console.tron = reactotron
 

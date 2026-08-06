@@ -5,6 +5,8 @@ export { useDayPlan } from "./application/use-day-plan"
 
 export { ActivitySuggestionsBanner } from "./presentation/ActivitySuggestionsBanner"
 export { ActivitySuggestionsSheetHost } from "./presentation/ActivitySuggestionsSheetHost"
+export { AiAssistantPanel } from "./presentation/components/AiAssistantPanel"
+export type { AiChatMessage } from "./presentation/components/AiAssistantPanel"
 export { useActivitySuggestions } from "./application/use-activity-suggestions"
 export { useActivitySuggestionsSheet } from "./application/use-activity-suggestions-sheet"
 export { useAcceptSuggestion } from "./application/use-accept-suggestion"

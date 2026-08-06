@@ -2,8 +2,6 @@ import React, { useCallback, useMemo, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -16,6 +14,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import * as ImagePicker from "expo-image-picker"
 import { useQueryClient } from "@tanstack/react-query"
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_CLEARANCE } from "@/app/(tabs)/_layout"
@@ -80,6 +79,10 @@ function formatDayLabel(dateStr: string, today: string): string {
     .toUpperCase()
 }
 
+function activityInitial(title?: string): string {
+  return title?.trim().charAt(0).toUpperCase() || "T"
+}
+
 // ---------------------------------------------------------------------------
 // Route entry point — mode switch
 // ---------------------------------------------------------------------------
@@ -89,7 +92,6 @@ export default function JournalScreen() {
     date?: string
     activityId?: string
     activityName?: string
-    activityIcon?: string
     mode?: string
   }>()
 
@@ -101,7 +103,6 @@ export default function JournalScreen() {
         date={params.date ?? todayStr()}
         activityId={params.activityId}
         activityName={params.activityName}
-        activityIcon={params.activityIcon}
       />
     )
   }
@@ -117,12 +118,10 @@ function EntryForm({
   date,
   activityId,
   activityName,
-  activityIcon,
 }: {
   date: string
   activityId?: string
   activityName?: string
-  activityIcon?: string
 }) {
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -181,17 +180,18 @@ function EntryForm({
   }
 
   return (
-    <KeyboardAvoidingView
-      style={$root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
+    <View style={$root}>
+      <KeyboardAwareScrollView
         contentContainerStyle={[
           $scroll,
-          { paddingTop: insets.top + spacing.s4, paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s4 },
+          {
+            paddingTop: insets.top + spacing.s4,
+            paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s4,
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bottomOffset={FLOATING_NAV_CLEARANCE + spacing.s4}
       >
         {/* ── Nav header ── */}
         <View style={$navHeader}>
@@ -206,7 +206,7 @@ function EntryForm({
         {isActivityLinked ? (
           <View style={$activityCtxCard}>
             <View style={$activityCtxIconCircle}>
-              <Text style={$activityCtxIcon}>{activityIcon}</Text>
+              <Text style={$activityCtxIcon}>{activityInitial(activityName)}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={$activityCtxName}>{activityName}</Text>
@@ -240,7 +240,9 @@ function EntryForm({
               size={24}
               color={photoUris.length > 0 ? forest600 : forest500}
             />
-            <Text style={[$photoBtnLabel, photoUris.length > 0 && $photoBtnLabelSet]}>Take Photo</Text>
+            <Text style={[$photoBtnLabel, photoUris.length > 0 && $photoBtnLabelSet]}>
+              Take Photo
+            </Text>
             <Text style={$photoBtnSub}>
               {photoUris.length > 0 ? `${photoUris.length} attached` : "Use your camera"}
             </Text>
@@ -258,9 +260,7 @@ function EntryForm({
           </TouchableOpacity>
         </View>
 
-        {canVerify ? (
-          <Text style={$verifyReady}>Ready for verification ✓</Text>
-        ) : null}
+        {canVerify ? <Text style={$verifyReady}>Ready for verification</Text> : null}
 
         {saveError ? <Text style={$saveError}>{saveError}</Text> : null}
 
@@ -301,8 +301,8 @@ function EntryForm({
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   )
 }
 
@@ -327,17 +327,17 @@ function JournalTimeline() {
     }, [queryClient, dates]),
   )
 
-  const daysWithContent = useMemo(
-    () => timeline.filter((d) => d.activities.length > 0),
-    [timeline],
-  )
+  const daysWithContent = useMemo(() => timeline.filter((d) => d.activities.length > 0), [timeline])
 
   return (
     <View style={$root}>
       <ScrollView
         contentContainerStyle={[
           $scroll,
-          { paddingTop: insets.top + spacing.s5, paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s6 + 60 },
+          {
+            paddingTop: insets.top + spacing.s5,
+            paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s6 + 60,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -385,15 +385,7 @@ function JournalTimeline() {
 // TimelineDay
 // ---------------------------------------------------------------------------
 
-function TimelineDay({
-  day,
-  today,
-  isLast,
-}: {
-  day: DaySummary
-  today: string
-  isLast: boolean
-}) {
+function TimelineDay({ day, today, isLast }: { day: DaySummary; today: string; isLast: boolean }) {
   const label = formatDayLabel(day.date, today)
   const isToday = day.date === today
 
@@ -518,7 +510,11 @@ const $activityCtxIconCircle: ViewStyle = {
   justifyContent: "center",
 }
 
-const $activityCtxIcon: TextStyle = { fontSize: 22 }
+const $activityCtxIcon: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 15,
+  color: forest500,
+}
 
 const $activityCtxName: TextStyle = {
   fontFamily: typography.primary.bold,
@@ -851,8 +847,6 @@ const $entryActivityRow: ViewStyle = {
   paddingBottom: spacing.s2,
 }
 
-const $entryActivityIcon: TextStyle = { fontSize: 16 }
-
 const $entryActivityName: TextStyle = {
   flex: 1,
   fontFamily: typography.primary.semiBold,
@@ -939,8 +933,6 @@ const $aiSummaryHeader: ViewStyle = {
   gap: spacing.s2,
   marginBottom: spacing.s2,
 }
-
-const $aiSummaryEmoji: TextStyle = { fontSize: 14 }
 
 const $aiSummaryLabel: TextStyle = {
   fontFamily: typography.primary.bold,

@@ -85,12 +85,21 @@ export function mapActivityDetail(dto: ActivityDetailDto): ActivityDetail {
 }
 
 export function mapActivityQuestion(dto: ActivityQuestionDto): ActivityQuestion {
+  // Backend historically returned `id`; prefer `questionId` but accept both.
+  const legacyId = (dto as ActivityQuestionDto & { id?: string }).id
+  const questionId =
+    typeof dto.questionId === "string" && dto.questionId.length > 0
+      ? dto.questionId
+      : typeof legacyId === "string"
+        ? legacyId
+        : ""
+
   return {
-    questionId: dto.questionId,
+    questionId,
     question: dto.question,
     answer: dto.answer,
     status: dto.status,
-    relatedFaqs: dto.relatedFaqs,
+    relatedFaqs: dto.relatedFaqs ?? [],
     createdAt: dto.createdAt,
   }
 }

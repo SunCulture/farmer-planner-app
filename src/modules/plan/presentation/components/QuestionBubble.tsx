@@ -1,6 +1,7 @@
 import { ActivityIndicator, Text, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 
+import { AiMarkdown } from "@/components/AiMarkdown"
 import {
   card,
   cardBorder,
@@ -22,6 +23,7 @@ import type { ActivityQuestion } from "../../domain/entities/activity-question"
 interface QuestionBubbleProps {
   question: ActivityQuestion
   onRetry: () => void
+  /** Continues the same Q&A session by asking the follow-up immediately. */
   onFaqPress: (faqQuestion: string) => void
 }
 
@@ -29,10 +31,6 @@ interface QuestionBubbleProps {
  * Renders one Q&A entry: the farmer's question, then either a pending
  * spinner, the AI answer (+ related FAQ chips), or a failed state with a
  * "Try again" affordance that re-POSTs the same question text.
- *
- * The backend answer is one-shot markdown, not token-by-token — no
- * markdown renderer is wired into this project yet, so the answer text is
- * shown as plain text (see PR notes for the judgment call).
  */
 export function QuestionBubble({ question, onRetry, onFaqPress }: QuestionBubbleProps) {
   return (
@@ -58,9 +56,9 @@ export function QuestionBubble({ question, onRetry, onFaqPress }: QuestionBubble
         </View>
       ) : null}
 
-      {question.status === "answered" ? (
+      {question.status === "answered" && question.answer ? (
         <View style={$answerBubble}>
-          <Text style={$answerText}>{question.answer}</Text>
+          <AiMarkdown>{question.answer}</AiMarkdown>
           {question.relatedFaqs.length > 0 ? (
             <View style={$faqRow}>
               {question.relatedFaqs.map((faq) => (
@@ -70,7 +68,7 @@ export function QuestionBubble({ question, onRetry, onFaqPress }: QuestionBubble
                   onPress={() => onFaqPress(faq.question)}
                   activeOpacity={0.8}
                 >
-                  <Text style={$faqChipText} numberOfLines={1}>
+                  <Text style={$faqChipText} numberOfLines={2}>
                     {faq.question}
                   </Text>
                 </TouchableOpacity>
@@ -98,9 +96,9 @@ const $questionBubble: ViewStyle = {
 }
 const $questionText: TextStyle = {
   fontFamily: typography.primary.medium,
-  fontSize: 13,
+  fontSize: 14,
   color: ink,
-  lineHeight: 18,
+  lineHeight: 20,
 }
 const $answerBubble: ViewStyle = {
   backgroundColor: card,
@@ -108,8 +106,9 @@ const $answerBubble: ViewStyle = {
   borderColor: cardBorder,
   borderRadius: radii.lg,
   borderBottomLeftRadius: radii.xs,
-  padding: spacing.s3,
-  maxWidth: "92%",
+  padding: spacing.s4,
+  alignSelf: "stretch",
+  width: "100%",
 }
 const $answerBubbleRow: ViewStyle = {
   flexDirection: "row",
@@ -121,18 +120,13 @@ const $pendingText: TextStyle = {
   fontSize: 13,
   color: ink3,
 }
-const $answerText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink2,
-  lineHeight: 19,
-}
 const $failedBubble: ViewStyle = {
   backgroundColor: statusBadBg,
   borderRadius: radii.lg,
   borderBottomLeftRadius: radii.xs,
   padding: spacing.s3,
-  maxWidth: "92%",
+  alignSelf: "stretch",
+  width: "100%",
 }
 const $failedText: TextStyle = {
   fontFamily: typography.primary.normal,

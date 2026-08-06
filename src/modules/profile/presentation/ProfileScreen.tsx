@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { container } from "@/bootstrap/container"
-import { clearAuthToken, loadFarmerProfile } from "@/modules/onboarding"
+import { clearAuthToken, loadFarmerProfile, loadRefreshToken } from "@/modules/onboarding"
 import {
   useCrops,
   useGoals,
@@ -150,7 +150,8 @@ export default function ProfileScreen() {
   const workStyleLabel = profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
 
   function handleLogout() {
-    api.logout("").catch(() => {})
+    const refreshToken = loadRefreshToken() ?? ""
+    api.logout(refreshToken).catch(() => {})
     clearAuthToken()
     api.clearAuthToken()
     container.resolve<SseClient>("sseClient")?.disconnect()
