@@ -87,6 +87,10 @@ function statusUiColors(color: string): { bg: string; text: string } {
   return { bg: statusBadBg, text: statusBad }
 }
 
+function activityInitial(title: string): string {
+  return title.trim().charAt(0).toUpperCase() || "T"
+}
+
 export default function PlanScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -372,7 +376,7 @@ function ActivityRow({
         <View style={[$statusDot, { backgroundColor: colors.text }]} />
 
         <View style={$activityIconCircle}>
-          <Text style={$activityIcon}>{activity.iconEmoji}</Text>
+          <Text style={$activityIcon}>{activityInitial(activity.title)}</Text>
         </View>
 
         <View style={$activityBody}>
@@ -418,7 +422,6 @@ function ActivityRow({
                   date: dateStr,
                   activityId: activity.id,
                   activityName: activity.title,
-                  activityIcon: activity.iconEmoji,
                   mode: "new",
                 },
               })
@@ -620,7 +623,11 @@ const $activityIconCircle: ViewStyle = {
   alignItems: "center",
   justifyContent: "center",
 }
-const $activityIcon: TextStyle = { fontSize: 18 }
+const $activityIcon: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 14,
+  color: forest500,
+}
 const $activityBody: ViewStyle = { flex: 1 }
 const $activityName: TextStyle = {
   fontFamily: typography.primary.medium,

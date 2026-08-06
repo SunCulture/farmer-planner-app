@@ -354,7 +354,6 @@ export default function ActivityDetailScreen() {
                 date: activity.date,
                 activityId: activity.id,
                 activityName: activity.title,
-                activityIcon: activity.iconEmoji,
                 mode: "new",
               },
             })

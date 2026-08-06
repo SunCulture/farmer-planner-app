@@ -2,34 +2,6 @@ import { useQuery } from "@tanstack/react-query"
 
 import { api } from "@/services/api"
 
-const CROP_EMOJI: Record<string, string> = {
-  maize: "🌽",
-  beans: "🫘",
-  tomatoes: "🍅",
-  kale: "🥬",
-  potatoes: "🥔",
-  onions: "🧅",
-  coffee: "☕",
-  tea: "🍵",
-}
-
-const LIVESTOCK_EMOJI: Record<string, string> = {
-  cattle: "🐄",
-  chickens: "🐔",
-  goats: "🐐",
-  sheep: "🐑",
-  pigs: "🐷",
-}
-
-const GOAL_EMOJI: Record<string, string> = {
-  MAKE_MONEY: "💰",
-  FOOD_SECURITY: "🌽",
-  SAVE_TIME: "⏰",
-  REDUCE_LOSSES: "📉",
-  LIVESTOCK_HEALTH: "🐄",
-  MODERN_FARMING: "📚",
-}
-
 export function useOnboardingCatalog() {
   const cropsQuery = useQuery({
     queryKey: ["catalog", "crops"],
@@ -40,7 +12,6 @@ export function useOnboardingCatalog() {
         id: c.id,
         name: c.name,
         slug: c.slug,
-        emoji: CROP_EMOJI[c.slug] ?? "🌱",
       }))
     },
   })
@@ -54,7 +25,6 @@ export function useOnboardingCatalog() {
         id: l.id,
         name: l.name,
         slug: l.slug,
-        emoji: LIVESTOCK_EMOJI[l.slug] ?? "🐄",
       }))
     },
   })
@@ -68,7 +38,6 @@ export function useOnboardingCatalog() {
         id: g.slug,
         name: g.name,
         slug: g.slug,
-        emoji: GOAL_EMOJI[g.slug] ?? "🎯",
       }))
     },
   })

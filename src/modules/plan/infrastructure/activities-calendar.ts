@@ -10,7 +10,6 @@ import type { PlanActivity, Priority } from "../domain/entities/activity"
 
 type Template = {
   name: string
-  icon: string
   priority: Priority
   durationMinutes: number
   aiTip?: string
@@ -21,7 +20,6 @@ const POOL: readonly Template[] = [
   // ── Irrigation ──────────────────────────────────────────────────────────
   {
     name: "Water crops",
-    icon: "💧",
     priority: "High",
     durationMinutes: 20,
     aiTip: "Water before 9am to cut evaporation loss by up to 30%. Focus on the root zone, not the leaves.",
@@ -29,14 +27,12 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Check irrigation system",
-    icon: "💦",
     priority: "Medium",
     durationMinutes: 15,
     aiTip: "Look for blocked drippers and pressure drops. A clogged line wastes water and stresses plants.",
   },
   {
     name: "Repair irrigation pipe",
-    icon: "🔩",
     priority: "High",
     durationMinutes: 40,
     tools: ["Pipe repair kit", "Duct tape", "Pliers"],
@@ -45,7 +41,6 @@ const POOL: readonly Template[] = [
   // ── Soil & fertilisation ────────────────────────────────────────────────
   {
     name: "Apply fertiliser",
-    icon: "🌿",
     priority: "Medium",
     durationMinutes: 30,
     aiTip: "Apply NPK 17:17:17 at the base of mature plants. Avoid contact with leaves — it causes burns.",
@@ -53,7 +48,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Prepare compost bed",
-    icon: "♻️",
     priority: "Low",
     durationMinutes: 45,
     aiTip: "Layer brown (dry) and green (wet) material at 3:1. Turn the pile to speed up decomposition.",
@@ -61,7 +55,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Soil pH & moisture test",
-    icon: "🧪",
     priority: "Medium",
     durationMinutes: 20,
     aiTip: "Optimal pH for tomatoes and kale is 6.0–7.0. Add agricultural lime if reading is below 5.5.",
@@ -69,7 +62,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Top-dress mature crops",
-    icon: "🌱",
     priority: "Medium",
     durationMinutes: 35,
     aiTip: "CAN (calcium ammonium nitrate) at 2 weeks post-germination boosts leafy growth.",
@@ -79,7 +71,6 @@ const POOL: readonly Template[] = [
   // ── Pest & disease ──────────────────────────────────────────────────────
   {
     name: "Pest & disease inspection",
-    icon: "🔍",
     priority: "High",
     durationMinutes: 25,
     aiTip: "Check undersides of leaves for aphids and whitefly eggs. Early detection prevents crop loss.",
@@ -87,7 +78,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Apply pesticide spray",
-    icon: "🫧",
     priority: "High",
     durationMinutes: 30,
     aiTip: "Spray at dusk to protect beneficial insects like bees. Avoid spraying before expected rain.",
@@ -97,7 +87,6 @@ const POOL: readonly Template[] = [
   // ── Harvesting ──────────────────────────────────────────────────────────
   {
     name: "Harvest kale",
-    icon: "🥬",
     priority: "High",
     durationMinutes: 45,
     aiTip: "Cut outer leaves only — leave the crown intact for regrowth. Harvest before 8am for best texture.",
@@ -105,7 +94,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Harvest tomatoes",
-    icon: "🍅",
     priority: "High",
     durationMinutes: 40,
     aiTip: "Pick firm, fully coloured fruit. Leave any green tomatoes on the vine to ripen naturally.",
@@ -113,7 +101,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Harvest beans",
-    icon: "🫘",
     priority: "High",
     durationMinutes: 50,
     aiTip: "Harvest when pods are firm and snap cleanly. Overripe pods reduce yield on the next flush.",
@@ -121,7 +108,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Sort and grade produce",
-    icon: "📦",
     priority: "Medium",
     durationMinutes: 35,
     aiTip: "Grade A: firm, unblemished, uniform size. Remove rotten items immediately — one bad one spreads.",
@@ -130,7 +116,6 @@ const POOL: readonly Template[] = [
   // ── Planting ────────────────────────────────────────────────────────────
   {
     name: "Transplant seedlings",
-    icon: "🌱",
     priority: "High",
     durationMinutes: 60,
     aiTip: "Transplant in the evening or on overcast days to minimise transplant shock.",
@@ -138,7 +123,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Prepare seedbeds",
-    icon: "🪴",
     priority: "Medium",
     durationMinutes: 50,
     aiTip: "Loosen soil to at least 20cm depth. Add compost to improve water retention.",
@@ -148,7 +132,6 @@ const POOL: readonly Template[] = [
   // ── Weeding ─────────────────────────────────────────────────────────────
   {
     name: "Weed maize rows",
-    icon: "🌽",
     priority: "Medium",
     durationMinutes: 60,
     aiTip: "Weed when soil is moist for easier removal. Stay 5cm from the stem to avoid root damage.",
@@ -156,7 +139,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Weed bean rows",
-    icon: "🫘",
     priority: "Medium",
     durationMinutes: 45,
     tools: ["Hand hoe", "Gloves"],
@@ -165,7 +147,6 @@ const POOL: readonly Template[] = [
   // ── Livestock ───────────────────────────────────────────────────────────
   {
     name: "Morning livestock check",
-    icon: "🐄",
     priority: "High",
     durationMinutes: 20,
     aiTip: "Check temperature, gait, and appetite. Any animal off-feed needs same-day attention.",
@@ -173,7 +154,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Clean water troughs",
-    icon: "🪣",
     priority: "High",
     durationMinutes: 20,
     aiTip: "Dirty troughs spread waterborne illness. Scrub and refill every 48 hours minimum.",
@@ -181,14 +161,12 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Distribute morning feed",
-    icon: "🌾",
     priority: "High",
     durationMinutes: 25,
     aiTip: "Weigh feed portions — eyeballing causes inconsistency and hidden under-nutrition.",
   },
   {
     name: "Morning milking session",
-    icon: "🥛",
     priority: "High",
     durationMinutes: 35,
     aiTip: "Milk at the same time each day. Irregular milking reduces yield by up to 15%.",
@@ -196,7 +174,6 @@ const POOL: readonly Template[] = [
   },
   {
     name: "Record milk yield",
-    icon: "📋",
     priority: "Low",
     durationMinutes: 10,
     aiTip: "A sudden drop of >10% signals stress, illness, or feed issues. Investigate immediately.",
@@ -206,14 +183,12 @@ const POOL: readonly Template[] = [
   // ── Maintenance ─────────────────────────────────────────────────────────
   {
     name: "Repair fence line",
-    icon: "🔧",
     priority: "Medium",
     durationMinutes: 60,
     tools: ["Wire cutters", "Pliers", "Straining wire", "Gloves"],
   },
   {
     name: "Tool maintenance",
-    icon: "🛠️",
     priority: "Low",
     durationMinutes: 25,
     aiTip: "Clean and oil all cutting tools after use. Rust shortens tool life by 50%.",
@@ -223,27 +198,23 @@ const POOL: readonly Template[] = [
   // ── Market & admin ───────────────────────────────────────────────────────
   {
     name: "Prepare market delivery",
-    icon: "🚛",
     priority: "High",
     durationMinutes: 30,
     aiTip: "Pre-cool produce in shade before loading. Heat wilts leafy greens in under 2 hours.",
   },
   {
     name: "Update farm journal",
-    icon: "📓",
     priority: "Low",
     durationMinutes: 15,
     aiTip: "Record yield, inputs, and observations. Patterns in your journal predict next season's problems.",
   },
   {
     name: "Plan next week tasks",
-    icon: "📅",
     priority: "Medium",
     durationMinutes: 20,
   },
   {
     name: "Log weather conditions",
-    icon: "🌡️",
     priority: "Low",
     durationMinutes: 10,
   },

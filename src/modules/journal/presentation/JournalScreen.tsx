@@ -79,6 +79,10 @@ function formatDayLabel(dateStr: string, today: string): string {
     .toUpperCase()
 }
 
+function activityInitial(title?: string): string {
+  return title?.trim().charAt(0).toUpperCase() || "T"
+}
+
 // ---------------------------------------------------------------------------
 // Route entry point — mode switch
 // ---------------------------------------------------------------------------
@@ -88,7 +92,6 @@ export default function JournalScreen() {
     date?: string
     activityId?: string
     activityName?: string
-    activityIcon?: string
     mode?: string
   }>()
 
@@ -100,7 +103,6 @@ export default function JournalScreen() {
         date={params.date ?? todayStr()}
         activityId={params.activityId}
         activityName={params.activityName}
-        activityIcon={params.activityIcon}
       />
     )
   }
@@ -116,12 +118,10 @@ function EntryForm({
   date,
   activityId,
   activityName,
-  activityIcon,
 }: {
   date: string
   activityId?: string
   activityName?: string
-  activityIcon?: string
 }) {
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -203,7 +203,7 @@ function EntryForm({
         {isActivityLinked ? (
           <View style={$activityCtxCard}>
             <View style={$activityCtxIconCircle}>
-              <Text style={$activityCtxIcon}>{activityIcon}</Text>
+              <Text style={$activityCtxIcon}>{activityInitial(activityName)}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={$activityCtxName}>{activityName}</Text>
@@ -255,9 +255,7 @@ function EntryForm({
           </TouchableOpacity>
         </View>
 
-        {canVerify ? (
-          <Text style={$verifyReady}>Ready for verification ✓</Text>
-        ) : null}
+        {canVerify ? <Text style={$verifyReady}>Ready for verification</Text> : null}
 
         {saveError ? <Text style={$saveError}>{saveError}</Text> : null}
 
@@ -515,7 +513,11 @@ const $activityCtxIconCircle: ViewStyle = {
   justifyContent: "center",
 }
 
-const $activityCtxIcon: TextStyle = { fontSize: 22 }
+const $activityCtxIcon: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 15,
+  color: forest500,
+}
 
 const $activityCtxName: TextStyle = {
   fontFamily: typography.primary.bold,
@@ -848,8 +850,6 @@ const $entryActivityRow: ViewStyle = {
   paddingBottom: spacing.s2,
 }
 
-const $entryActivityIcon: TextStyle = { fontSize: 16 }
-
 const $entryActivityName: TextStyle = {
   flex: 1,
   fontFamily: typography.primary.semiBold,
@@ -936,8 +936,6 @@ const $aiSummaryHeader: ViewStyle = {
   gap: spacing.s2,
   marginBottom: spacing.s2,
 }
-
-const $aiSummaryEmoji: TextStyle = { fontSize: 14 }
 
 const $aiSummaryLabel: TextStyle = {
   fontFamily: typography.primary.bold,

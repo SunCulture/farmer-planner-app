@@ -28,6 +28,7 @@ import {
   ink,
   ink3,
   ink4,
+  paper2,
   radii,
   spacing,
 } from "@/theme/tujiweze-tokens"
@@ -53,55 +54,16 @@ import {
   TWO_WEEK_GOAL_MIN_LENGTH,
 } from "../domain/policies/two-week-goal"
 
-// Display-only emoji lookups — purely cosmetic, not data
-const CROP_EMOJI: Record<string, string> = {
-  maize: "🌽",
-  beans: "🫘",
-  tomatoes: "🍅",
-  kale: "🥬",
-  potatoes: "🥔",
-  onions: "🧅",
-  capsicum: "🫑",
-  watermelon: "🍉",
-  avocado: "🥑",
-  mango: "🥭",
-  banana: "🍌",
-  coffee: "☕",
-  tea: "🍵",
-}
-const LIVESTOCK_EMOJI: Record<string, string> = {
-  cattle: "🐄",
-  chickens: "🐔",
-  goats: "🐐",
-  sheep: "🐑",
-  pigs: "🐷",
-  rabbits: "🐰",
-  ducks: "🦆",
-  bees: "🐝",
-}
-const GOAL_EMOJI: Record<string, string> = {
-  MAKE_MONEY: "💰",
-  FOOD_SECURITY: "🌽",
-  SAVE_TIME: "⏰",
-  REDUCE_LOSSES: "📉",
-  LIVESTOCK_HEALTH: "🐄",
-  MODERN_FARMING: "📚",
-}
-const REGION_EMOJI: Record<string, string> = {
-  nairobi: "🏙️",
-  nakuru: "🌽",
-  kisumu: "🌊",
-  mombasa: "☀️",
-  eldoret: "🥬",
-  kitale: "🌽",
-  machakos: "⛰️",
-  nyeri: "🍃",
-  meru: "🌱",
-  thika: "🍍",
-  kisii: "🫐",
-  kakamega: "🌧️",
-  garissa: "🌵",
-  narok: "🦁",
+function initialsForLabel(label: string): string {
+  const initials = label
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
+
+  return initials || "?"
 }
 
 // ---------------------------------------------------------------------------
@@ -345,7 +307,7 @@ export default function OnboardingScreen() {
     (step === 7 && draft.goals.length > 0) ||
     (step === 8 && isValidTwoWeekGoal(draft.twoWeekGoal))
 
-  const ctaLabel = step === 8 ? "Build My Farm Plan 🌱" : "Continue  →"
+  const ctaLabel = step === 8 ? "Build My Farm Plan" : "Continue"
   const ctaOnPress = step === 8 ? handleFinish : goNext
 
   const isAuth = step === 0
@@ -381,11 +343,11 @@ export default function OnboardingScreen() {
         >
           {/* Brand badge */}
           <View style={$authBadge}>
-            <Text style={$authBadgeText}>✦ Tujiweze</Text>
+            <Text style={$authBadgeText}>Tujiweze</Text>
           </View>
 
           <Text style={$authHeading}>
-            {authMode === "login" ? "Welcome back 👋" : "Create your account 🌱"}
+            {authMode === "login" ? "Welcome back" : "Create your account"}
           </Text>
           <Text style={$authSubtitle}>
             {authMode === "login"
@@ -460,7 +422,7 @@ export default function OnboardingScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={$ctaBtnText}>
-                {authMode === "login" ? "Sign in  →" : "Create account  →"}
+                {authMode === "login" ? "Sign in" : "Create account"}
               </Text>
             )}
           </TouchableOpacity>
@@ -517,7 +479,6 @@ export default function OnboardingScreen() {
           {/* ---- Name ---- */}
           {step === 1 && (
             <>
-              <Text style={$stepEmoji}>👋</Text>
               <Text style={$stepHeading}>{"What should we\ncall you?"}</Text>
               <Text style={$stepSubtitle}>{"We'll personalise your experience just for you."}</Text>
               <TextInput
@@ -531,7 +492,7 @@ export default function OnboardingScreen() {
               />
               {draft.name.trim().length >= 2 && (
                 <View style={$nameConfirm}>
-                  <Text style={$nameConfirmText}>✓ Great to meet you, {draft.name.trim()}!</Text>
+                  <Text style={$nameConfirmText}>Great to meet you, {draft.name.trim()}!</Text>
                 </View>
               )}
             </>
@@ -558,7 +519,6 @@ export default function OnboardingScreen() {
                 <View style={$grid}>
                   {filteredRegions.map((region) => {
                     const selected = draft.location === region.name
-                    const emoji = REGION_EMOJI[region.slug] ?? "📍"
                     const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
                     return (
                       <Pressable
@@ -572,7 +532,9 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 22 }}>{emoji}</Text>
+                        <View style={[$optionMark, selected && $optionMarkSelected]}>
+                          <Text style={$optionMarkText}>{initialsForLabel(region.name)}</Text>
+                        </View>
                         <Text style={[$locationName, selected && { color: forest500 }]}>
                           {region.name}
                         </Text>
@@ -606,17 +568,15 @@ export default function OnboardingScreen() {
                     id: "crops" as FarmTypeUI,
                     label: "Crops",
                     desc: "Fruits, vegetables & grains",
-                    illustration: "🌳🌽🍅",
+                    illustration: "CROPS",
                     illustrationBg: forest50,
-                    icon: "🌱",
                   },
                   {
                     id: "livestock" as FarmTypeUI,
                     label: "Livestock",
                     desc: "Cows, goats, chickens & more",
-                    illustration: "🐄🐔🐐",
-                    illustrationBg: "#FDF3E7",
-                    icon: "🐄",
+                    illustration: "HERD",
+                    illustrationBg: paper2,
                   },
                 ] as const
               ).map((opt) => {
@@ -630,12 +590,12 @@ export default function OnboardingScreen() {
                     }
                   >
                     <View style={[$bigCardIllustration, { backgroundColor: opt.illustrationBg }]}>
-                      <Text style={{ fontSize: 44 }}>{opt.illustration}</Text>
+                      <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
                     </View>
                     <View style={$bigCardFooter}>
                       <View style={{ flex: 1 }}>
                         <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.icon} {opt.label}
+                          {opt.label}
                         </Text>
                         <Text style={$bigCardDesc}>{opt.desc}</Text>
                       </View>
@@ -660,7 +620,6 @@ export default function OnboardingScreen() {
                 <View style={$grid}>
                   {(cropsQuery.data ?? []).map((crop) => {
                     const selected = draft.crops.includes(crop.id)
-                    const emoji = CROP_EMOJI[crop.slug] ?? "🌱"
                     return (
                       <Pressable
                         key={crop.id}
@@ -674,7 +633,9 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
+                        <View style={[$optionMark, selected && $optionMarkSelected]}>
+                          <Text style={$optionMarkText}>{initialsForLabel(crop.name)}</Text>
+                        </View>
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {crop.name}
                         </Text>
@@ -702,7 +663,6 @@ export default function OnboardingScreen() {
                 <View style={$grid}>
                   {(livestockQuery.data ?? []).map((animal) => {
                     const selected = draft.livestock.includes(animal.id)
-                    const emoji = LIVESTOCK_EMOJI[animal.slug] ?? "🐾"
                     return (
                       <Pressable
                         key={animal.id}
@@ -716,7 +676,9 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
+                        <View style={[$optionMark, selected && $optionMarkSelected]}>
+                          <Text style={$optionMarkText}>{initialsForLabel(animal.name)}</Text>
+                        </View>
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {animal.name}
                         </Text>
@@ -746,15 +708,13 @@ export default function OnboardingScreen() {
                     id: "solo" as WorkStyleUI,
                     label: "Solo Farmer",
                     desc: "I work my farm on my own",
-                    illustration: "🧑‍🌾",
-                    icon: "👤",
+                    illustration: "SOLO",
                   },
                   {
                     id: "helpers" as WorkStyleUI,
                     label: "With Helpers",
                     desc: "I have farmhands or family help",
-                    illustration: "👨‍👩‍👧",
-                    icon: "👥",
+                    illustration: "TEAM",
                   },
                 ] as const
               ).map((opt) => {
@@ -765,13 +725,13 @@ export default function OnboardingScreen() {
                     style={[$bigCard, selected && $bigCardSelected]}
                     onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
                   >
-                    <View style={[$bigCardIllustration, { backgroundColor: "#F5F5F2" }]}>
-                      <Text style={{ fontSize: 56 }}>{opt.illustration}</Text>
+                    <View style={[$bigCardIllustration, { backgroundColor: paper2 }]}>
+                      <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
                     </View>
                     <View style={$bigCardFooter}>
                       <View style={{ flex: 1 }}>
                         <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.icon} {opt.label}
+                          {opt.label}
                         </Text>
                         <Text style={$bigCardDesc}>{opt.desc}</Text>
                       </View>
@@ -796,22 +756,19 @@ export default function OnboardingScreen() {
                     id: "small" as FarmSizeUI,
                     label: "Small Farm",
                     desc: "Under 1 acre",
-                    emoji: "🌿🌿",
-                    icon: "🌱",
+                    mark: "S",
                   },
                   {
                     id: "medium" as FarmSizeUI,
                     label: "Medium Farm",
                     desc: "1 to 5 acres",
-                    emoji: "🌾🌾🌾",
-                    icon: "🌿",
+                    mark: "M",
                   },
                   {
                     id: "large" as FarmSizeUI,
                     label: "Large Farm",
                     desc: "Over 5 acres",
-                    emoji: "🌳🌳🌳🌳",
-                    icon: "🍃",
+                    mark: "L",
                   },
                 ] as const
               ).map((opt) => {
@@ -822,10 +779,12 @@ export default function OnboardingScreen() {
                     style={[$sizeCard, selected && $sizeCardSelected]}
                     onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
                   >
-                    <Text style={{ fontSize: 32, marginRight: spacing.s4 }}>{opt.emoji}</Text>
+                    <View style={[$sizeMark, selected && $optionMarkSelected]}>
+                      <Text style={$sizeMarkText}>{opt.mark}</Text>
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[$sizeLabel, selected && { color: forest500 }]}>
-                        {opt.icon} {opt.label}
+                        {opt.label}
                       </Text>
                       <Text style={$sizeDesc}>{opt.desc}</Text>
                     </View>
@@ -849,7 +808,6 @@ export default function OnboardingScreen() {
                 <View style={$grid}>
                   {(goalsQuery.data ?? []).map((goal) => {
                     const selected = draft.goals.includes(goal.slug)
-                    const emoji = GOAL_EMOJI[goal.slug] ?? "🎯"
                     return (
                       <Pressable
                         key={goal.id}
@@ -863,7 +821,9 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
+                        <View style={[$optionMark, selected && $optionMarkSelected]}>
+                          <Text style={$optionMarkText}>{initialsForLabel(goal.name)}</Text>
+                        </View>
                         <Text style={[$goalLabel, selected && { color: forest500 }]}>
                           {goal.name}
                         </Text>
@@ -1067,12 +1027,6 @@ const $scrollContent: ViewStyle = {
   paddingBottom: spacing.s6,
 }
 
-// Step headings
-const $stepEmoji: TextStyle = {
-  fontSize: 40,
-  marginBottom: spacing.s4,
-}
-
 const $stepHeading: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 26,
@@ -1186,6 +1140,27 @@ const $locationCheck: ViewStyle = {
   right: spacing.s2,
 }
 
+const $optionMark: ViewStyle = {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: paper2,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: spacing.s2,
+}
+
+const $optionMarkSelected: ViewStyle = {
+  backgroundColor: card,
+}
+
+const $optionMarkText: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 12,
+  color: forest500,
+  letterSpacing: 0.6,
+}
+
 // Big cards (farm type, helpers)
 const $bigCard: ViewStyle = {
   backgroundColor: card,
@@ -1204,6 +1179,13 @@ const $bigCardIllustration: ViewStyle = {
   height: 110,
   alignItems: "center",
   justifyContent: "center",
+}
+
+const $bigCardIllustrationText: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 28,
+  color: forest500,
+  letterSpacing: 1.8,
 }
 
 const $bigCardFooter: ViewStyle = {
@@ -1307,6 +1289,23 @@ const $sizeCard: ViewStyle = {
 const $sizeCardSelected: ViewStyle = {
   backgroundColor: forest50,
   borderColor: forest500,
+}
+
+const $sizeMark: ViewStyle = {
+  width: 44,
+  height: 44,
+  borderRadius: 22,
+  backgroundColor: paper2,
+  alignItems: "center",
+  justifyContent: "center",
+  marginRight: spacing.s4,
+}
+
+const $sizeMarkText: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 14,
+  color: forest500,
+  letterSpacing: 0.8,
 }
 
 const $sizeLabel: TextStyle = {

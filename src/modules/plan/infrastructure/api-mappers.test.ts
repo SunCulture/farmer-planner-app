@@ -33,6 +33,7 @@ describe("api-mappers", () => {
     const card = mapActivityCard(activityDto)
     expect(card.title).toBe("Scout maize")
     expect(card.iconKey).toBe("pest-scout")
+    expect(card.iconEmoji).toBe("")
     expect(card.ctaLabel).toBe("Log")
   })
 
