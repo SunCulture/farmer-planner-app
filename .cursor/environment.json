@@ -1,0 +1,17 @@
+{
+  "name": "Tujiweze Mobile",
+  "install": "pnpm install --frozen-lockfile && { [ -f .env ] || cp .env.example .env; }",
+  "terminals": [
+    {
+      "name": "expo-web",
+      "command": "pnpm run web",
+      "description": "Expo web dev server (Metro bundler) on http://localhost:8081. This is the runnable web target of the app; use it to view and interact with Tujiweze in a browser."
+    }
+  ],
+  "ports": [
+    {
+      "name": "expo-web",
+      "port": 8081
+    }
+  ]
+}
