@@ -16,11 +16,26 @@ import type {
 import { iconKeyToEmoji } from "./icon-key-map"
 import type { ActivityCard } from "../domain/entities/activity-card"
 import type { ActivityDetail } from "../domain/entities/activity-detail"
+import type { ActivityEducation } from "../domain/entities/activity-education"
 import type { ActivityHighlight } from "../domain/entities/activity-highlight"
 import type { ActivityQuestion, DayActivityQuestions } from "../domain/entities/activity-question"
 import type { ActivitySuggestion } from "../domain/entities/activity-suggestion"
 import type { DayPlan } from "../domain/entities/day-plan"
 import type { PlanChatResult } from "../domain/entities/plan-chat"
+
+function mapActivityEducation(
+  dto: ActivityDetailDto["education"] | undefined,
+): ActivityEducation | null {
+  if (!dto || typeof dto.summary !== "string") return null
+  return {
+    summary: dto.summary,
+    whyNow: typeof dto.whyNow === "string" ? dto.whyNow : "",
+    howToThink: typeof dto.howToThink === "string" ? dto.howToThink : "",
+    practicalSteps: Array.isArray(dto.practicalSteps)
+      ? dto.practicalSteps.filter((s): s is string => typeof s === "string")
+      : [],
+  }
+}
 
 export function mapActivityHighlight(
   dto: ActivityHighlightDto | null | undefined,
@@ -49,6 +64,14 @@ export function mapActivityDetail(dto: ActivityDetailDto): ActivityDetail {
     planId: dto.planId,
     date: dto.date,
     educationBrief: dto.educationBrief,
+    education: mapActivityEducation(dto.education),
+    educationProgress: dto.educationProgress
+      ? {
+          completedCount: dto.educationProgress.completedCount,
+          lastCompletedAt: dto.educationProgress.lastCompletedAt,
+          lastRating: dto.educationProgress.lastRating,
+        }
+      : null,
     completion: dto.completion
       ? {
           id: dto.completion.id,

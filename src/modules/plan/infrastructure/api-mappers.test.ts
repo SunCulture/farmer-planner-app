@@ -108,6 +108,12 @@ describe("api-mappers", () => {
       planId: "p1",
       date: "2026-06-03",
       educationBrief: "Why scouting matters",
+      education: {
+        summary: "Scout early to catch pests before they spread.",
+        whyNow: "Warm weather increases pest pressure this week.",
+        howToThink: "Check the underside of leaves on your maize.",
+        practicalSteps: ["Walk the field slowly", "Check leaf undersides", "Note damage patterns"],
+      },
       completion: {
         id: "c1",
         journalText: "Done",
@@ -121,6 +127,8 @@ describe("api-mappers", () => {
     expect(detail.planId).toBe("p1")
     expect(detail.date).toBe("2026-06-03")
     expect(detail.educationBrief).toBe("Why scouting matters")
+    expect(detail.education?.summary).toContain("Scout early")
+    expect(detail.education?.practicalSteps).toHaveLength(3)
     expect(detail.highlight?.text).toBe("Tip")
     expect(detail.completion?.id).toBe("c1")
   })

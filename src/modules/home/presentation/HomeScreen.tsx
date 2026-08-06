@@ -270,18 +270,7 @@ function HomeActivityCard({ activity }: { activity: ActivityCard }) {
     <TouchableOpacity
       style={$activityCard}
       activeOpacity={0.7}
-      onPress={() =>
-        router.push({
-          pathname: "/(tabs)/journal",
-          params: {
-            date: todayStr(),
-            activityId: activity.id,
-            activityName: activity.title,
-            activityIcon: activity.iconEmoji,
-            mode: "new",
-          },
-        })
-      }
+      onPress={() => router.push(`/activity/${activity.id}` as any)}
     >
       <View style={$activityIconCircle}>
         <Text style={$activityIcon}>{activity.iconEmoji}</Text>

@@ -22,6 +22,12 @@ export type ActivityDetailRaw = {
   subtitle?: string
   description?: string
   educationBrief?: string
+  education?: {
+    summary: string
+    whyNow?: string
+    howToThink?: string
+    practicalSteps?: string[]
+  } | null
   status?: { code: string; label: string; color: string }
   iconKey?: string
   highlight: { text: string; addedAt: string } | null
@@ -70,6 +76,16 @@ export function mapActivityDetail(raw: ActivityDetailRaw): ActivityDetail {
     subtitle: raw.subtitle,
     description: raw.description,
     educationBrief: raw.educationBrief,
+    education: raw.education
+      ? {
+          summary: raw.education.summary,
+          whyNow: raw.education.whyNow ?? "",
+          howToThink: raw.education.howToThink ?? "",
+          practicalSteps: Array.isArray(raw.education.practicalSteps)
+            ? raw.education.practicalSteps
+            : [],
+        }
+      : null,
     status,
     iconKey: raw.iconKey ?? "task",
     iconEmoji: iconKeyToEmoji(raw.iconKey),

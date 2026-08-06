@@ -15,6 +15,8 @@ import type {
   DayActivityQuestionsDto,
   DayCompletionsDto,
   DayPlanDto,
+  EducationCoursesDto,
+  EducationProgressDto,
   EnrollPlanBody,
   GeneratePlanBody,
   GeneratedPlanDto,
@@ -286,6 +288,31 @@ export class Api {
   async getActivity(activityId: string): Promise<ActivityDetailDto> {
     const response = await this.apisauce.get(`/api/me/activities/${activityId}`)
     return unwrap<ActivityDetailDto>(response)
+  }
+
+  async startEducationCourse(activityId: string): Promise<EducationProgressDto> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/education/start`)
+    return unwrap<EducationProgressDto>(response)
+  }
+
+  async completeEducationCourse(activityId: string): Promise<EducationProgressDto> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/education/complete`)
+    return unwrap<EducationProgressDto>(response)
+  }
+
+  async rateEducationCourse(
+    activityId: string,
+    rating: "helpful" | "not_helpful",
+  ): Promise<EducationProgressDto & { briefCleared?: boolean }> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/education/rate`, {
+      rating,
+    })
+    return unwrap<EducationProgressDto & { briefCleared?: boolean }>(response)
+  }
+
+  async getEducationCourses(): Promise<EducationCoursesDto> {
+    const response = await this.apisauce.get("/api/me/education-courses")
+    return unwrap<EducationCoursesDto>(response)
   }
 
   /** Mark activity done — returns raw Apisauce response for activity-detail-service. */

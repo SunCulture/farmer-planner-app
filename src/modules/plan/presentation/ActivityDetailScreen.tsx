@@ -53,6 +53,7 @@ import { useActivityQA } from "../application/use-activity-qa"
 import type { ActivityHighlight } from "../domain/entities/activity-highlight"
 import { statusColorToUi } from "../infrastructure/api-mappers"
 import { AskQuestionBar } from "./components/AskQuestionBar"
+import { ActivityEducationSection } from "./components/ActivityEducationSection"
 import { HighlightBadge } from "./components/HighlightBadge"
 import { QuestionBubble } from "./components/QuestionBubble"
 
@@ -221,7 +222,6 @@ export default function ActivityDetailScreen() {
   if (!activity) return null
 
   const colors = statusUiColors(activity.status.color)
-  const education = activity.educationBrief?.trim() || activity.description?.trim() || null
   const busy = markDone.isPending || skip.isPending || contest.isPending
 
   return (
@@ -268,13 +268,6 @@ export default function ActivityDetailScreen() {
             <Text style={$pendingBannerText}>Updating this task with your feedback…</Text>
           </View>
         ) : null}
-
-        <Text style={$sectionTitle}>Why this matters</Text>
-        {education ? (
-          <Text style={$educationText}>{education}</Text>
-        ) : (
-          <Text style={$emptyQaText}>Education for this task will appear here.</Text>
-        )}
 
         {actionError ? <Text style={$actionError}>{actionError}</Text> : null}
 
@@ -335,11 +328,16 @@ export default function ActivityDetailScreen() {
           }
         >
           <Ionicons name="journal-outline" size={16} color={forest500} />
-          <Text style={$journalLinkText}>
-            {activity.ctaLabel ?? "Log in journal (optional for Verified)"}
-          </Text>
+          <Text style={$journalLinkText}>Journal</Text>
           <Ionicons name="arrow-forward" size={14} color={forest500} />
         </TouchableOpacity>
+
+        <ActivityEducationSection
+          activityId={activity.id}
+          education={activity.education}
+          educationProgress={activity.educationProgress}
+          fallbackText={activity.educationBrief?.trim() || activity.description}
+        />
 
         <View style={$divider} onLayout={(e) => (qaSectionY.current = e.nativeEvent.layout.y)} />
         <Text style={$sectionTitle}>Ask a question</Text>
@@ -558,13 +556,6 @@ const $sectionTitle: TextStyle = {
   color: ink,
   marginBottom: spacing.s3,
 }
-const $educationText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 14,
-  color: ink2,
-  lineHeight: 21,
-  marginBottom: spacing.s4,
-}
 const $actionsRow: ViewStyle = {
   flexDirection: "row",
   gap: spacing.s2,
@@ -601,7 +592,7 @@ const $journalLink: ViewStyle = {
   alignItems: "center",
   gap: spacing.s2,
   paddingVertical: spacing.s3,
-  marginBottom: spacing.s2,
+  marginBottom: spacing.s5,
 }
 const $journalLinkText: TextStyle = {
   flex: 1,
