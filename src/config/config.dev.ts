@@ -1,10 +1,8 @@
 /**
- * These are configuration settings for the dev environment.
+ * Dev-only config overrides (__DEV__ === true).
  *
- * Do not include API secrets in this file or anywhere in your JS.
- *
- * https://reactnative.dev/docs/security#storing-sensitive-info
+ * API_URL is not set here — it comes from EXPO_PUBLIC_API_URL
+ * (see `api-url.ts` / `index.ts`). Keep environment-specific non-secret
+ * flags here if needed later.
  */
-export default {
-  API_URL: "https://d64f-197-155-74-246.ngrok-free.app",
-}
+export default {}

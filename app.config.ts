@@ -42,7 +42,7 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
       [
         "expo-notifications",
         {
-          icon: "./assets/images/icon.png",
+          icon: "./assets/images/app-icon-android-legacy.png",
           color: "#C97A4A",
           defaultChannel: "default",
         },
