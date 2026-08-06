@@ -22,14 +22,16 @@ const POOL: readonly Template[] = [
     name: "Water crops",
     priority: "High",
     durationMinutes: 20,
-    aiTip: "Water before 9am to cut evaporation loss by up to 30%. Focus on the root zone, not the leaves.",
+    aiTip:
+      "Water before 9am to cut evaporation loss by up to 30%. Focus on the root zone, not the leaves.",
     tools: ["Hose", "Watering can"],
   },
   {
     name: "Check irrigation system",
     priority: "Medium",
     durationMinutes: 15,
-    aiTip: "Look for blocked drippers and pressure drops. A clogged line wastes water and stresses plants.",
+    aiTip:
+      "Look for blocked drippers and pressure drops. A clogged line wastes water and stresses plants.",
   },
   {
     name: "Repair irrigation pipe",
@@ -43,21 +45,24 @@ const POOL: readonly Template[] = [
     name: "Apply fertiliser",
     priority: "Medium",
     durationMinutes: 30,
-    aiTip: "Apply NPK 17:17:17 at the base of mature plants. Avoid contact with leaves — it causes burns.",
+    aiTip:
+      "Apply NPK 17:17:17 at the base of mature plants. Avoid contact with leaves — it causes burns.",
     tools: ["Gloves", "Spreader"],
   },
   {
     name: "Prepare compost bed",
     priority: "Low",
     durationMinutes: 45,
-    aiTip: "Layer brown (dry) and green (wet) material at 3:1. Turn the pile to speed up decomposition.",
+    aiTip:
+      "Layer brown (dry) and green (wet) material at 3:1. Turn the pile to speed up decomposition.",
     tools: ["Fork", "Gloves"],
   },
   {
     name: "Soil pH & moisture test",
     priority: "Medium",
     durationMinutes: 20,
-    aiTip: "Optimal pH for tomatoes and kale is 6.0–7.0. Add agricultural lime if reading is below 5.5.",
+    aiTip:
+      "Optimal pH for tomatoes and kale is 6.0–7.0. Add agricultural lime if reading is below 5.5.",
     tools: ["pH kit", "Moisture probe"],
   },
   {
@@ -73,14 +78,16 @@ const POOL: readonly Template[] = [
     name: "Pest & disease inspection",
     priority: "High",
     durationMinutes: 25,
-    aiTip: "Check undersides of leaves for aphids and whitefly eggs. Early detection prevents crop loss.",
+    aiTip:
+      "Check undersides of leaves for aphids and whitefly eggs. Early detection prevents crop loss.",
     tools: ["Magnifying glass", "Log book"],
   },
   {
     name: "Apply pesticide spray",
     priority: "High",
     durationMinutes: 30,
-    aiTip: "Spray at dusk to protect beneficial insects like bees. Avoid spraying before expected rain.",
+    aiTip:
+      "Spray at dusk to protect beneficial insects like bees. Avoid spraying before expected rain.",
     tools: ["Knapsack sprayer", "PPE mask", "Gloves"],
   },
 
@@ -89,28 +96,32 @@ const POOL: readonly Template[] = [
     name: "Harvest kale",
     priority: "High",
     durationMinutes: 45,
-    aiTip: "Cut outer leaves only — leave the crown intact for regrowth. Harvest before 8am for best texture.",
+    aiTip:
+      "Cut outer leaves only — leave the crown intact for regrowth. Harvest before 8am for best texture.",
     tools: ["Harvest basket", "Knife", "Gloves"],
   },
   {
     name: "Harvest tomatoes",
     priority: "High",
     durationMinutes: 40,
-    aiTip: "Pick firm, fully coloured fruit. Leave any green tomatoes on the vine to ripen naturally.",
+    aiTip:
+      "Pick firm, fully coloured fruit. Leave any green tomatoes on the vine to ripen naturally.",
     tools: ["Harvest basket", "Gloves"],
   },
   {
     name: "Harvest beans",
     priority: "High",
     durationMinutes: 50,
-    aiTip: "Harvest when pods are firm and snap cleanly. Overripe pods reduce yield on the next flush.",
+    aiTip:
+      "Harvest when pods are firm and snap cleanly. Overripe pods reduce yield on the next flush.",
     tools: ["Harvest basket", "Gloves"],
   },
   {
     name: "Sort and grade produce",
     priority: "Medium",
     durationMinutes: 35,
-    aiTip: "Grade A: firm, unblemished, uniform size. Remove rotten items immediately — one bad one spreads.",
+    aiTip:
+      "Grade A: firm, unblemished, uniform size. Remove rotten items immediately — one bad one spreads.",
   },
 
   // ── Planting ────────────────────────────────────────────────────────────
@@ -134,7 +145,8 @@ const POOL: readonly Template[] = [
     name: "Weed maize rows",
     priority: "Medium",
     durationMinutes: 60,
-    aiTip: "Weed when soil is moist for easier removal. Stay 5cm from the stem to avoid root damage.",
+    aiTip:
+      "Weed when soil is moist for easier removal. Stay 5cm from the stem to avoid root damage.",
     tools: ["Hand hoe", "Gloves"],
   },
   {
@@ -176,7 +188,8 @@ const POOL: readonly Template[] = [
     name: "Record milk yield",
     priority: "Low",
     durationMinutes: 10,
-    aiTip: "A sudden drop of >10% signals stress, illness, or feed issues. Investigate immediately.",
+    aiTip:
+      "A sudden drop of >10% signals stress, illness, or feed issues. Investigate immediately.",
     tools: ["Measuring jug", "Log book"],
   },
 
@@ -206,7 +219,8 @@ const POOL: readonly Template[] = [
     name: "Update farm journal",
     priority: "Low",
     durationMinutes: 15,
-    aiTip: "Record yield, inputs, and observations. Patterns in your journal predict next season's problems.",
+    aiTip:
+      "Record yield, inputs, and observations. Patterns in your journal predict next season's problems.",
   },
   {
     name: "Plan next week tasks",
@@ -226,7 +240,7 @@ const POOL: readonly Template[] = [
 
 function lcgStep(seed: number): number {
   // Knuth's LCG — same seed always produces same sequence
-  return ((seed * 1664525 + 1013904223) >>> 0)
+  return (seed * 1664525 + 1013904223) >>> 0
 }
 
 export function buildActivitiesForDate(dateStr: string): PlanActivity[] {

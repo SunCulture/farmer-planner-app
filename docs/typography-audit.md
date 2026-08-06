@@ -35,13 +35,13 @@ Recommended direction:
 
 Good candidate pairs:
 
-| Role | Candidate | Why |
-| --- | --- | --- |
-| Display | Newsreader | Editorial, warm, sophisticated, still readable on mobile. |
-| Display | Instrument Serif | More dramatic and Co-Star-adjacent; best used sparingly. |
-| Display | Source Serif 4 | Safer, serious, less fashion-forward. |
-| Body | Space Grotesk | Already integrated; distinctive and mobile-friendly. |
-| Body alternative | IBM Plex Sans | More neutral and institutional if Space Grotesk still feels too playful. |
+| Role             | Candidate        | Why                                                                      |
+| ---------------- | ---------------- | ------------------------------------------------------------------------ |
+| Display          | Newsreader       | Editorial, warm, sophisticated, still readable on mobile.                |
+| Display          | Instrument Serif | More dramatic and Co-Star-adjacent; best used sparingly.                 |
+| Display          | Source Serif 4   | Safer, serious, less fashion-forward.                                    |
+| Body             | Space Grotesk    | Already integrated; distinctive and mobile-friendly.                     |
+| Body alternative | IBM Plex Sans    | More neutral and institutional if Space Grotesk still feels too playful. |
 
 Preferred first experiment: Newsreader display + Space Grotesk body. It adds sophistication without making a practical farming app feel cold or occult.
 

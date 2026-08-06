@@ -66,7 +66,12 @@ export default function OnboardingActivationStep() {
     return (
       <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={$center}>
-          <Ionicons name="checkmark-circle-outline" size={48} color={forest500} style={$statusIcon} />
+          <Ionicons
+            name="checkmark-circle-outline"
+            size={48}
+            color={forest500}
+            style={$statusIcon}
+          />
           <Text style={$heading}>Your plan is ready!</Text>
           <View style={$tooltip}>
             <Text style={$tooltipText}>

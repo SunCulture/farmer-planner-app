@@ -95,8 +95,7 @@ export default function HomeScreen() {
   const templateCards = dashboard?.templateCards ?? []
   const todayActivities = dashboard?.todaySection.activities ?? []
   const remaining = todayActivities.filter(
-    (a) =>
-      a.status.code !== "VERIFIED" && a.status.code !== "DONE" && a.status.code !== "SKIPPED",
+    (a) => a.status.code !== "VERIFIED" && a.status.code !== "DONE" && a.status.code !== "SKIPPED",
   ).length
   const isPlanActionPending = enrollPlan.isPending || generatePlan.isPending
 

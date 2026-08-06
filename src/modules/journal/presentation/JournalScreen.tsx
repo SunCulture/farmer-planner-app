@@ -184,7 +184,10 @@ function EntryForm({
       <KeyboardAwareScrollView
         contentContainerStyle={[
           $scroll,
-          { paddingTop: insets.top + spacing.s4, paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s4 },
+          {
+            paddingTop: insets.top + spacing.s4,
+            paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s4,
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -237,7 +240,9 @@ function EntryForm({
               size={24}
               color={photoUris.length > 0 ? forest600 : forest500}
             />
-            <Text style={[$photoBtnLabel, photoUris.length > 0 && $photoBtnLabelSet]}>Take Photo</Text>
+            <Text style={[$photoBtnLabel, photoUris.length > 0 && $photoBtnLabelSet]}>
+              Take Photo
+            </Text>
             <Text style={$photoBtnSub}>
               {photoUris.length > 0 ? `${photoUris.length} attached` : "Use your camera"}
             </Text>
@@ -322,17 +327,17 @@ function JournalTimeline() {
     }, [queryClient, dates]),
   )
 
-  const daysWithContent = useMemo(
-    () => timeline.filter((d) => d.activities.length > 0),
-    [timeline],
-  )
+  const daysWithContent = useMemo(() => timeline.filter((d) => d.activities.length > 0), [timeline])
 
   return (
     <View style={$root}>
       <ScrollView
         contentContainerStyle={[
           $scroll,
-          { paddingTop: insets.top + spacing.s5, paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s6 + 60 },
+          {
+            paddingTop: insets.top + spacing.s5,
+            paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s6 + 60,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -380,15 +385,7 @@ function JournalTimeline() {
 // TimelineDay
 // ---------------------------------------------------------------------------
 
-function TimelineDay({
-  day,
-  today,
-  isLast,
-}: {
-  day: DaySummary
-  today: string
-  isLast: boolean
-}) {
+function TimelineDay({ day, today, isLast }: { day: DaySummary; today: string; isLast: boolean }) {
   const label = formatDayLabel(day.date, today)
   const isToday = day.date === today
 

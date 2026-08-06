@@ -12,10 +12,7 @@ import {
 } from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
-import {
-  KeyboardAwareScrollView,
-  KeyboardAvoidingView,
-} from "react-native-keyboard-controller"
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { api } from "@/services/api"
@@ -42,10 +39,7 @@ import {
   setOnboardingComplete,
 } from "../application/farmer-profile-store"
 import { mapDraftToProfile } from "../application/map-profile"
-import {
-  draftFromOnboardingData,
-  uiStepFromSuggested,
-} from "../application/resume-onboarding"
+import { draftFromOnboardingData, uiStepFromSuggested } from "../application/resume-onboarding"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
 import { useCompleteOnboarding, usePatchOnboarding } from "../application/use-onboarding-mutations"
 import {
@@ -421,9 +415,7 @@ export default function OnboardingScreen() {
             {authLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={$ctaBtnText}>
-                {authMode === "login" ? "Sign in" : "Create account"}
-              </Text>
+              <Text style={$ctaBtnText}>{authMode === "login" ? "Sign in" : "Create account"}</Text>
             )}
           </TouchableOpacity>
 
@@ -476,408 +468,398 @@ export default function OnboardingScreen() {
         showsVerticalScrollIndicator={false}
         bottomOffset={spacing.s10}
       >
-          {/* ---- Name ---- */}
-          {step === 1 && (
-            <>
-              <Text style={$stepHeading}>{"What should we\ncall you?"}</Text>
-              <Text style={$stepSubtitle}>{"We'll personalise your experience just for you."}</Text>
-              <TextInput
-                style={$nameInput}
-                value={draft.name}
-                onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
-                placeholder="Your name"
-                placeholderTextColor={ink4}
-                autoFocus
-                returnKeyType="done"
-              />
-              {draft.name.trim().length >= 2 && (
-                <View style={$nameConfirm}>
-                  <Text style={$nameConfirmText}>Great to meet you, {draft.name.trim()}!</Text>
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ---- Location ---- */}
-          {step === 2 && (
-            <>
-              <Text style={$stepHeading}>{"Where's your farm?"}</Text>
-              <Text style={$stepSubtitle}>{"We'll show local weather and soil advice."}</Text>
-              <View style={$searchBar}>
-                <Ionicons name="search-outline" size={16} color={ink3} style={{ marginRight: 8 }} />
-                <TextInput
-                  style={$searchInput}
-                  value={locationQuery}
-                  onChangeText={setLocationQuery}
-                  placeholder="Search county or region..."
-                  placeholderTextColor={ink4}
-                />
+        {/* ---- Name ---- */}
+        {step === 1 && (
+          <>
+            <Text style={$stepHeading}>{"What should we\ncall you?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll personalise your experience just for you."}</Text>
+            <TextInput
+              style={$nameInput}
+              value={draft.name}
+              onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
+              placeholder="Your name"
+              placeholderTextColor={ink4}
+              autoFocus
+              returnKeyType="done"
+            />
+            {draft.name.trim().length >= 2 && (
+              <View style={$nameConfirm}>
+                <Text style={$nameConfirmText}>Great to meet you, {draft.name.trim()}!</Text>
               </View>
-              {regionsQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {filteredRegions.map((region) => {
-                    const selected = draft.location === region.name
-                    const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
-                    return (
-                      <Pressable
-                        key={region.id}
-                        style={[$locationCard, selected && $locationCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            location: region.name,
-                            locationSlug: region.slug,
-                          }))
-                        }
-                      >
-                        <View style={[$optionMark, selected && $optionMarkSelected]}>
-                          <Text style={$optionMarkText}>{initialsForLabel(region.name)}</Text>
-                        </View>
-                        <Text style={[$locationName, selected && { color: forest500 }]}>
-                          {region.name}
-                        </Text>
-                        {tempLabel && <Text style={$locationTemp}>{tempLabel}</Text>}
-                        {region.weather && (
-                          <Text style={$locationWeatherDesc} numberOfLines={1}>
-                            {region.weather.description}
-                          </Text>
-                        )}
-                        {selected && (
-                          <View style={$locationCheck}>
-                            <Ionicons name="checkmark-circle" size={18} color={forest500} />
-                          </View>
-                        )}
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
+            )}
+          </>
+        )}
 
-          {/* ---- Farm type ---- */}
-          {step === 3 && (
-            <>
-              <Text style={$stepHeading}>{"What do you farm?"}</Text>
-              <Text style={$stepSubtitle}>{"Choose your primary farming type."}</Text>
-              {(
-                [
-                  {
-                    id: "crops" as FarmTypeUI,
-                    label: "Crops",
-                    desc: "Fruits, vegetables & grains",
-                    illustration: "CROPS",
-                    illustrationBg: forest50,
-                  },
-                  {
-                    id: "livestock" as FarmTypeUI,
-                    label: "Livestock",
-                    desc: "Cows, goats, chickens & more",
-                    illustration: "HERD",
-                    illustrationBg: paper2,
-                  },
-                ] as const
-              ).map((opt) => {
-                const selected = draft.farmType === opt.id
-                return (
-                  <Pressable
-                    key={opt.id}
-                    style={[$bigCard, selected && $bigCardSelected]}
-                    onPress={() =>
-                      setDraft((d) => ({ ...d, farmType: opt.id, crops: [], livestock: [] }))
-                    }
-                  >
-                    <View style={[$bigCardIllustration, { backgroundColor: opt.illustrationBg }]}>
-                      <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
-                    </View>
-                    <View style={$bigCardFooter}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.label}
-                        </Text>
-                        <Text style={$bigCardDesc}>{opt.desc}</Text>
+        {/* ---- Location ---- */}
+        {step === 2 && (
+          <>
+            <Text style={$stepHeading}>{"Where's your farm?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll show local weather and soil advice."}</Text>
+            <View style={$searchBar}>
+              <Ionicons name="search-outline" size={16} color={ink3} style={{ marginRight: 8 }} />
+              <TextInput
+                style={$searchInput}
+                value={locationQuery}
+                onChangeText={setLocationQuery}
+                placeholder="Search county or region..."
+                placeholderTextColor={ink4}
+              />
+            </View>
+            {regionsQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {filteredRegions.map((region) => {
+                  const selected = draft.location === region.name
+                  const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
+                  return (
+                    <Pressable
+                      key={region.id}
+                      style={[$locationCard, selected && $locationCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          location: region.name,
+                          locationSlug: region.slug,
+                        }))
+                      }
+                    >
+                      <View style={[$optionMark, selected && $optionMarkSelected]}>
+                        <Text style={$optionMarkText}>{initialsForLabel(region.name)}</Text>
                       </View>
-                      <View style={[$radio, selected && $radioSelected]}>
-                        {selected && <View style={$radioDot} />}
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              })}
-            </>
-          )}
-
-          {/* ---- Crops ---- */}
-          {step === 4 && draft.farmType === "crops" && (
-            <>
-              <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
-              <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {cropsQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {(cropsQuery.data ?? []).map((crop) => {
-                    const selected = draft.crops.includes(crop.id)
-                    return (
-                      <Pressable
-                        key={crop.id}
-                        style={[$speciesCard, selected && $speciesCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            crops: d.crops.includes(crop.id)
-                              ? d.crops.filter((c) => c !== crop.id)
-                              : [...d.crops, crop.id],
-                          }))
-                        }
-                      >
-                        <View style={[$optionMark, selected && $optionMarkSelected]}>
-                          <Text style={$optionMarkText}>{initialsForLabel(crop.name)}</Text>
-                        </View>
-                        <Text style={[$speciesLabel, selected && { color: forest500 }]}>
-                          {crop.name}
+                      <Text style={[$locationName, selected && { color: forest500 }]}>
+                        {region.name}
+                      </Text>
+                      {tempLabel && <Text style={$locationTemp}>{tempLabel}</Text>}
+                      {region.weather && (
+                        <Text style={$locationWeatherDesc} numberOfLines={1}>
+                          {region.weather.description}
                         </Text>
-                        <View
-                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
-                        >
-                          {selected && <Ionicons name="checkmark" size={10} color={card} />}
+                      )}
+                      {selected && (
+                        <View style={$locationCheck}>
+                          <Ionicons name="checkmark-circle" size={18} color={forest500} />
                         </View>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
+                      )}
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
 
-          {/* ---- Livestock ---- */}
-          {step === 4 && draft.farmType !== "crops" && (
-            <>
-              <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
-              <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {livestockQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {(livestockQuery.data ?? []).map((animal) => {
-                    const selected = draft.livestock.includes(animal.id)
-                    return (
-                      <Pressable
-                        key={animal.id}
-                        style={[$speciesCard, selected && $speciesCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            livestock: d.livestock.includes(animal.id)
-                              ? d.livestock.filter((a) => a !== animal.id)
-                              : [...d.livestock, animal.id],
-                          }))
-                        }
-                      >
-                        <View style={[$optionMark, selected && $optionMarkSelected]}>
-                          <Text style={$optionMarkText}>{initialsForLabel(animal.name)}</Text>
-                        </View>
-                        <Text style={[$speciesLabel, selected && { color: forest500 }]}>
-                          {animal.name}
-                        </Text>
-                        <View
-                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
-                        >
-                          {selected && <Ionicons name="checkmark" size={10} color={card} />}
-                        </View>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ---- Helpers ---- */}
-          {step === 5 && (
-            <>
-              <Text style={$stepHeading}>{"Do you work alone\nor with helpers?"}</Text>
-              <Text style={$stepSubtitle}>
-                {"We'll plan the right workload for your situation."}
-              </Text>
-              {(
-                [
-                  {
-                    id: "solo" as WorkStyleUI,
-                    label: "Solo Farmer",
-                    desc: "I work my farm on my own",
-                    illustration: "SOLO",
-                  },
-                  {
-                    id: "helpers" as WorkStyleUI,
-                    label: "With Helpers",
-                    desc: "I have farmhands or family help",
-                    illustration: "TEAM",
-                  },
-                ] as const
-              ).map((opt) => {
-                const selected = draft.workStyle === opt.id
-                return (
-                  <Pressable
-                    key={opt.id}
-                    style={[$bigCard, selected && $bigCardSelected]}
-                    onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
-                  >
-                    <View style={[$bigCardIllustration, { backgroundColor: paper2 }]}>
-                      <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
-                    </View>
-                    <View style={$bigCardFooter}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.label}
-                        </Text>
-                        <Text style={$bigCardDesc}>{opt.desc}</Text>
-                      </View>
-                      <View style={[$radio, selected && $radioSelected]}>
-                        {selected && <View style={$radioDot} />}
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              })}
-            </>
-          )}
-
-          {/* ---- Farm size ---- */}
-          {step === 6 && (
-            <>
-              <Text style={$stepHeading}>{"How large is\nyour farm?"}</Text>
-              <Text style={$stepSubtitle}>{"Helps us tailor your schedule and task load."}</Text>
-              {(
-                [
-                  {
-                    id: "small" as FarmSizeUI,
-                    label: "Small Farm",
-                    desc: "Under 1 acre",
-                    mark: "S",
-                  },
-                  {
-                    id: "medium" as FarmSizeUI,
-                    label: "Medium Farm",
-                    desc: "1 to 5 acres",
-                    mark: "M",
-                  },
-                  {
-                    id: "large" as FarmSizeUI,
-                    label: "Large Farm",
-                    desc: "Over 5 acres",
-                    mark: "L",
-                  },
-                ] as const
-              ).map((opt) => {
-                const selected = draft.farmSize === opt.id
-                return (
-                  <Pressable
-                    key={opt.id}
-                    style={[$sizeCard, selected && $sizeCardSelected]}
-                    onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
-                  >
-                    <View style={[$sizeMark, selected && $optionMarkSelected]}>
-                      <Text style={$sizeMarkText}>{opt.mark}</Text>
-                    </View>
+        {/* ---- Farm type ---- */}
+        {step === 3 && (
+          <>
+            <Text style={$stepHeading}>{"What do you farm?"}</Text>
+            <Text style={$stepSubtitle}>{"Choose your primary farming type."}</Text>
+            {(
+              [
+                {
+                  id: "crops" as FarmTypeUI,
+                  label: "Crops",
+                  desc: "Fruits, vegetables & grains",
+                  illustration: "CROPS",
+                  illustrationBg: forest50,
+                },
+                {
+                  id: "livestock" as FarmTypeUI,
+                  label: "Livestock",
+                  desc: "Cows, goats, chickens & more",
+                  illustration: "HERD",
+                  illustrationBg: paper2,
+                },
+              ] as const
+            ).map((opt) => {
+              const selected = draft.farmType === opt.id
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[$bigCard, selected && $bigCardSelected]}
+                  onPress={() =>
+                    setDraft((d) => ({ ...d, farmType: opt.id, crops: [], livestock: [] }))
+                  }
+                >
+                  <View style={[$bigCardIllustration, { backgroundColor: opt.illustrationBg }]}>
+                    <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
+                  </View>
+                  <View style={$bigCardFooter}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[$sizeLabel, selected && { color: forest500 }]}>
+                      <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
                         {opt.label}
                       </Text>
-                      <Text style={$sizeDesc}>{opt.desc}</Text>
+                      <Text style={$bigCardDesc}>{opt.desc}</Text>
                     </View>
                     <View style={[$radio, selected && $radioSelected]}>
                       {selected && <View style={$radioDot} />}
                     </View>
-                  </Pressable>
-                )
-              })}
-            </>
-          )}
+                  </View>
+                </Pressable>
+              )
+            })}
+          </>
+        )}
 
-          {/* ---- Goals ---- */}
-          {step === 7 && (
-            <>
-              <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
-              <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
-              {goalsQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {(goalsQuery.data ?? []).map((goal) => {
-                    const selected = draft.goals.includes(goal.slug)
-                    return (
-                      <Pressable
-                        key={goal.id}
-                        style={[$goalCard, selected && $goalCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            goals: d.goals.includes(goal.slug)
-                              ? d.goals.filter((g) => g !== goal.slug)
-                              : [...d.goals, goal.slug],
-                          }))
-                        }
-                      >
-                        <View style={[$optionMark, selected && $optionMarkSelected]}>
-                          <Text style={$optionMarkText}>{initialsForLabel(goal.name)}</Text>
-                        </View>
-                        <Text style={[$goalLabel, selected && { color: forest500 }]}>
-                          {goal.name}
-                        </Text>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ---- 2-week goal ---- */}
-          {step === 8 && (
-            <>
-              <Text style={$stepHeading}>{"What's your #1 goal\nfor the next 2 weeks?"}</Text>
-              <Text style={$stepSubtitle}>
-                {"Be specific — this helps us personalise your daily activities."}
-              </Text>
-              <TextInput
-                style={$goalTextInput}
-                value={draft.twoWeekGoal}
-                onChangeText={(twoWeekGoal) =>
-                  setDraft((d) => ({
-                    ...d,
-                    twoWeekGoal: twoWeekGoal.slice(0, TWO_WEEK_GOAL_MAX_LENGTH),
-                  }))
-                }
-                placeholder="e.g. Get my maize planted before the next rains"
-                placeholderTextColor={ink4}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                maxLength={TWO_WEEK_GOAL_MAX_LENGTH}
-                autoFocus
-              />
-              <View style={$goalCounterRow}>
-                {draft.twoWeekGoal.trim().length > 0 &&
-                draft.twoWeekGoal.trim().length < TWO_WEEK_GOAL_MIN_LENGTH ? (
-                  <Text style={$goalHintText}>
-                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length} more character
-                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length === 1
-                      ? ""
-                      : "s"}{" "}
-                    needed
-                  </Text>
-                ) : (
-                  <View />
-                )}
-                <Text style={$goalCounterText}>
-                  {draft.twoWeekGoal.length}/{TWO_WEEK_GOAL_MAX_LENGTH}
-                </Text>
+        {/* ---- Crops ---- */}
+        {step === 4 && draft.farmType === "crops" && (
+          <>
+            <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
+            <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
+            {cropsQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {(cropsQuery.data ?? []).map((crop) => {
+                  const selected = draft.crops.includes(crop.id)
+                  return (
+                    <Pressable
+                      key={crop.id}
+                      style={[$speciesCard, selected && $speciesCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          crops: d.crops.includes(crop.id)
+                            ? d.crops.filter((c) => c !== crop.id)
+                            : [...d.crops, crop.id],
+                        }))
+                      }
+                    >
+                      <View style={[$optionMark, selected && $optionMarkSelected]}>
+                        <Text style={$optionMarkText}>{initialsForLabel(crop.name)}</Text>
+                      </View>
+                      <Text style={[$speciesLabel, selected && { color: forest500 }]}>
+                        {crop.name}
+                      </Text>
+                      <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        {selected && <Ionicons name="checkmark" size={10} color={card} />}
+                      </View>
+                    </Pressable>
+                  )
+                })}
               </View>
-            </>
-          )}
+            )}
+          </>
+        )}
+
+        {/* ---- Livestock ---- */}
+        {step === 4 && draft.farmType !== "crops" && (
+          <>
+            <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
+            <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
+            {livestockQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {(livestockQuery.data ?? []).map((animal) => {
+                  const selected = draft.livestock.includes(animal.id)
+                  return (
+                    <Pressable
+                      key={animal.id}
+                      style={[$speciesCard, selected && $speciesCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          livestock: d.livestock.includes(animal.id)
+                            ? d.livestock.filter((a) => a !== animal.id)
+                            : [...d.livestock, animal.id],
+                        }))
+                      }
+                    >
+                      <View style={[$optionMark, selected && $optionMarkSelected]}>
+                        <Text style={$optionMarkText}>{initialsForLabel(animal.name)}</Text>
+                      </View>
+                      <Text style={[$speciesLabel, selected && { color: forest500 }]}>
+                        {animal.name}
+                      </Text>
+                      <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        {selected && <Ionicons name="checkmark" size={10} color={card} />}
+                      </View>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ---- Helpers ---- */}
+        {step === 5 && (
+          <>
+            <Text style={$stepHeading}>{"Do you work alone\nor with helpers?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll plan the right workload for your situation."}</Text>
+            {(
+              [
+                {
+                  id: "solo" as WorkStyleUI,
+                  label: "Solo Farmer",
+                  desc: "I work my farm on my own",
+                  illustration: "SOLO",
+                },
+                {
+                  id: "helpers" as WorkStyleUI,
+                  label: "With Helpers",
+                  desc: "I have farmhands or family help",
+                  illustration: "TEAM",
+                },
+              ] as const
+            ).map((opt) => {
+              const selected = draft.workStyle === opt.id
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[$bigCard, selected && $bigCardSelected]}
+                  onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
+                >
+                  <View style={[$bigCardIllustration, { backgroundColor: paper2 }]}>
+                    <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
+                  </View>
+                  <View style={$bigCardFooter}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={$bigCardDesc}>{opt.desc}</Text>
+                    </View>
+                    <View style={[$radio, selected && $radioSelected]}>
+                      {selected && <View style={$radioDot} />}
+                    </View>
+                  </View>
+                </Pressable>
+              )
+            })}
+          </>
+        )}
+
+        {/* ---- Farm size ---- */}
+        {step === 6 && (
+          <>
+            <Text style={$stepHeading}>{"How large is\nyour farm?"}</Text>
+            <Text style={$stepSubtitle}>{"Helps us tailor your schedule and task load."}</Text>
+            {(
+              [
+                {
+                  id: "small" as FarmSizeUI,
+                  label: "Small Farm",
+                  desc: "Under 1 acre",
+                  mark: "S",
+                },
+                {
+                  id: "medium" as FarmSizeUI,
+                  label: "Medium Farm",
+                  desc: "1 to 5 acres",
+                  mark: "M",
+                },
+                {
+                  id: "large" as FarmSizeUI,
+                  label: "Large Farm",
+                  desc: "Over 5 acres",
+                  mark: "L",
+                },
+              ] as const
+            ).map((opt) => {
+              const selected = draft.farmSize === opt.id
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[$sizeCard, selected && $sizeCardSelected]}
+                  onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
+                >
+                  <View style={[$sizeMark, selected && $optionMarkSelected]}>
+                    <Text style={$sizeMarkText}>{opt.mark}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[$sizeLabel, selected && { color: forest500 }]}>{opt.label}</Text>
+                    <Text style={$sizeDesc}>{opt.desc}</Text>
+                  </View>
+                  <View style={[$radio, selected && $radioSelected]}>
+                    {selected && <View style={$radioDot} />}
+                  </View>
+                </Pressable>
+              )
+            })}
+          </>
+        )}
+
+        {/* ---- Goals ---- */}
+        {step === 7 && (
+          <>
+            <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
+            {goalsQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {(goalsQuery.data ?? []).map((goal) => {
+                  const selected = draft.goals.includes(goal.slug)
+                  return (
+                    <Pressable
+                      key={goal.id}
+                      style={[$goalCard, selected && $goalCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          goals: d.goals.includes(goal.slug)
+                            ? d.goals.filter((g) => g !== goal.slug)
+                            : [...d.goals, goal.slug],
+                        }))
+                      }
+                    >
+                      <View style={[$optionMark, selected && $optionMarkSelected]}>
+                        <Text style={$optionMarkText}>{initialsForLabel(goal.name)}</Text>
+                      </View>
+                      <Text style={[$goalLabel, selected && { color: forest500 }]}>
+                        {goal.name}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ---- 2-week goal ---- */}
+        {step === 8 && (
+          <>
+            <Text style={$stepHeading}>{"What's your #1 goal\nfor the next 2 weeks?"}</Text>
+            <Text style={$stepSubtitle}>
+              {"Be specific — this helps us personalise your daily activities."}
+            </Text>
+            <TextInput
+              style={$goalTextInput}
+              value={draft.twoWeekGoal}
+              onChangeText={(twoWeekGoal) =>
+                setDraft((d) => ({
+                  ...d,
+                  twoWeekGoal: twoWeekGoal.slice(0, TWO_WEEK_GOAL_MAX_LENGTH),
+                }))
+              }
+              placeholder="e.g. Get my maize planted before the next rains"
+              placeholderTextColor={ink4}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              maxLength={TWO_WEEK_GOAL_MAX_LENGTH}
+              autoFocus
+            />
+            <View style={$goalCounterRow}>
+              {draft.twoWeekGoal.trim().length > 0 &&
+              draft.twoWeekGoal.trim().length < TWO_WEEK_GOAL_MIN_LENGTH ? (
+                <Text style={$goalHintText}>
+                  {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length} more character
+                  {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length === 1 ? "" : "s"}{" "}
+                  needed
+                </Text>
+              ) : (
+                <View />
+              )}
+              <Text style={$goalCounterText}>
+                {draft.twoWeekGoal.length}/{TWO_WEEK_GOAL_MAX_LENGTH}
+              </Text>
+            </View>
+          </>
+        )}
       </KeyboardAwareScrollView>
 
       {/* Footer */}
