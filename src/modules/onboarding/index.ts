@@ -3,6 +3,7 @@ export {
   saveFarmerProfile,
   loadFarmerProfile,
   isOnboardingComplete,
+  markOnboardingComplete,
   saveAuthToken,
   loadAuthToken,
   clearAuthToken,

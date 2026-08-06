@@ -27,7 +27,7 @@ const fonts = {
     semiBold: "spaceGroteskSemiBold",
     bold: "spaceGroteskBold",
   },
-  // SpaceMono: used for ALL numeric amounts and percentages (Tapp design rule)
+  // SpaceMono: used for ALL numeric amounts and percentages (Tujiweze design rule)
   spaceMono: {
     normal: "spaceMonoRegular",
   },
@@ -61,7 +61,7 @@ export const typography = {
   primary: fonts.spaceGrotesk,
   /** Alternate for system-default secondary text */
   secondary: Platform.select({ ios: fonts.helveticaNeue, android: fonts.sansSerif }),
-  /** Mono font for all numeric amounts (Tapp design rule) */
+  /** Mono font for all numeric amounts (Tujiweze design rule) */
   mono: fonts.spaceMono,
   /** Legacy alias */
   code: Platform.select({ ios: fonts.courier, android: fonts.monospace }),

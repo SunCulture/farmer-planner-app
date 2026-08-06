@@ -2,68 +2,127 @@ import {
   applyAnswerStreamEvent,
   createPendingQuestion,
   extractHighlightFromEvent,
+  markQuestionFailed,
   removeQuestion,
 } from "./activity-qa-policy"
-import { statusColorToUi } from "./activity-status-ui"
-
-describe("statusColorToUi", () => {
-  test("maps presenter colors", () => {
-    expect(statusColorToUi("green")).toBe("good")
-    expect(statusColorToUi("amber")).toBe("warn")
-    expect(statusColorToUi("slate")).toBe("warn")
-    expect(statusColorToUi("red")).toBe("bad")
-  })
-})
+import type { ActivityQuestion, AnswerStreamPayload } from "../entities/activity-question"
 
 describe("activity-qa-policy", () => {
-  test("createPendingQuestion seeds pending state", () => {
-    const q = createPendingQuestion("q-1", "How much water?")
-    expect(q.status).toBe("pending")
-    expect(q.answer).toBeNull()
+  it("creates a pending question entry", () => {
+    const q = createPendingQuestion("q1", "How do I know if the cow is in pain?")
+    expect(q).toMatchObject({
+      questionId: "q1",
+      question: "How do I know if the cow is in pain?",
+      answer: null,
+      status: "pending",
+      relatedFaqs: [],
+    })
+    expect(typeof q.createdAt).toBe("string")
   })
 
-  test("applyAnswerStreamEvent answers matching question", () => {
-    const questions = [createPendingQuestion("q-1", "How much water?")]
-    const next = applyAnswerStreamEvent(questions, {
-      questionId: "q-1",
-      chunk: "Water early.",
+  const pending: ActivityQuestion = {
+    questionId: "q1",
+    question: "How do I know if the cow is in pain?",
+    answer: null,
+    status: "pending",
+    relatedFaqs: [],
+    createdAt: "2026-06-03T09:00:00Z",
+  }
+
+  it("applies a successful answer-stream event to the matching question", () => {
+    const payload: AnswerStreamPayload = {
+      questionId: "q1",
+      chunk: "Look for reduced appetite.",
+      done: true,
+      isHighlight: false,
+      highlightText: null,
+      relatedFaqs: [{ question: "What if milk drops?", previewAnswer: "Check mastitis." }],
+    }
+
+    const result = applyAnswerStreamEvent([pending], payload)
+    expect(result[0]).toMatchObject({
+      status: "answered",
+      answer: "Look for reduced appetite.",
+      relatedFaqs: payload.relatedFaqs,
+    })
+  })
+
+  it("marks the matching question failed when the payload carries an error", () => {
+    const payload: AnswerStreamPayload = {
+      questionId: "q1",
+      chunk: "",
+      done: true,
+      isHighlight: false,
+      highlightText: null,
+      relatedFaqs: [],
+      error: "AI provider timeout",
+    }
+
+    const result = applyAnswerStreamEvent([pending], payload)
+    expect(result[0].status).toBe("failed")
+  })
+
+  it("is a no-op when the payload's questionId is not present in the list", () => {
+    const payload: AnswerStreamPayload = {
+      questionId: "unknown",
+      chunk: "answer",
+      done: true,
+      isHighlight: false,
+      highlightText: null,
+      relatedFaqs: [],
+    }
+
+    const result = applyAnswerStreamEvent([pending], payload)
+    expect(result).toEqual([pending])
+  })
+
+  it("extracts a highlight from a highlight-carrying payload", () => {
+    const payload: AnswerStreamPayload = {
+      questionId: "q1",
+      chunk: "answer",
       done: true,
       isHighlight: true,
-      highlightText: "Water before 9am",
-      relatedFaqs: [{ question: "How often?", previewAnswer: "Daily" }],
-    })
-    expect(next[0].status).toBe("answered")
-    expect(next[0].answer).toBe("Water early.")
-    expect(next[0].relatedFaqs).toHaveLength(1)
+      highlightText: "Tip: check for ear twitching",
+      relatedFaqs: [],
+    }
+
+    const highlight = extractHighlightFromEvent(payload)
+    expect(highlight?.text).toBe("Tip: check for ear twitching")
+    expect(typeof highlight?.addedAt).toBe("string")
   })
 
-  test("extractHighlightFromEvent ignores non-highlights", () => {
-    expect(
-      extractHighlightFromEvent({
-        questionId: "q-1",
-        chunk: "x",
-        done: true,
-        isHighlight: false,
-        highlightText: null,
-        relatedFaqs: [],
-      }),
-    ).toBeNull()
-
-    expect(
-      extractHighlightFromEvent({
-        questionId: "q-1",
-        chunk: "x",
-        done: true,
-        isHighlight: true,
-        highlightText: "Tip",
-        relatedFaqs: [],
-      })?.text,
-    ).toBe("Tip")
+  it("does not extract a highlight when isHighlight is false", () => {
+    const payload: AnswerStreamPayload = {
+      questionId: "q1",
+      chunk: "answer",
+      done: true,
+      isHighlight: false,
+      highlightText: "Should be ignored",
+      relatedFaqs: [],
+    }
+    expect(extractHighlightFromEvent(payload)).toBeNull()
   })
 
-  test("removeQuestion drops by id", () => {
-    const questions = [createPendingQuestion("q-1", "A"), createPendingQuestion("q-2", "B")]
-    expect(removeQuestion(questions, "q-1")).toHaveLength(1)
-    expect(removeQuestion(questions, "q-1")[0].questionId).toBe("q-2")
+  it("does not extract a highlight when the payload carries an error", () => {
+    const payload: AnswerStreamPayload = {
+      questionId: "q1",
+      chunk: "",
+      done: true,
+      isHighlight: true,
+      highlightText: "Should be ignored",
+      relatedFaqs: [],
+      error: "failed",
+    }
+    expect(extractHighlightFromEvent(payload)).toBeNull()
+  })
+
+  it("removes a question by id", () => {
+    const result = removeQuestion([pending], "q1")
+    expect(result).toHaveLength(0)
+  })
+
+  it("marks a question failed by id", () => {
+    const result = markQuestionFailed([pending], "q1")
+    expect(result[0].status).toBe("failed")
   })
 })

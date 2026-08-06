@@ -17,7 +17,7 @@ export function createQueryClient() {
       queries: {
         // 0 means data is immediately stale — any focus or invalidation will
         // trigger a background refetch while showing cached data instantly.
-        staleTime: 0,
+        staleTime: 30_000,
         refetchOnWindowFocus: true,
       },
     },

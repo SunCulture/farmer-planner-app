@@ -1,4 +1,5 @@
 import { initDatabase } from "@/shared/infrastructure/database"
+import EventSourceSseClient from "@/shared/infrastructure/sse/event-source-sse-client"
 
 import { container } from "./container"
 import { createQueryClient } from "./query-client"
@@ -23,6 +24,13 @@ export async function initAppBootstrap(): Promise<void> {
     console.debug("BOOTSTRAP: syncEngine registered")
   } catch (err) {
     console.error("BOOTSTRAP: failed to register syncEngine", err)
+  }
+
+  try {
+    container.register("sseClient", new EventSourceSseClient())
+    console.debug("BOOTSTRAP: sseClient registered")
+  } catch (err) {
+    console.error("BOOTSTRAP: failed to register sseClient", err)
   }
 }
 

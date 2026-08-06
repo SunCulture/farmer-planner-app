@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useCallback, useRef, useState } from "react"
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,12 +11,17 @@ import {
   View,
   ViewStyle,
 } from "react-native"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_BOTTOM_GAP, FLOATING_NAV_HEIGHT } from "@/app/(tabs)/_layout"
+import { ApiErrorView } from "@/components/ApiErrorView"
+import { useGeneratePlan } from "@/modules/plan/application/use-generate-plan"
+import { usePlanChat } from "@/modules/plan/application/use-plan-chat"
+import { isNotFoundError } from "@/shared/infrastructure/api-error"
+import { plannerKeys } from "@/shared/query-keys"
 import {
   card,
   cardBorder,
@@ -37,26 +42,20 @@ import {
   statusGoodBg,
   statusWarn,
   statusWarnBg,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
-import type { PlanActivity, Priority } from "../domain/entities/activity"
-import { getActivitiesForDay } from "../infrastructure/activities-service"
-import { MOCK_BOT_GREETING, MOCK_CHAT_SUGGESTIONS } from "../infrastructure/mock-data"
-import type { ActivityHighlight, ActivityQuestion } from "../domain/entities/activity-qa"
-import {
-  askActivityQuestion,
-  getDayActivityQuestions,
-  getQuestionsForActivity,
-  isUuidLike,
-  parseAnswerStreamEvent,
-} from "../infrastructure/activity-qa-service"
-import { subscribeActivitySSE } from "../infrastructure/activity-qa-sse"
-import { applyAnswerStreamEvent, upsertActivityQuestion } from "./activity-qa-state"
+import { ActivitySuggestionsBanner } from "./ActivitySuggestionsBanner"
+import { useDayPlan } from "../application/use-day-plan"
+import type { ActivityCard } from "../domain/entities/activity-card"
+import type { SuggestionCard } from "../domain/entities/plan-chat"
+import { statusColorToUi } from "../infrastructure/api-mappers"
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const CHAT_SUGGESTIONS = [
+  "Rain is expected tomorrow. Should I delay field work?",
+  "How do I protect maize from armyworm?",
+  "What should I focus on this week?",
+]
 
 function formatTodayStr(): string {
   const d = new Date()
@@ -79,261 +78,128 @@ function getDateLabel(date: Date): string {
   })
 }
 
-function priorityColor(priority: Priority): { bg: string; text: string } {
-  if (priority === "High") return { bg: statusBadBg, text: statusBad }
-  if (priority === "Medium") return { bg: statusWarnBg, text: statusWarn }
-  return { bg: statusGoodBg, text: statusGood }
+function statusUiColors(color: string): { bg: string; text: string } {
+  const ui = statusColorToUi(color)
+  if (ui === "good") return { bg: statusGoodBg, text: statusGood }
+  if (ui === "warn") return { bg: statusWarnBg, text: statusWarn }
+  return { bg: statusBadBg, text: statusBad }
 }
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
 
 export default function PlanScreen() {
   const insets = useSafeAreaInsets()
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const { date: dateParam } = useLocalSearchParams<{ date?: string }>()
 
   const dateStr = typeof dateParam === "string" ? dateParam : formatTodayStr()
   const dateLabel = getDateLabel(parseDateStr(dateStr))
 
-  const [loadStatus, setLoadStatus] = useState<"loading" | "ready">("loading")
-  const [activities, setActivities] = useState<PlanActivity[]>([])
+  const { data: dayPlan, isLoading, isError, error, refetch } = useDayPlan(dateStr)
+  const generatePlan = useGeneratePlan()
+  const planChat = usePlanChat(dayPlan?.planId)
+
+  type ChatMessage =
+    | { role: "user"; text: string }
+    | { role: "assistant"; text: string; suggestionCards: SuggestionCard[] }
+
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState("")
-  const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false)
-  const [errorBanner, setErrorBanner] = useState<string | null>(null)
-  const [questionsByActivityId, setQuestionsByActivityId] = useState<Record<string, ActivityQuestion[]>>({})
-  const [insightError, setInsightError] = useState<string | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const chatScrollRef = useRef<ScrollView>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    setLoadStatus("loading")
-    setExpandedId(null)
-    setChatOpen(false)
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: plannerKeys.dayPlan(dateStr) })
+    }, [queryClient, dateStr]),
+  )
 
-    getActivitiesForDay(dateStr)
-      .then((acts) => {
-        if (!cancelled) {
-          setActivities(acts)
-          setLoadStatus("ready")
-        }
-      })
-      .catch((error) => {
-        console.error("[plan] failed loading activities", error)
-        if (!cancelled) {
-          setActivities([])
-          setLoadStatus("ready")
-          setErrorBanner("Could not load activities. Pull to refresh or try again shortly.")
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [dateStr])
-
-  useEffect(() => {
-    const unsubscribe = subscribeActivitySSE("activity_answer_stream", (payload) => {
-      const event = parseAnswerStreamEvent(payload)
-      if (!event) return
-      let targetActivityId: string | null = null
-      setQuestionsByActivityId((prev) => {
-        for (const [activityId, questions] of Object.entries(prev)) {
-          if (questions.some((q) => q.questionId === event.questionId)) {
-            targetActivityId = activityId
-            break
-          }
-        }
-        return applyAnswerStreamEvent(prev, event.questionId, event)
-      })
-      if (event.error) {
-        setErrorBanner("Could not fetch one answer. You can retry that question.")
-        return
-      }
-      if (event.isHighlight && event.highlightText && targetActivityId) {
-        const nextHighlight: ActivityHighlight = {
-          text: event.highlightText,
-          addedAt: new Date().toISOString(),
-        }
-        setActivities((prev) =>
-          prev.map((item) => (item.id === targetActivityId ? { ...item, highlight: nextHighlight } : item)),
-        )
-      }
-    })
-    return unsubscribe
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    Promise.allSettled(
-      activities.filter((activity) => isUuidLike(activity.id)).map(async (activity) => ({
-        activityId: activity.id,
-        questions: await getQuestionsForActivity(activity.id),
-      })),
-    )
-      .then((rows) => {
-        if (cancelled) return
-        const next: Record<string, ActivityQuestion[]> = {}
-        for (const row of rows) {
-          if (row.status === "fulfilled") {
-            next[row.value.activityId] = row.value.questions
-          }
-        }
-        setQuestionsByActivityId(next)
-      })
-      .catch((error) => {
-        console.warn("[plan] could not load activity questions", error)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [activities])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const pendingActivityIds = Object.entries(questionsByActivityId)
-        .filter(([, questions]) => questions.some((q) => q.status === "pending"))
-        .map(([activityId]) => activityId)
-
-      for (const activityId of pendingActivityIds) {
-        if (!isUuidLike(activityId)) continue
-        void getQuestionsForActivity(activityId)
-          .then((questions) => {
-            setQuestionsByActivityId((prev) => ({ ...prev, [activityId]: questions }))
-          })
-          .catch(() => {})
-      }
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [questionsByActivityId])
-
-  const dayInsights = useQuery({
-    queryKey: ["plan", "day-activity-questions", dateStr],
-    queryFn: () => getDayActivityQuestions(dateStr),
-    retry: 1,
-  })
-
-  useEffect(() => {
-    if (dayInsights.error) {
-      setInsightError("Could not load today's insights right now.")
-    } else {
-      setInsightError(null)
-    }
-  }, [dayInsights.error])
-
-  const askQuestionMutation = useMutation({
-    mutationFn: ({ activityId, question }: { activityId: string; question: string }) =>
-      askActivityQuestion(activityId, question),
-  })
-
-  const doneCount = activities.filter((a) => a.done).length
+  const activities = dayPlan?.activities ?? []
+  const doneCount = activities.filter((a) => a.status.code === "VERIFIED").length
   const totalCount = activities.length
   const percentage = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
   const aiPanelBottom = insets.bottom + FLOATING_NAV_BOTTOM_GAP + FLOATING_NAV_HEIGHT
   const collapsedPanelHeight = 56
-  const expandedPanelHeight = 260
+  const expandedPanelHeight = 420
   const scrollPaddingBottom =
     aiPanelBottom + (chatOpen ? expandedPanelHeight : collapsedPanelHeight) + spacing.s4
-  const sendBlockedReason = !chatInput.trim()
-    ? "Type a question to send."
-    : !expandedId
-      ? "Expand an activity first to ask a contextual question."
-      : !isUuidLike(expandedId)
-        ? "Q&A is unavailable while viewing local fallback activities."
-        : null
-  const canTapSend = !!chatInput.trim() && !isSubmittingQuestion
 
-  function toggleDone(id: string) {
-    setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, done: !a.done } : a)))
-  }
-
-  function toggleExpanded(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id))
-  }
-
-  async function pollQuestionUntilResolved(activityId: string, questionId: string) {
-    const maxAttempts = 10
-    const delayMs = 1500
-
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      await sleep(delayMs)
-      try {
-        const questions = await getQuestionsForActivity(activityId)
-        setQuestionsByActivityId((prev) => ({ ...prev, [activityId]: questions }))
-        const item = questions.find((q) => q.questionId === questionId)
-        if (item && (item.status === "answered" || item.status === "failed")) {
-          return
-        }
-      } catch {
-        // retry quietly; SSE may still resolve it
-      }
-    }
-  }
-
-  async function submitQuestion(activityId: string, question: string) {
-    const trimmed = question.trim()
-    if (!trimmed) return
-    if (!isUuidLike(activityId)) {
-      setErrorBanner("Q&A is unavailable while viewing local fallback activities.")
-      return
-    }
-    const tempQuestionId = `local-${Date.now()}`
-    setQuestionsByActivityId((prev) =>
-      upsertActivityQuestion(prev, activityId, {
-        questionId: tempQuestionId,
-        question: trimmed,
-        answer: null,
-        status: "pending",
-        relatedFaqs: [],
-        createdAt: new Date().toISOString(),
-      }),
-    )
+  async function handleSendChat() {
+    const message = chatInput.trim()
+    if (!message || !dayPlan?.planId) return
     setChatInput("")
-
-    const submitStart = Date.now()
-    const minSpinnerMs = 450
-    setIsSubmittingQuestion(true)
+    setChatMessages((prev) => [...prev, { role: "user", text: message }])
+    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 50)
     try {
-      const ack = await askQuestionMutation.mutateAsync({ activityId, question: trimmed })
-      setQuestionsByActivityId((prev) => {
-        const current = prev[activityId] ?? []
-        const mapped = current.map((item) =>
-          item.questionId === tempQuestionId ? { ...item, questionId: ack.questionId } : item,
-        )
-        return { ...prev, [activityId]: mapped }
-      })
-      // Android environments without EventSource need a polling fallback.
-      void pollQuestionUntilResolved(activityId, ack.questionId)
-    } catch (error) {
-      console.error("[plan] ask question failed", error)
-      setQuestionsByActivityId((prev) => {
-        const current = prev[activityId] ?? []
-        const mapped = current.map((item) =>
-          item.questionId === tempQuestionId ? { ...item, status: "failed" as const } : item,
-        )
-        return { ...prev, [activityId]: mapped }
-      })
-      setErrorBanner("Question was not sent. Tap retry on the failed item.")
-    } finally {
-      const elapsed = Date.now() - submitStart
-      if (elapsed < minSpinnerMs) {
-        await new Promise((resolve) => setTimeout(resolve, minSpinnerMs - elapsed))
-      }
-      setIsSubmittingQuestion(false)
+      const result = await planChat.mutateAsync(message)
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: result.reply.plain, suggestionCards: result.suggestionCards },
+      ])
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: "Sorry, I could not reach the farm assistant right now.",
+          suggestionCards: [],
+        },
+      ])
+    }
+    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100)
+  }
+
+  async function handleStartPlan() {
+    try {
+      await generatePlan.mutateAsync({ durationDays: 5, startDate: dateStr })
+      refetch()
+    } catch {
+      // user can try from home templates
     }
   }
 
-  function retryQuestion(activityId: string, questionId: string) {
-    const question = (questionsByActivityId[activityId] ?? []).find((item) => item.questionId === questionId)
-    if (!question) return
-    void submitQuestion(activityId, question.question)
+  if (isLoading && !dayPlan) {
+    return (
+      <View style={[$root, $centered]}>
+        <ActivityIndicator size="large" color={forest500} />
+        <Text style={$loadingText}>Loading plan…</Text>
+      </View>
+    )
+  }
+
+  if (isError && !dayPlan) {
+    if (isNotFoundError(error)) {
+      return (
+        <View style={[$root, $emptyState, { paddingTop: insets.top + spacing.s5 }]}>
+          <Text style={$planLabel}>PLAN ON A PAGE</Text>
+          <Text style={$dateHeading}>{dateLabel}</Text>
+          <Text style={$emptyTitle}>No plan for this day</Text>
+          <Text style={$emptyBody}>Start a farm plan from Home or generate one now.</Text>
+          <TouchableOpacity
+            style={$emptyCta}
+            onPress={handleStartPlan}
+            disabled={generatePlan.isPending}
+            activeOpacity={0.85}
+          >
+            {generatePlan.isPending ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={$emptyCtaText}>Generate 5-day plan</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/(tabs)/" as any)} style={$emptyLink}>
+            <Text style={$emptyLinkText}>Browse templates on Home</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    return (
+      <View style={[$root, $centered, { paddingTop: insets.top }]}>
+        <ApiErrorView error={error} onRetry={() => refetch()} title="Could not load plan" />
+      </View>
+    )
   }
 
   return (
@@ -346,85 +212,67 @@ export default function PlanScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ── */}
         <Text style={$planLabel}>PLAN ON A PAGE</Text>
         <Text style={$dateHeading}>{dateLabel}</Text>
-        {errorBanner && (
-          <View style={$errorBanner}>
-            <Text style={$errorBannerText}>{errorBanner}</Text>
-          </View>
-        )}
 
-        {/* ── Daily Progress card ── */}
+        <ActivitySuggestionsBanner />
+
+        {dayPlan?.hero ? (
+          <View style={$heroCard}>
+            <Text style={$heroTitle}>{dayPlan.hero.title}</Text>
+            <Text style={$heroSummary}>{dayPlan.hero.summary}</Text>
+          </View>
+        ) : null}
+
         <View style={$progressCard}>
           <View style={$progressCardHeader}>
             <Text style={$progressCardTitle}>Daily Progress</Text>
-            {loadStatus === "ready" ? (
-              <Text style={$progressDoneText}>
-                {doneCount}/{totalCount} done
-              </Text>
-            ) : (
-              <ActivityIndicator size="small" color={forest500} />
-            )}
+            <Text style={$progressDoneText}>
+              {doneCount}/{totalCount} verified
+            </Text>
           </View>
           <View style={$progressBarBg}>
-            <View style={[$progressBarFill, { width: `${percentage}%` as any }]} />
+            <View style={[$progressBarFill, { width: `${percentage}%` as `${number}%` }]} />
           </View>
           <Text style={$progressPercent}>{percentage}% complete</Text>
         </View>
 
-        {/* ── Activities ── */}
         <Text style={$sectionTitle}>Today's Activities</Text>
 
-        {loadStatus === "loading" ? (
-          <View style={$loadingContainer}>
-            <ActivityIndicator size="large" color={forest500} />
-            <Text style={$loadingText}>Loading activities…</Text>
-          </View>
-        ) : (
-          activities.map((activity) => (
-            <ActivityRow
-              key={activity.id}
-              activity={activity}
-              dateStr={dateStr}
-              isExpanded={expandedId === activity.id}
-              questions={questionsByActivityId[activity.id] ?? []}
-              onToggleDone={() => toggleDone(activity.id)}
-              onToggleExpand={() => toggleExpanded(activity.id)}
-              onRetryQuestion={(questionId) => retryQuestion(activity.id, questionId)}
-            />
-          ))
-        )}
+        {activities.map((activity) => (
+          <ActivityRow
+            key={activity.id}
+            activity={activity}
+            dateStr={dateStr}
+            isExpanded={expandedId === activity.id}
+            onToggleExpand={() =>
+              setExpandedId((prev) => (prev === activity.id ? null : activity.id))
+            }
+          />
+        ))}
 
-        <Text style={[$sectionTitle, { marginTop: spacing.s4 }]}>Today's insights</Text>
-        {dayInsights.isLoading ? (
-          <Text style={$loadingText}>Loading insights…</Text>
-        ) : insightError ? (
-          <Text style={$insightErrorText}>{insightError}</Text>
-        ) : (dayInsights.data ?? []).length === 0 ? (
-          <Text style={$loadingText}>No activity insights yet for this day.</Text>
-        ) : (
-          (dayInsights.data ?? []).map((item) => (
-            <View key={item.activityId} style={$insightCard}>
-              <Text style={$insightTitle}>{item.activityTitle}</Text>
-              {item.highlight?.text ? <Text style={$insightHighlight}>{item.highlight.text}</Text> : null}
-              <Text style={$insightMeta}>{item.questions.length} answered question(s)</Text>
-            </View>
-          ))
-        )}
+        {dayPlan?.tips && dayPlan.tips.length > 0 ? (
+          <>
+            <Text style={[$sectionTitle, { marginTop: spacing.s4 }]}>Tips</Text>
+            {dayPlan.tips.map((tip, i) => (
+              <View key={tip.id ?? `tip-${i}`} style={$tipCard}>
+                <Text style={$tipText}>{tip.body}</Text>
+              </View>
+            ))}
+          </>
+        ) : null}
       </ScrollView>
 
-      {/* ── AI Farm Assistant panel (fixed above tab bar) ── */}
-      <View pointerEvents="box-none" style={[$aiPanelWrap, { bottom: aiPanelBottom }]}>
-      <View style={[$aiPanel, chatOpen && $aiPanelExpanded]}>
+      <View style={[$aiPanel, { bottom: aiPanelBottom }, chatOpen && $aiPanelExpanded]}>
         <TouchableOpacity
           style={$aiPanelHeader}
           onPress={() => setChatOpen((v) => !v)}
           activeOpacity={0.8}
-          hitSlop={8}
         >
-          <View style={$aiAvatarCircle} />
-          <Text style={$aiPanelTitle}>AI Farm Assistant</Text>
+          <View style={$aiAvatarCircle}>
+            <Text style={$aiAvatarEmoji}>🤖</Text>
+          </View>
+          <Text style={$aiPanelTitle}>{dayPlan?.chatCtaLabel ?? "AI Farm Assistant"}</Text>
           <View style={$aiDot} />
           <Ionicons
             name={chatOpen ? "chevron-down" : "chevron-up"}
@@ -434,27 +282,38 @@ export default function PlanScreen() {
           />
         </TouchableOpacity>
 
-        {chatOpen && (
+        {chatOpen ? (
           <>
-            <View style={$chatMessageBubble}>
-              <Text style={$chatMessageText}>{MOCK_BOT_GREETING}</Text>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={$chipsScroll}
-            >
-              {MOCK_CHAT_SUGGESTIONS.map((chip) => (
-                <TouchableOpacity
-                  key={chip}
-                  style={$chip}
-                  activeOpacity={0.7}
-                  onPress={() => setChatInput(chip)}
-                >
-                  <Text style={$chipText}>{chip}</Text>
-                </TouchableOpacity>
-              ))}
+            <ScrollView ref={chatScrollRef} style={$chatMessages} nestedScrollEnabled>
+              {chatMessages.length === 0 ? (
+                <View style={$chatMessageBubble}>
+                  <Text style={$chatMessageText}>
+                    Ask me about weather, pests, or whether to adjust today's plan.
+                  </Text>
+                </View>
+              ) : (
+                chatMessages.map((msg, i) => (
+                  <View key={`msg-${i}`}>
+                    <View style={msg.role === "user" ? $chatUserBubble : $chatMessageBubble}>
+                      <Text style={$chatMessageText}>{msg.text}</Text>
+                    </View>
+                    {msg.role === "assistant" &&
+                      msg.suggestionCards.length > 0 &&
+                      msg.suggestionCards.map((card) => (
+                        <View key={card.id} style={$suggestionCard}>
+                          <View style={$suggestionCardBody}>
+                            <Text style={$suggestionCardTitle}>{card.title}</Text>
+                            <Text style={$suggestionCardReason}>{card.reason}</Text>
+                          </View>
+                          <TouchableOpacity style={$suggestionCardCta} activeOpacity={0.7}>
+                            <Text style={$suggestionCardCtaText}>{card.ctaLabel}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                  </View>
+                ))
+              )}
+              {planChat.isPending ? <ActivityIndicator size="small" color={forest500} /> : null}
             </ScrollView>
 
             <View style={$chatInputRow}>
@@ -465,128 +324,67 @@ export default function PlanScreen() {
                 placeholder="Ask about your farm..."
                 placeholderTextColor={ink4}
                 returnKeyType="send"
+                onSubmitEditing={handleSendChat}
               />
-              <TouchableOpacity style={$micBtn} hitSlop={8}>
-                <Ionicons name="mic-outline" size={20} color={ink3} />
-              </TouchableOpacity>
               <TouchableOpacity
-                style={[$sendBtn, (!canTapSend || !!sendBlockedReason) && $sendBtnDisabled]}
+                style={[$sendBtn, (!chatInput.trim() || planChat.isPending) && $sendBtnDisabled]}
                 activeOpacity={0.85}
-                disabled={!canTapSend}
-                onPress={() => {
-                  if (!expandedId) {
-                    setErrorBanner("Expand an activity first, then ask your question.")
-                    return
-                  }
-                  if (!isUuidLike(expandedId)) {
-                    setErrorBanner("Q&A is unavailable while viewing local fallback activities.")
-                    return
-                  }
-                  void submitQuestion(expandedId, chatInput)
-                }}
+                onPress={handleSendChat}
+                disabled={!chatInput.trim() || planChat.isPending}
               >
-                {isSubmittingQuestion ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-                )}
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-            {sendBlockedReason && !isSubmittingQuestion ? (
-              <Text style={$sendHelperText}>{sendBlockedReason}</Text>
-            ) : null}
           </>
-        )}
-      </View>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   )
 }
 
-// ---------------------------------------------------------------------------
-// ActivityRow
-// ---------------------------------------------------------------------------
-
 function ActivityRow({
   activity,
   dateStr,
   isExpanded,
-  questions,
-  onToggleDone,
   onToggleExpand,
-  onRetryQuestion,
 }: {
-  activity: PlanActivity
+  activity: ActivityCard
   dateStr: string
   isExpanded: boolean
-  questions: ActivityQuestion[]
-  onToggleDone: () => void
   onToggleExpand: () => void
-  onRetryQuestion: (questionId: string) => void
 }) {
   const router = useRouter()
-  const p = priorityColor(activity.priority)
+  const colors = statusUiColors(activity.status.color)
+  const isVerified = activity.status.code === "VERIFIED"
 
   return (
     <View style={[$activityCard, isExpanded && $activityCardExpanded]}>
       <View style={$activityMainRow}>
-        <TouchableOpacity
-          style={[$checkbox, activity.done && $checkboxDone]}
-          onPress={onToggleDone}
-          hitSlop={6}
-        >
-          {activity.done && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-        </TouchableOpacity>
+        <View style={[$statusDot, { backgroundColor: colors.text }]} />
 
-        <View style={$activityBody}>
-          <TouchableOpacity
-            onPress={() => {
-              if (isUuidLike(activity.id)) {
-                router.push(`/activity/${activity.id}` as any)
-              } else {
-                onToggleExpand()
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={activity.done ? $activityNameDone : $activityName}>{activity.name}</Text>
-            <Text style={$activityDuration}>{activity.durationMinutes} min</Text>
-            {activity.highlight?.text ? (
-              <Text style={$highlightBadge}>{activity.highlight.text}</Text>
-            ) : null}
-          </TouchableOpacity>
+        <View style={$activityIconCircle}>
+          <Text style={$activityIcon}>{activity.iconEmoji}</Text>
         </View>
 
-        <Text style={[$priorityText, { color: p.text }]}>{activity.priority}</Text>
+        <View style={$activityBody}>
+          <Text style={isVerified ? $activityNameDone : $activityName}>{activity.title}</Text>
+          {activity.subtitle ? <Text style={$activityDuration}>{activity.subtitle}</Text> : null}
+        </View>
+
+        <View style={[$statusBadge, { backgroundColor: colors.bg }]}>
+          <Text style={[$statusBadgeText, { color: colors.text }]}>{activity.status.label}</Text>
+        </View>
+
         <TouchableOpacity onPress={onToggleExpand} hitSlop={8} style={$chevronBtn}>
           <Ionicons name={isExpanded ? "chevron-up" : "chevron-forward"} size={16} color={ink4} />
         </TouchableOpacity>
       </View>
 
-      {isExpanded && (
+      {isExpanded ? (
         <View style={$expandedSection}>
-          {isUuidLike(activity.id) ? (
-            <TouchableOpacity
-              style={$journalLink}
-              onPress={() => router.push(`/activity/${activity.id}` as any)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="open-outline" size={14} color={forest500} />
-              <Text style={$journalLinkText}>Open activity detail</Text>
-              <Ionicons name="arrow-forward" size={13} color={forest500} />
-            </TouchableOpacity>
+          {activity.description ? (
+            <Text style={$descriptionText}>{activity.description}</Text>
           ) : null}
-          {activity.aiTip && (
-            <View style={$aiTipRow}>
-              <Text style={$aiTipText}>
-                <Text style={$aiTipBold}>AI tip: </Text>
-                {activity.aiTip}
-              </Text>
-            </View>
-          )}
-          {activity.tools && activity.tools.length > 0 && (
-            <Text style={$toolsText}>Tools: {activity.tools.join(" · ")}</Text>
-          )}
 
           <TouchableOpacity
             style={$journalLink}
@@ -596,77 +394,39 @@ function ActivityRow({
                 params: {
                   date: dateStr,
                   activityId: activity.id,
-                  activityName: activity.name,
+                  activityName: activity.title,
+                  activityIcon: activity.iconEmoji,
+                  mode: "new",
                 },
               })
             }
             activeOpacity={0.7}
           >
             <Ionicons name="journal-outline" size={14} color={forest500} />
-            <Text style={$journalLinkText}>Write journal entry</Text>
+            <Text style={$journalLinkText}>{activity.ctaLabel ?? "Log what you did"}</Text>
             <Ionicons name="arrow-forward" size={13} color={forest500} />
           </TouchableOpacity>
 
-          <View style={$qaSection}>
-            {!isUuidLike(activity.id) ? (
-              <Text style={$qaEmptyText}>
-                Q&A will be available once live server activities load for this day.
-              </Text>
-            ) : questions.length === 0 ? (
-              <Text style={$qaEmptyText}>No questions yet. Ask one from the assistant panel.</Text>
-            ) : (
-              questions.map((question) => (
-                <View key={question.questionId} style={$qaBubble}>
-                  <Text style={$qaQuestionText}>Q: {question.question}</Text>
-                  {question.status === "pending" ? (
-                    <View style={$qaPendingRow}>
-                      <ActivityIndicator size="small" color={forest500} />
-                      <Text style={$qaPendingText}>Getting answer…</Text>
-                    </View>
-                  ) : question.status === "failed" ? (
-                    <View style={$qaFailedRow}>
-                      <Text style={$qaFailedText}>Could not get an answer.</Text>
-                      <TouchableOpacity onPress={() => onRetryQuestion(question.questionId)}>
-                        <Text style={$qaRetryText}>Try again</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <>
-                      <Text style={$qaAnswerText}>{question.answer}</Text>
-                      {question.relatedFaqs.length > 0 && (
-                        <View style={$faqChipsWrap}>
-                          {question.relatedFaqs.slice(0, 3).map((faq) => (
-                            <View key={`${question.questionId}-${faq.question}`} style={$faqChip}>
-                              <Text style={$faqChipText}>{faq.question}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-                    </>
-                  )}
-                </View>
-              ))
-            )}
-          </View>
+          <TouchableOpacity
+            style={$journalLink}
+            onPress={() => router.push(`/activity/${activity.id}` as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color={forest500} />
+            <Text style={$journalLinkText}>
+              {activity.highlight ? activity.highlight.text : "View details & ask a question"}
+            </Text>
+            <Ionicons name="arrow-forward" size={13} color={forest500} />
+          </TouchableOpacity>
         </View>
-      )}
+      ) : null}
     </View>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const $root: ViewStyle = {
-  flex: 1,
-  backgroundColor: paper,
-}
-
-const $scrollContent: ViewStyle = {
-  paddingHorizontal: spacing.s5,
-}
-
+const $root: ViewStyle = { flex: 1, backgroundColor: paper }
+const $centered: ViewStyle = { flex: 1, justifyContent: "center", alignItems: "center" }
+const $scrollContent: ViewStyle = { paddingHorizontal: spacing.s5 }
 const $planLabel: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 11,
@@ -675,7 +435,6 @@ const $planLabel: TextStyle = {
   textTransform: "uppercase",
   marginBottom: spacing.s1,
 }
-
 const $dateHeading: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 26,
@@ -683,7 +442,24 @@ const $dateHeading: TextStyle = {
   lineHeight: 32,
   marginBottom: spacing.s5,
 }
-
+const $heroCard: ViewStyle = {
+  backgroundColor: forest50,
+  borderRadius: radii.lg,
+  padding: spacing.s4,
+  marginBottom: spacing.s4,
+}
+const $heroTitle: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 15,
+  color: ink,
+  marginBottom: spacing.s1,
+}
+const $heroSummary: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink2,
+  lineHeight: 18,
+}
 const $progressCard: ViewStyle = {
   backgroundColor: card,
   borderRadius: radii.xl,
@@ -693,26 +469,22 @@ const $progressCard: ViewStyle = {
   marginBottom: spacing.s6,
   ...elevation.card,
 }
-
 const $progressCardHeader: ViewStyle = {
   flexDirection: "row",
   justifyContent: "space-between",
   alignItems: "center",
   marginBottom: spacing.s3,
 }
-
 const $progressCardTitle: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 15,
   color: ink,
 }
-
 const $progressDoneText: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 14,
   color: forest500,
 }
-
 const $progressBarBg: ViewStyle = {
   height: 8,
   backgroundColor: hairline,
@@ -720,39 +492,61 @@ const $progressBarBg: ViewStyle = {
   overflow: "hidden",
   marginBottom: spacing.s2,
 }
-
 const $progressBarFill: ViewStyle = {
   height: 8,
   backgroundColor: forest500,
   borderRadius: radii.pill,
 }
-
 const $progressPercent: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 12,
   color: ink3,
   textAlign: "right",
 }
-
 const $sectionTitle: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 16,
   color: ink,
   marginBottom: spacing.s3,
 }
-
-const $loadingContainer: ViewStyle = {
-  alignItems: "center",
-  paddingVertical: spacing.s10,
-  gap: spacing.s3,
-}
-
 const $loadingText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 14,
   color: ink3,
+  marginTop: spacing.s3,
 }
-
+const $emptyState: ViewStyle = { paddingHorizontal: spacing.s5 }
+const $emptyTitle: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 18,
+  color: ink,
+  marginBottom: spacing.s2,
+}
+const $emptyBody: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 14,
+  color: ink3,
+  marginBottom: spacing.s5,
+  lineHeight: 20,
+}
+const $emptyCta: ViewStyle = {
+  backgroundColor: forest500,
+  borderRadius: radii.pill,
+  paddingVertical: spacing.s4,
+  alignItems: "center",
+  marginBottom: spacing.s3,
+}
+const $emptyCtaText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 15,
+  color: "#FFFFFF",
+}
+const $emptyLink: ViewStyle = { alignItems: "center", padding: spacing.s3 }
+const $emptyLinkText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 14,
+  color: forest500,
+}
 const $activityCard: ViewStyle = {
   backgroundColor: card,
   borderRadius: radii.xl,
@@ -762,11 +556,7 @@ const $activityCard: ViewStyle = {
   overflow: "hidden",
   ...elevation.card,
 }
-
-const $activityCardExpanded: ViewStyle = {
-  borderColor: forest500,
-}
-
+const $activityCardExpanded: ViewStyle = { borderColor: forest500 }
 const $activityMainRow: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
@@ -774,33 +564,23 @@ const $activityMainRow: ViewStyle = {
   paddingVertical: spacing.s4,
   gap: spacing.s3,
 }
-
-const $checkbox: ViewStyle = {
-  width: 26,
-  height: 26,
-  borderRadius: 13,
-  borderWidth: 2,
-  borderColor: hairline,
+const $statusDot: ViewStyle = { width: 8, height: 8, borderRadius: 4 }
+const $activityIconCircle: ViewStyle = {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  backgroundColor: forest50,
   alignItems: "center",
   justifyContent: "center",
 }
-
-const $checkboxDone: ViewStyle = {
-  backgroundColor: forest500,
-  borderColor: forest500,
-}
-
-const $activityBody: ViewStyle = {
-  flex: 1,
-}
-
+const $activityIcon: TextStyle = { fontSize: 18 }
+const $activityBody: ViewStyle = { flex: 1 }
 const $activityName: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 14,
   color: ink,
   lineHeight: 19,
 }
-
 const $activityNameDone: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 14,
@@ -808,23 +588,22 @@ const $activityNameDone: TextStyle = {
   lineHeight: 19,
   textDecorationLine: "line-through",
 }
-
 const $activityDuration: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 12,
   color: ink3,
   marginTop: 1,
 }
-
-const $priorityText: TextStyle = {
+const $statusBadge: ViewStyle = {
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.s2,
+  paddingVertical: 2,
+}
+const $statusBadgeText: TextStyle = {
   fontFamily: typography.primary.medium,
-  fontSize: 13,
+  fontSize: 11,
 }
-
-const $chevronBtn: ViewStyle = {
-  padding: 2,
-}
-
+const $chevronBtn: ViewStyle = { padding: 2 }
 const $expandedSection: ViewStyle = {
   borderTopWidth: 1,
   borderTopColor: hairline,
@@ -832,79 +611,58 @@ const $expandedSection: ViewStyle = {
   paddingVertical: spacing.s3,
   backgroundColor: forest50,
 }
-
-const $aiTipRow: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "flex-start",
-  marginBottom: spacing.s2,
-}
-
-const $aiTipText: TextStyle = {
-  flex: 1,
+const $descriptionText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 13,
   color: ink2,
   lineHeight: 19,
+  marginBottom: spacing.s2,
 }
-
-const $aiTipBold: TextStyle = {
-  fontFamily: typography.primary.bold,
-  color: ink,
-}
-
-const $toolsText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: ink3,
-}
-
 const $journalLink: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
   gap: spacing.s2,
-  marginTop: spacing.s3,
+  marginTop: spacing.s2,
   paddingTop: spacing.s3,
   borderTopWidth: 1,
   borderTopColor: hairline,
 }
-
 const $journalLinkText: TextStyle = {
   flex: 1,
   fontFamily: typography.primary.medium,
   fontSize: 13,
   color: forest500,
 }
-
-const $aiPanelWrap: ViewStyle = {
+const $tipCard: ViewStyle = {
+  backgroundColor: forest50,
+  borderRadius: radii.lg,
+  padding: spacing.s3,
+  marginBottom: spacing.s2,
+}
+const $tipText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink2,
+  lineHeight: 18,
+}
+const $aiPanel: ViewStyle = {
   position: "absolute",
   left: spacing.s4,
   right: spacing.s4,
-  zIndex: 30,
-  elevation: 30,
-}
-
-const $aiPanel: ViewStyle = {
   backgroundColor: card,
   borderRadius: radii.xl,
   borderWidth: 1,
-  borderColor: hairline,
+  borderColor: cardBorder,
+  ...elevation.card,
   overflow: "hidden",
-  zIndex: 30,
-  ...elevation.sheet,
 }
-
-const $aiPanelExpanded: ViewStyle = {
-  borderColor: forest500,
-}
-
+const $aiPanelExpanded: ViewStyle = { maxHeight: 440 }
 const $aiPanelHeader: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
   paddingHorizontal: spacing.s4,
-  height: 56,
-  gap: spacing.s2,
+  paddingVertical: spacing.s3,
 }
-
 const $aiAvatarCircle: ViewStyle = {
   width: 32,
   height: 32,
@@ -912,58 +670,64 @@ const $aiAvatarCircle: ViewStyle = {
   backgroundColor: forest50,
   alignItems: "center",
   justifyContent: "center",
+  marginRight: spacing.s3,
 }
-
+const $aiAvatarEmoji: TextStyle = { fontSize: 16 }
 const $aiPanelTitle: TextStyle = {
   flex: 1,
-  fontFamily: typography.primary.bold,
+  fontFamily: typography.primary.semiBold,
   fontSize: 14,
   color: ink,
 }
-
 const $aiDot: ViewStyle = {
   width: 8,
   height: 8,
   borderRadius: 4,
   backgroundColor: statusGood,
 }
-
+const $chatMessages: ViewStyle = {
+  maxHeight: 280,
+  paddingHorizontal: spacing.s4,
+  marginBottom: spacing.s2,
+}
 const $chatMessageBubble: ViewStyle = {
-  marginHorizontal: spacing.s4,
-  marginBottom: spacing.s3,
-  backgroundColor: paper,
+  backgroundColor: forest50,
   borderRadius: radii.lg,
   padding: spacing.s3,
+  marginBottom: spacing.s2,
 }
-
+const $chatUserBubble: ViewStyle = {
+  backgroundColor: hairline,
+  borderRadius: radii.lg,
+  padding: spacing.s3,
+  marginBottom: spacing.s2,
+  alignSelf: "flex-end",
+  maxWidth: "85%",
+}
 const $chatMessageText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 13,
   color: ink2,
-  lineHeight: 19,
+  lineHeight: 18,
 }
-
 const $chipsScroll: ViewStyle = {
   paddingHorizontal: spacing.s4,
   gap: spacing.s2,
-  marginBottom: spacing.s3,
+  marginBottom: spacing.s2,
 }
-
 const $chip: ViewStyle = {
   backgroundColor: forest50,
   borderRadius: radii.pill,
-  borderWidth: 1,
-  borderColor: forest500,
   paddingHorizontal: spacing.s3,
-  paddingVertical: 6,
+  paddingVertical: spacing.s2,
+  borderWidth: 1,
+  borderColor: hairline,
 }
-
 const $chipText: TextStyle = {
-  fontFamily: typography.primary.medium,
+  fontFamily: typography.primary.normal,
   fontSize: 12,
-  color: forest500,
+  color: ink2,
 }
-
 const $chatInputRow: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
@@ -971,189 +735,56 @@ const $chatInputRow: ViewStyle = {
   paddingBottom: spacing.s3,
   gap: spacing.s2,
 }
-
 const $chatInput: TextStyle = {
   flex: 1,
-  height: 42,
-  backgroundColor: paper,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s4,
   fontFamily: typography.primary.normal,
   fontSize: 14,
   color: ink,
-  borderWidth: 1,
-  borderColor: hairline,
+  backgroundColor: hairline,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.s4,
+  paddingVertical: spacing.s2,
 }
-
-const $micBtn: ViewStyle = {
-  width: 42,
-  height: 42,
-  borderRadius: 21,
-  backgroundColor: paper,
-  borderWidth: 1,
-  borderColor: hairline,
-  alignItems: "center",
-  justifyContent: "center",
-}
-
 const $sendBtn: ViewStyle = {
-  width: 42,
-  height: 42,
-  borderRadius: 21,
+  width: 36,
+  height: 36,
+  borderRadius: 18,
   backgroundColor: forest500,
   alignItems: "center",
   justifyContent: "center",
 }
-
-const $sendBtnDisabled: ViewStyle = {
-  backgroundColor: hairline,
-  opacity: 0.8,
-}
-
-const $sendHelperText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 11,
-  color: ink3,
-  paddingHorizontal: spacing.s4,
-  paddingBottom: spacing.s3,
-}
-
-const $errorBanner: ViewStyle = {
-  backgroundColor: statusBadBg,
-  borderColor: statusBad,
-  borderWidth: 1,
+const $sendBtnDisabled: ViewStyle = { opacity: 0.4 }
+const $suggestionCard: ViewStyle = {
+  backgroundColor: forest50,
   borderRadius: radii.lg,
-  padding: spacing.s3,
-  marginBottom: spacing.s4,
-}
-
-const $errorBannerText: TextStyle = {
-  fontFamily: typography.primary.medium,
-  color: statusBad,
-  fontSize: 12,
-}
-
-const $highlightBadge: TextStyle = {
-  marginTop: spacing.s1,
-  fontFamily: typography.primary.medium,
-  fontSize: 11,
-  color: forest500,
-}
-
-const $qaSection: ViewStyle = {
-  marginTop: spacing.s3,
-  gap: spacing.s2,
-}
-
-const $qaEmptyText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: ink3,
-}
-
-const $qaBubble: ViewStyle = {
-  backgroundColor: card,
-  borderRadius: radii.lg,
-  padding: spacing.s3,
   borderWidth: 1,
   borderColor: hairline,
-}
-
-const $qaQuestionText: TextStyle = {
-  fontFamily: typography.primary.medium,
-  fontSize: 12,
-  color: ink,
-  marginBottom: spacing.s1,
-}
-
-const $qaAnswerText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: ink2,
-  lineHeight: 18,
-}
-
-const $qaPendingRow: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: spacing.s2,
-}
-
-const $qaPendingText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: ink3,
-}
-
-const $qaFailedRow: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-}
-
-const $qaFailedText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: statusBad,
-}
-
-const $qaRetryText: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 12,
-  color: forest500,
-}
-
-const $faqChipsWrap: ViewStyle = {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: spacing.s2,
-  marginTop: spacing.s2,
-}
-
-const $faqChip: ViewStyle = {
-  borderColor: forest500,
-  borderWidth: 1,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s2,
-  paddingVertical: 3,
-}
-
-const $faqChipText: TextStyle = {
-  fontFamily: typography.primary.medium,
-  fontSize: 11,
-  color: forest500,
-}
-
-const $insightCard: ViewStyle = {
-  backgroundColor: card,
-  borderColor: cardBorder,
-  borderWidth: 1,
-  borderRadius: radii.lg,
-  padding: spacing.s3,
   marginBottom: spacing.s2,
+  overflow: "hidden",
 }
-
-const $insightTitle: TextStyle = {
-  fontFamily: typography.primary.bold,
+const $suggestionCardBody: ViewStyle = {
+  padding: spacing.s3,
+}
+const $suggestionCardTitle: TextStyle = {
+  fontFamily: typography.primary.semiBold,
   fontSize: 13,
   color: ink,
+  marginBottom: 2,
 }
-
-const $insightMeta: TextStyle = {
+const $suggestionCardReason: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 12,
   color: ink3,
 }
-
-const $insightHighlight: TextStyle = {
-  fontFamily: typography.primary.medium,
-  fontSize: 12,
-  color: forest500,
-  marginVertical: spacing.s1,
+const $suggestionCardCta: ViewStyle = {
+  borderTopWidth: 1,
+  borderTopColor: hairline,
+  paddingHorizontal: spacing.s3,
+  paddingVertical: spacing.s2,
+  alignItems: "flex-start",
 }
-
-const $insightErrorText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: statusBad,
+const $suggestionCardCtaText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+  color: forest500,
 }

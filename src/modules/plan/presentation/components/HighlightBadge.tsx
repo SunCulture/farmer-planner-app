@@ -1,10 +1,10 @@
 import { Text, TextStyle, TouchableOpacity, ViewStyle } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 
-import { radii, spacing, statusWarn, statusWarnBg } from "@/theme/tapp-tokens"
+import { radii, spacing, statusWarn, statusWarnBg } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
-import type { ActivityHighlight } from "../../domain/entities/activity-qa"
+import type { ActivityHighlight } from "../../domain/entities/activity-highlight"
 
 interface HighlightBadgeProps {
   highlight: ActivityHighlight

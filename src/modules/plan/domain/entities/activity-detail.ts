@@ -1,33 +1,11 @@
-import type { ActivityHighlight } from "./activity-qa"
+import type { ActivityCompletion } from "@/modules/journal/domain/entities/completion"
 
-export type ActivityStatusCode = "PENDING" | "DONE" | "VERIFIED" | "SKIPPED" | "REJECTED"
+import type { ActivityCard } from "./activity-card"
 
-export type ActivityStatus = {
-  code: ActivityStatusCode | string
-  label: string
-  color: string
-}
-
-export type ActivityCompletion = {
-  id: string
-  journalText: string | null
-  photoUrls: string[]
-  status: string
-  outcomeNote: string | null
-  verifiedAt: string | null
-}
-
-export type ActivityDetail = {
-  id: string
-  title: string
-  subtitle?: string
-  description?: string
-  educationBrief?: string
-  status: ActivityStatus
-  iconKey: string
-  iconEmoji: string
+export interface ActivityDetail extends ActivityCard {
   planId: string
   date: string
-  highlight: ActivityHighlight | null
+  /** Short educational copy shown under “Why this matters”. */
+  educationBrief?: string
   completion: ActivityCompletion | null
 }

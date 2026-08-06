@@ -1,4 +1,4 @@
-import { api, type ActivityDetailResponse } from "@/services/api"
+import { api } from "@/services/api"
 import { getGeneralApiProblem } from "@/services/api/apiProblem"
 
 import { isUuidLike } from "./activity-qa-service"
@@ -14,6 +14,27 @@ type ActivityDetailProblemKind =
   | "rejected"
   | "unknown"
   | "bad-data"
+
+/** Loose presenter payload used by mapActivityDetail unit tests and legacy callers. */
+export type ActivityDetailRaw = {
+  id: string
+  title: string
+  subtitle?: string
+  description?: string
+  educationBrief?: string
+  status?: { code: string; label: string; color: string }
+  iconKey?: string
+  highlight: { text: string; addedAt: string } | null
+  planId?: string
+  date?: string
+  completion?: {
+    id: string
+    journalText?: string | null
+    photoUrls?: string[]
+    status: string
+    verifiedAt?: string | null
+  } | null
+}
 
 export class ActivityDetailError extends Error {
   kind: ActivityDetailProblemKind
@@ -41,7 +62,7 @@ function mapApiProblem(response: any): ActivityDetailError | null {
   )
 }
 
-export function mapActivityDetail(raw: ActivityDetailResponse): ActivityDetail {
+export function mapActivityDetail(raw: ActivityDetailRaw): ActivityDetail {
   const status = raw.status ?? { code: "PENDING", label: "Not started", color: "amber" }
   return {
     id: raw.id,
@@ -61,31 +82,16 @@ export function mapActivityDetail(raw: ActivityDetailResponse): ActivityDetail {
     completion: raw.completion
       ? {
           id: raw.completion.id,
-          journalText: raw.completion.journalText ?? null,
+          journalText: raw.completion.journalText ?? "",
           photoUrls: Array.isArray(raw.completion.photoUrls) ? raw.completion.photoUrls : [],
-          status: raw.completion.status,
-          outcomeNote: raw.completion.outcomeNote ?? null,
+          status:
+            raw.completion.status === "VERIFIED" || raw.completion.status === "REJECTED"
+              ? raw.completion.status
+              : "PENDING",
           verifiedAt: raw.completion.verifiedAt ?? null,
         }
       : null,
   }
-}
-
-export async function fetchActivityDetail(activityId: string): Promise<ActivityDetail> {
-  if (!isUuidLike(activityId)) {
-    throw new ActivityDetailError("bad-data", "Activity detail requires a live server activity id")
-  }
-
-  const response = await api.getActivityDetail(activityId)
-  const problem = mapApiProblem(response)
-  if (problem) throw problem
-
-  const raw = response.data?.data ?? response.data?.activity
-  if (!raw || typeof raw.id !== "string" || typeof raw.title !== "string") {
-    throw new ActivityDetailError("bad-data", "Activity detail response is missing required fields")
-  }
-
-  return mapActivityDetail(raw)
 }
 
 export async function markActivityDone(activityId: string) {

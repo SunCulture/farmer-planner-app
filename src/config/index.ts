@@ -21,6 +21,8 @@ const Config = {
   ...BaseConfig,
   ...ExtraConfig,
   API_URL: resolveApiUrl(),
+  /** Local/dev-only bearer token — never set this in production EAS envs. */
+  DEV_ACCESS_TOKEN: process.env.EXPO_PUBLIC_DEV_ACCESS_TOKEN?.trim() || undefined,
 }
 
 export default Config

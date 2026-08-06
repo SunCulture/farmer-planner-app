@@ -1,14 +1,11 @@
 // Activities API service
 //
-// API_LIVE = true  → simulates a real HTTP call (800ms latency, rare failures)
-// API_LIVE = false → API is considered down; loads from the local mock calendar
-//
-// Flip API_LIVE to true when the real backend endpoint is wired in.
+// Prefer `useDayPlan` / `plan-api` for new UI. This helper remains for
+// callers that still want a PlanActivity[] shape with local mock fallback.
 
 import type { PlanActivity } from "../domain/entities/activity"
 import { buildActivitiesForDate } from "./activities-calendar"
 import { api } from "@/services/api"
-import { getGeneralApiProblem } from "@/services/api/apiProblem"
 
 export const API_LIVE = true
 
@@ -21,25 +18,15 @@ function sleep(ms: number): Promise<void> {
 
 async function fetchFromApi(dateStr: string): Promise<PlanActivity[]> {
   await sleep(API_LATENCY_MS)
-  const response = await api.getDayPlan(dateStr)
-  const problem = getGeneralApiProblem(response)
-  if (problem) {
-    throw new Error(`[activities-service] ${problem.kind} while fetching ${dateStr}`)
-  }
-
-  const rows = response.data?.data?.activities ?? response.data?.activities
+  const dayPlan = await api.getDayPlan(dateStr)
+  const rows = dayPlan.activities
   if (!Array.isArray(rows)) {
     throw new Error(`[activities-service] Invalid day plan shape for ${dateStr}`)
   }
 
-  return rows.map((row: any, index: number) => ({
+  return rows.map((row, index) => ({
     id: typeof row?.id === "string" ? row.id : `${dateStr}-${index}`,
-    name:
-      typeof row?.title === "string"
-        ? row.title
-        : typeof row?.name === "string"
-          ? row.name
-          : `Activity ${index + 1}`,
+    name: typeof row?.title === "string" ? row.title : `Activity ${index + 1}`,
     title: typeof row?.title === "string" ? row.title : undefined,
     subtitle: typeof row?.subtitle === "string" ? row.subtitle : undefined,
     description: typeof row?.description === "string" ? row.description : undefined,
@@ -47,7 +34,7 @@ async function fetchFromApi(dateStr: string): Promise<PlanActivity[]> {
     iconKey: typeof row?.iconKey === "string" ? row.iconKey : undefined,
     priority: "Medium",
     durationMinutes: 20,
-    done: false,
+    done: row?.status?.code === "VERIFIED",
     highlight:
       row?.highlight && typeof row.highlight.text === "string"
         ? { text: row.highlight.text, addedAt: String(row.highlight.addedAt ?? "") }
@@ -57,7 +44,6 @@ async function fetchFromApi(dateStr: string): Promise<PlanActivity[]> {
 
 export async function getActivitiesForDay(dateStr: string): Promise<PlanActivity[]> {
   if (!API_LIVE) {
-    // API is down — read directly from local mock calendar
     await sleep(FALLBACK_LATENCY_MS)
     return buildActivitiesForDate(dateStr)
   }

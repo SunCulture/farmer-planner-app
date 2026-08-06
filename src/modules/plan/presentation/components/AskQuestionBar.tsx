@@ -1,7 +1,7 @@
 import { TextInput, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 
-import { forest500, hairline, ink, ink4, radii, spacing } from "@/theme/tapp-tokens"
+import { forest500, hairline, ink, ink4, radii, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 interface AskQuestionBarProps {

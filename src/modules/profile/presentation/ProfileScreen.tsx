@@ -1,18 +1,18 @@
 import React from "react"
-import {
-  ScrollView,
-  Text,
-  TextStyle,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-} from "react-native"
+import { ScrollView, Text, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { loadFarmerProfile } from "@/modules/onboarding"
-import { useCrops, useGoals, useLivestock } from "@/modules/onboarding/application/use-catalog-queries"
+import { container } from "@/bootstrap/container"
+import { clearAuthToken, loadFarmerProfile } from "@/modules/onboarding"
+import {
+  useCrops,
+  useGoals,
+  useLivestock,
+} from "@/modules/onboarding/application/use-catalog-queries"
+import { api } from "@/services/api"
+import type { SseClient } from "@/shared/contracts/sse"
 import {
   card,
   forest50,
@@ -26,9 +26,10 @@ import {
   paper,
   radii,
   spacing,
+  statusBad,
+  statusBadBg,
   statusGood,
-  statusGoodBg,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,12 @@ export default function ProfileScreen() {
   }
 
   const initials = profile.name
-    ? profile.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+    ? profile.name
+        .split(" ")
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
     : "F"
 
   const isCrops = profile.productionType === "CROPS"
@@ -139,8 +145,15 @@ export default function ProfileScreen() {
         ? "Livestock"
         : "Mixed farming"
 
-  const workStyleLabel =
-    profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
+  const workStyleLabel = profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
+
+  function handleLogout() {
+    api.logout("").catch(() => {})
+    clearAuthToken()
+    api.clearAuthToken()
+    container.resolve<SseClient>("sseClient")?.disconnect()
+    router.replace("/onboarding" as any)
+  }
 
   const showCrops = isCrops || isMixed
   const showLivestock = !isCrops || isMixed
@@ -233,7 +246,10 @@ export default function ProfileScreen() {
           ) : (
             <View style={$goalsList}>
               {resolvedGoals.map((goal, i) => (
-                <View key={goal.name} style={[$goalItem, i < resolvedGoals.length - 1 && $goalItemBorder]}>
+                <View
+                  key={goal.name}
+                  style={[$goalItem, i < resolvedGoals.length - 1 && $goalItemBorder]}
+                >
                   <Text style={$goalLabel}>{goal.name}</Text>
                   <Ionicons name="checkmark-circle" size={18} color={statusGood} />
                 </View>
@@ -244,9 +260,20 @@ export default function ProfileScreen() {
 
         {/* ── Onboarding completion badge ── */}
         <View style={$completionBadge}>
-          <Ionicons name="checkmark-circle" size={16} color={statusGood} style={{ marginRight: 6 }} />
+          <Ionicons
+            name="checkmark-circle"
+            size={16}
+            color={statusGood}
+            style={{ marginRight: 6 }}
+          />
           <Text style={$completionText}>Onboarding complete · Farm plan active</Text>
         </View>
+
+        {/* ── Logout ── */}
+        <TouchableOpacity style={$logoutBtn} activeOpacity={0.7} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color={statusBad} />
+          <Text style={$logoutText}>Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   )
@@ -367,6 +394,7 @@ const $infoRow: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
   paddingVertical: spacing.s3,
+  gap: spacing.s3,
 }
 
 const $infoLabel: TextStyle = {
@@ -394,6 +422,8 @@ const $chipRow: ViewStyle = {
 }
 
 const $chip: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
   backgroundColor: card,
   borderRadius: radii.pill,
   borderWidth: 1.5,
@@ -447,6 +477,24 @@ const $completionText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 13,
   color: statusGood,
+}
+
+const $logoutBtn: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: spacing.s2,
+  backgroundColor: statusBadBg,
+  borderRadius: radii.xl,
+  paddingVertical: spacing.s4,
+  borderWidth: 1,
+  borderColor: statusBad + "33",
+}
+
+const $logoutText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 15,
+  color: statusBad,
 }
 
 const $emptyState: ViewStyle = {

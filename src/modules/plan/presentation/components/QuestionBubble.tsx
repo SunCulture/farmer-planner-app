@@ -14,10 +14,10 @@ import {
   spacing,
   statusBad,
   statusBadBg,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
-import type { ActivityQuestion } from "../../domain/entities/activity-qa"
+import type { ActivityQuestion } from "../../domain/entities/activity-question"
 
 interface QuestionBubbleProps {
   question: ActivityQuestion

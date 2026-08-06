@@ -17,6 +17,7 @@ import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { api } from "@/services/api"
 import {
   card,
   forest50,
@@ -27,48 +28,78 @@ import {
   ink4,
   radii,
   spacing,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
-import { api } from "@/services/api"
-
-import { saveAuthToken, saveFarmerProfile, setOnboardingComplete } from "../application/farmer-profile-store"
+import OnboardingActivationStep from "./OnboardingActivationStep"
+import {
+  markOnboardingComplete,
+  saveAuthToken,
+  saveFarmerProfile,
+  setOnboardingComplete,
+} from "../application/farmer-profile-store"
 import {
   draftFromOnboardingData,
   uiStepFromSuggested,
 } from "../application/resume-onboarding"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
-import { CROPS as MOCK_CROPS, GOALS as MOCK_GOALS, LIVESTOCK as MOCK_LIVESTOCK, REGIONS as MOCK_REGIONS } from "../infrastructure/mock-data"
+import { useCompleteOnboarding, usePatchOnboarding } from "../application/use-onboarding-mutations"
+import {
+  isValidTwoWeekGoal,
+  TWO_WEEK_GOAL_MAX_LENGTH,
+  TWO_WEEK_GOAL_MIN_LENGTH,
+} from "../domain/policies/two-week-goal"
 
-const PREVIEW_REGIONS = MOCK_REGIONS.map((r) => ({
-  id: r.id,
-  countryId: "preview",
-  name: r.name,
-  slug: r.id,
-  latitude: 0,
-  longitude: 0,
-  weather: {
-    temperature: Number.parseInt(r.temp, 10) || 0,
-    feelsLike: 0,
-    humidity: 0,
-    description: "",
-    windSpeed: 0,
-    iconCode: "",
-  },
-}))
-
-const PREVIEW_CROPS = MOCK_CROPS.map((c) => ({ id: c.id, name: c.name, slug: c.id }))
-const PREVIEW_LIVESTOCK = MOCK_LIVESTOCK.map((a) => ({
-  id: a.id,
-  name: a.name,
-  slug: a.id === "cows" ? "cattle" : a.id,
-}))
-const PREVIEW_GOALS = MOCK_GOALS.map((g) => ({
-  id: g.id,
-  name: g.name,
-  slug: g.id,
-  illustrationKey: g.id,
-}))
+// Display-only emoji lookups — purely cosmetic, not data
+const CROP_EMOJI: Record<string, string> = {
+  maize: "🌽",
+  beans: "🫘",
+  tomatoes: "🍅",
+  kale: "🥬",
+  potatoes: "🥔",
+  onions: "🧅",
+  capsicum: "🫑",
+  watermelon: "🍉",
+  avocado: "🥑",
+  mango: "🥭",
+  banana: "🍌",
+  coffee: "☕",
+  tea: "🍵",
+}
+const LIVESTOCK_EMOJI: Record<string, string> = {
+  cattle: "🐄",
+  chickens: "🐔",
+  goats: "🐐",
+  sheep: "🐑",
+  pigs: "🐷",
+  rabbits: "🐰",
+  ducks: "🦆",
+  bees: "🐝",
+}
+const GOAL_EMOJI: Record<string, string> = {
+  MAKE_MONEY: "💰",
+  FOOD_SECURITY: "🌽",
+  SAVE_TIME: "⏰",
+  REDUCE_LOSSES: "📉",
+  LIVESTOCK_HEALTH: "🐄",
+  MODERN_FARMING: "📚",
+}
+const REGION_EMOJI: Record<string, string> = {
+  nairobi: "🏙️",
+  nakuru: "🌽",
+  kisumu: "🌊",
+  mombasa: "☀️",
+  eldoret: "🥬",
+  kitale: "🌽",
+  machakos: "⛰️",
+  nyeri: "🍃",
+  meru: "🌱",
+  thika: "🍍",
+  kisii: "🫐",
+  kakamega: "🌧️",
+  garissa: "🌵",
+  narok: "🦁",
+}
 
 // ---------------------------------------------------------------------------
 // Types (UI-local — not the same as the API entity)
@@ -80,14 +111,15 @@ type FarmSizeUI = "small" | "medium" | "large"
 
 interface DraftProfile {
   name: string
-  location: string      // region name — display label
-  locationSlug: string  // region slug — used as county in API patch
+  location: string // region name — display label
+  locationSlug: string // region slug — used as county in API patch
   farmType: FarmTypeUI | null
   crops: string[]
   livestock: string[]
   workStyle: WorkStyleUI | null
   farmSize: FarmSizeUI | null
-  goals: string[]       // goal slugs (e.g. "MAKE_MONEY")
+  goals: string[] // goal slugs (e.g. "MAKE_MONEY")
+  twoWeekGoal: string // free-text goal for the next 2 weeks
 }
 
 const INITIAL_DRAFT: DraftProfile = {
@@ -100,6 +132,7 @@ const INITIAL_DRAFT: DraftProfile = {
   workStyle: null,
   farmSize: null,
   goals: [],
+  twoWeekGoal: "",
 }
 
 const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
@@ -108,16 +141,9 @@ const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
   large: 7.5,
 }
 
-function buildTwoWeekGoal(draft: DraftProfile): string {
-  const primaryGoal = draft.goals[0]
-  if (primaryGoal) {
-    return `Make progress on ${primaryGoal.replaceAll("_", " ").toLowerCase()} over the next 2 weeks.`
-  }
-  return "Improve farm consistency and outcomes over the next 2 weeks."
-}
-
-// Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers  6=farmSize  7=goals  8=success
-const PROGRESS_STEPS = 7
+// Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers
+// 6=farmSize  7=goals  8=twoWeekGoal  9=activating (SSE wait -> plan day view)
+const PROGRESS_STEPS = 8
 
 const W = Dimensions.get("window").width
 const GRID_CARD_W = (W - spacing.s5 * 2 - spacing.s3) / 2
@@ -150,6 +176,8 @@ export default function OnboardingScreen() {
   const livestockQuery = useLivestock()
   const regionsQuery = useRegions()
   const goalsQuery = useGoals()
+  const patchOnboardingMutation = usePatchOnboarding()
+  const completeOnboardingMutation = useCompleteOnboarding()
 
   const goNext = () => setStep((s) => s + 1)
   const goBack = () => setStep((s) => Math.max(0, s - 1))
@@ -162,7 +190,11 @@ export default function OnboardingScreen() {
       if (authMode === "login") {
         res = await api.login({ email: authEmail.trim(), password: authPassword })
       } else {
-        res = await api.register({ email: authEmail.trim(), password: authPassword, name: authName.trim() })
+        res = await api.register({
+          email: authEmail.trim(),
+          password: authPassword,
+          name: authName.trim(),
+        })
       }
 
       console.log("[auth] status:", res.status, "ok:", res.ok, "data:", JSON.stringify(res.data))
@@ -170,7 +202,8 @@ export default function OnboardingScreen() {
       if (!res.ok || !res.data?.data?.accessToken) {
         const msg =
           (res.data as any)?.error?.message ??
-          (res.originalError?.message ?? `Request failed (${res.status ?? "no response"})`)
+          res.originalError?.message ??
+          `Request failed (${res.status ?? "no response"})`
         setAuthError(msg)
         return
       }
@@ -184,11 +217,30 @@ export default function OnboardingScreen() {
         setDraft((d) => ({ ...d, name: farmer.displayName }))
       }
 
+      // Completed onboarding → load profile and go home
       if (authMode === "login" && farmer.onboardingCompleted) {
+        const profileRes = await api.getOnboarding()
+        if (profileRes.ok && profileRes.data?.data) {
+          const d = profileRes.data.data
+          saveFarmerProfile({
+            name: d.name,
+            location: d.location ?? { label: "", county: "", country: "" },
+            productionType: d.productionType ?? "CROPS",
+            cropIds: d.cropIds,
+            livestockIds: d.livestockIds,
+            helpersLevel: d.helpersLevel ?? "SOLO",
+            acreage: d.acreage ?? 1,
+            goalSlugs: d.goalSlugs,
+            twoWeekGoal: d.twoWeekGoal ?? undefined,
+          })
+        } else {
+          markOnboardingComplete()
+        }
         router.replace("/(tabs)/" as any)
         return
       }
 
+      // Incomplete onboarding on login → resume draft at suggested step
       if (authMode === "login" && !farmer.onboardingCompleted) {
         const onboardingRes = await api.getOnboarding()
         if (onboardingRes.ok && onboardingRes.data?.data) {
@@ -204,6 +256,7 @@ export default function OnboardingScreen() {
             workStyle: snap.workStyle,
             farmSize: snap.farmSize,
             goals: snap.goals,
+            twoWeekGoal: snap.twoWeekGoal,
           })
           if (snap.location) setLocationQuery(snap.location)
           setStep(uiStepFromSuggested(data.suggestedStep ?? farmer.suggestedStep))
@@ -218,6 +271,8 @@ export default function OnboardingScreen() {
   }
 
   const handleFinish = async () => {
+    if (!isValidTwoWeekGoal(draft.twoWeekGoal)) return
+
     setFinishError(null)
     setFinishLoading(true)
     try {
@@ -231,37 +286,33 @@ export default function OnboardingScreen() {
         livestockIds: draft.livestock,
         helpersLevel: (draft.workStyle === "solo"
           ? "SOLO"
-          : "SMALL_TEAM") as import("../domain/entities/farmer-profile").HelpersLevel,
+          : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
         acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
         goalSlugs: draft.goals,
+        twoWeekGoal: draft.twoWeekGoal.trim(),
       }
       saveFarmerProfile(profile)
 
-      const patchRes = await api.patchOnboarding({
-        ...profile,
-        twoWeekGoal: buildTwoWeekGoal(draft),
-      })
-      if (!patchRes.ok) {
-        const msg =
-          (patchRes.data as any)?.error?.message ??
-          patchRes.originalError?.message ??
-          `Save failed (${patchRes.status ?? "no response"})`
-        setFinishError(msg)
+      try {
+        await patchOnboardingMutation.mutateAsync(profile)
+      } catch (err) {
+        setFinishError(err instanceof Error ? err.message : "Save failed. Please try again.")
         return
       }
 
-      const completeRes = await api.completeOnboarding()
-      if (!completeRes.ok) {
-        const msg =
-          (completeRes.data as any)?.error?.message ??
-          completeRes.originalError?.message ??
-          `Could not complete onboarding (${completeRes.status ?? "no response"})`
-        setFinishError(msg)
+      // Gate: POST /me/onboarding/complete must not be reachable without a
+      // valid twoWeekGoal — enforced above via the early return, and mirrored
+      // server-side per the backend PRD.
+      try {
+        await completeOnboardingMutation.mutateAsync()
+      } catch (err) {
+        setFinishError(
+          err instanceof Error ? err.message : "Could not complete onboarding. Please try again.",
+        )
         return
       }
 
-      setOnboardingComplete(true)
-      setStep(8)
+      setStep(9) // -> activation wait screen (SSE), see OnboardingActivationStep
     } finally {
       setFinishLoading(false)
     }
@@ -281,76 +332,28 @@ export default function OnboardingScreen() {
       (draft.farmType === "crops" ? draft.crops.length > 0 : draft.livestock.length > 0)) ||
     (step === 5 && draft.workStyle !== null) ||
     (step === 6 && draft.farmSize !== null) ||
-    (step === 7 && draft.goals.length > 0)
+    (step === 7 && draft.goals.length > 0) ||
+    (step === 8 && isValidTwoWeekGoal(draft.twoWeekGoal))
 
-  const ctaLabel = step === 7 ? "Build My Farm Plan" : "Continue"
-  const ctaOnPress = step === 7 ? handleFinish : goNext
+  const ctaLabel = step === 8 ? "Build My Farm Plan 🌱" : "Continue  →"
+  const ctaOnPress = step === 8 ? handleFinish : goNext
 
   const isAuth = step === 0
-  const isSuccess = step === 8
-  const showHeader = !isAuth && !isSuccess
+  const isActivating = step === 9
+  const showHeader = !isAuth && !isActivating
 
-  const allRegions =
-    regionsQuery.data && regionsQuery.data.length > 0 ? regionsQuery.data : PREVIEW_REGIONS
+  const allRegions = regionsQuery.data ?? []
   const filteredRegions = locationQuery
     ? allRegions.filter((r) => r.name.toLowerCase().includes(locationQuery.toLowerCase()))
     : allRegions
-  const allCrops = cropsQuery.data && cropsQuery.data.length > 0 ? cropsQuery.data : PREVIEW_CROPS
-  const allLivestock =
-    livestockQuery.data && livestockQuery.data.length > 0 ? livestockQuery.data : PREVIEW_LIVESTOCK
-  const allGoals = goalsQuery.data && goalsQuery.data.length > 0 ? goalsQuery.data : PREVIEW_GOALS
 
-  // ---- Success screen -------------------------------------------------------
+  // ---- Activation wait screen (SSE) ------------------------------------------
 
-  if (isSuccess) {
-    const farmTypeLabel = draft.farmType === "crops" ? "Crops" : "Livestock"
-    const farmSizeLabel =
-      draft.farmSize === "small"
-        ? "Small farm"
-        : draft.farmSize === "medium"
-          ? "Medium farm"
-          : "Large farm"
-
-    return (
-      <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.s4 }]}>
-        <View style={$successCenter}>
-          <View style={$trophyCircle}>
-            <Ionicons name="checkmark-circle" size={56} color={forest500} />
-          </View>
-          <Text style={$successHeading}>{"Your smart farming\njourney begins now!"}</Text>
-          <Text style={$successSubtitle}>
-            {"Welcome, "}
-            {draft.name}
-            {"! Your plan is ready.\nLet's make this season your best."}
-          </Text>
-          <View style={$tagRow}>
-            {draft.location ? (
-              <View style={$tag}>
-                <Text style={$tagText}>{draft.location}</Text>
-              </View>
-            ) : null}
-            <View style={$tag}>
-              <Text style={$tagText}>{farmTypeLabel}</Text>
-            </View>
-            {draft.farmSize ? (
-              <View style={$tag}>
-                <Text style={$tagText}>{farmSizeLabel}</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-        <TouchableOpacity
-          style={[$ctaBtn, { marginHorizontal: spacing.s5 }]}
-          onPress={() => router.replace("/(tabs)/" as any)}
-          activeOpacity={0.85}
-        >
-          <Text style={$ctaBtnText}>Go to My Dashboard</Text>
-        </TouchableOpacity>
-      </View>
-    )
+  if (isActivating) {
+    return <OnboardingActivationStep />
   }
 
-  // ---- Main flow (steps 0-7) ------------------------------------------------
+  // ---- Main flow (steps 0-8) ------------------------------------------------
 
   // ---- Auth screen (step 0) — rendered separately, no scroll wrapper --------
 
@@ -367,11 +370,11 @@ export default function OnboardingScreen() {
         >
           {/* Brand badge */}
           <View style={$authBadge}>
-            <Text style={$authBadgeText}>Tujiweze</Text>
+            <Text style={$authBadgeText}>✦ Tujiweze</Text>
           </View>
 
           <Text style={$authHeading}>
-            {authMode === "login" ? "Welcome back" : "Create your account"}
+            {authMode === "login" ? "Welcome back 👋" : "Create your account 🌱"}
           </Text>
           <Text style={$authSubtitle}>
             {authMode === "login"
@@ -386,7 +389,10 @@ export default function OnboardingScreen() {
               <TextInput
                 style={$authInput}
                 value={authName}
-                onChangeText={(v) => { setAuthName(v); setAuthError(null) }}
+                onChangeText={(v) => {
+                  setAuthName(v)
+                  setAuthError(null)
+                }}
                 placeholder="John Kamau"
                 placeholderTextColor={ink4}
                 autoCapitalize="words"
@@ -400,7 +406,10 @@ export default function OnboardingScreen() {
           <TextInput
             style={$authInput}
             value={authEmail}
-            onChangeText={(v) => { setAuthEmail(v); setAuthError(null) }}
+            onChangeText={(v) => {
+              setAuthEmail(v)
+              setAuthError(null)
+            }}
             placeholder="you@example.com"
             placeholderTextColor={ink4}
             keyboardType="email-address"
@@ -413,7 +422,10 @@ export default function OnboardingScreen() {
           <TextInput
             style={$authInput}
             value={authPassword}
-            onChangeText={(v) => { setAuthPassword(v); setAuthError(null) }}
+            onChangeText={(v) => {
+              setAuthPassword(v)
+              setAuthError(null)
+            }}
             placeholder="••••••••"
             placeholderTextColor={ink4}
             secureTextEntry
@@ -433,7 +445,7 @@ export default function OnboardingScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={$ctaBtnText}>
-                {authMode === "login" ? "Sign in" : "Create account"}
+                {authMode === "login" ? "Sign in  →" : "Create account  →"}
               </Text>
             )}
           </TouchableOpacity>
@@ -448,12 +460,8 @@ export default function OnboardingScreen() {
             }}
           >
             <Text style={$authToggleText}>
-              {authMode === "login"
-                ? "Don't have an account? "
-                : "Already have an account? "}
-              <Text style={$authToggleLink}>
-                {authMode === "login" ? "Register" : "Sign in"}
-              </Text>
+              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+              <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -466,13 +474,9 @@ export default function OnboardingScreen() {
       {/* Header with progress bar */}
       {showHeader && (
         <View style={[$header, { paddingTop: insets.top + spacing.s3 }]}>
-          {step > 0 ? (
-            <TouchableOpacity onPress={goBack} hitSlop={8} style={$backBtn}>
-              <Ionicons name="chevron-back" size={24} color={ink} />
-            </TouchableOpacity>
-          ) : (
-            <View style={$backBtn} />
-          )}
+          <TouchableOpacity onPress={goBack} hitSlop={8} style={$backBtn}>
+            <Ionicons name="chevron-back" size={24} color={ink} />
+          </TouchableOpacity>
           <View style={$progressBar}>
             {Array.from({ length: PROGRESS_STEPS }).map((_, i) => (
               <View
@@ -498,10 +502,10 @@ export default function OnboardingScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-
           {/* ---- Name ---- */}
           {step === 1 && (
             <>
+              <Text style={$stepEmoji}>👋</Text>
               <Text style={$stepHeading}>{"What should we\ncall you?"}</Text>
               <Text style={$stepSubtitle}>{"We'll personalise your experience just for you."}</Text>
               <TextInput
@@ -515,8 +519,7 @@ export default function OnboardingScreen() {
               />
               {draft.name.trim().length >= 2 && (
                 <View style={$nameConfirm}>
-                  <Ionicons name="checkmark-circle" size={16} color={forest500} />
-                  <Text style={$nameConfirmText}>Great to meet you, {draft.name.trim()}!</Text>
+                  <Text style={$nameConfirmText}>✓ Great to meet you, {draft.name.trim()}!</Text>
                 </View>
               )}
             </>
@@ -537,15 +540,14 @@ export default function OnboardingScreen() {
                   placeholderTextColor={ink4}
                 />
               </View>
-              {regionsQuery.isLoading && !regionsQuery.data?.length ? (
+              {regionsQuery.isLoading ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
                   {filteredRegions.map((region) => {
                     const selected = draft.location === region.name
-                    const tempLabel = region.weather?.temperature
-                      ? `${region.weather.temperature}°C`
-                      : null
+                    const emoji = REGION_EMOJI[region.slug] ?? "📍"
+                    const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
                     return (
                       <Pressable
                         key={region.id}
@@ -558,15 +560,16 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
+                        <Text style={{ fontSize: 22 }}>{emoji}</Text>
                         <Text style={[$locationName, selected && { color: forest500 }]}>
                           {region.name}
                         </Text>
                         {tempLabel && <Text style={$locationTemp}>{tempLabel}</Text>}
-                        {region.weather?.description ? (
+                        {region.weather && (
                           <Text style={$locationWeatherDesc} numberOfLines={1}>
                             {region.weather.description}
                           </Text>
-                        ) : null}
+                        )}
                         {selected && (
                           <View style={$locationCheck}>
                             <Ionicons name="checkmark-circle" size={18} color={forest500} />
@@ -591,11 +594,17 @@ export default function OnboardingScreen() {
                     id: "crops" as FarmTypeUI,
                     label: "Crops",
                     desc: "Fruits, vegetables & grains",
+                    illustration: "🌳🌽🍅",
+                    illustrationBg: forest50,
+                    icon: "🌱",
                   },
                   {
                     id: "livestock" as FarmTypeUI,
                     label: "Livestock",
                     desc: "Cows, goats, chickens & more",
+                    illustration: "🐄🐔🐐",
+                    illustrationBg: "#FDF3E7",
+                    icon: "🐄",
                   },
                 ] as const
               ).map((opt) => {
@@ -603,19 +612,24 @@ export default function OnboardingScreen() {
                 return (
                   <Pressable
                     key={opt.id}
-                    style={[$sizeCard, selected && $sizeCardSelected]}
+                    style={[$bigCard, selected && $bigCardSelected]}
                     onPress={() =>
                       setDraft((d) => ({ ...d, farmType: opt.id, crops: [], livestock: [] }))
                     }
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[$sizeLabel, selected && { color: forest500 }]}>
-                        {opt.label}
-                      </Text>
-                      <Text style={$sizeDesc}>{opt.desc}</Text>
+                    <View style={[$bigCardIllustration, { backgroundColor: opt.illustrationBg }]}>
+                      <Text style={{ fontSize: 44 }}>{opt.illustration}</Text>
                     </View>
-                    <View style={[$radio, selected && $radioSelected]}>
-                      {selected && <View style={$radioDot} />}
+                    <View style={$bigCardFooter}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
+                          {opt.icon} {opt.label}
+                        </Text>
+                        <Text style={$bigCardDesc}>{opt.desc}</Text>
+                      </View>
+                      <View style={[$radio, selected && $radioSelected]}>
+                        {selected && <View style={$radioDot} />}
+                      </View>
                     </View>
                   </Pressable>
                 )
@@ -628,12 +642,13 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {cropsQuery.isLoading && !cropsQuery.data?.length ? (
+              {cropsQuery.isLoading ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
-                  {allCrops.map((crop) => {
+                  {(cropsQuery.data ?? []).map((crop) => {
                     const selected = draft.crops.includes(crop.id)
+                    const emoji = CROP_EMOJI[crop.slug] ?? "🌱"
                     return (
                       <Pressable
                         key={crop.id}
@@ -647,10 +662,13 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
+                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {crop.name}
                         </Text>
-                        <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        <View
+                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
+                        >
                           {selected && <Ionicons name="checkmark" size={10} color={card} />}
                         </View>
                       </Pressable>
@@ -666,12 +684,13 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
               <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {livestockQuery.isLoading && !livestockQuery.data?.length ? (
+              {livestockQuery.isLoading ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
-                  {allLivestock.map((animal) => {
+                  {(livestockQuery.data ?? []).map((animal) => {
                     const selected = draft.livestock.includes(animal.id)
+                    const emoji = LIVESTOCK_EMOJI[animal.slug] ?? "🐾"
                     return (
                       <Pressable
                         key={animal.id}
@@ -685,10 +704,13 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
+                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
                         <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                           {animal.name}
                         </Text>
-                        <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        <View
+                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
+                        >
                           {selected && <Ionicons name="checkmark" size={10} color={card} />}
                         </View>
                       </Pressable>
@@ -712,11 +734,15 @@ export default function OnboardingScreen() {
                     id: "solo" as WorkStyleUI,
                     label: "Solo Farmer",
                     desc: "I work my farm on my own",
+                    illustration: "🧑‍🌾",
+                    icon: "👤",
                   },
                   {
                     id: "helpers" as WorkStyleUI,
                     label: "With Helpers",
                     desc: "I have farmhands or family help",
+                    illustration: "👨‍👩‍👧",
+                    icon: "👥",
                   },
                 ] as const
               ).map((opt) => {
@@ -724,17 +750,22 @@ export default function OnboardingScreen() {
                 return (
                   <Pressable
                     key={opt.id}
-                    style={[$sizeCard, selected && $sizeCardSelected]}
+                    style={[$bigCard, selected && $bigCardSelected]}
                     onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[$sizeLabel, selected && { color: forest500 }]}>
-                        {opt.label}
-                      </Text>
-                      <Text style={$sizeDesc}>{opt.desc}</Text>
+                    <View style={[$bigCardIllustration, { backgroundColor: "#F5F5F2" }]}>
+                      <Text style={{ fontSize: 56 }}>{opt.illustration}</Text>
                     </View>
-                    <View style={[$radio, selected && $radioSelected]}>
-                      {selected && <View style={$radioDot} />}
+                    <View style={$bigCardFooter}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
+                          {opt.icon} {opt.label}
+                        </Text>
+                        <Text style={$bigCardDesc}>{opt.desc}</Text>
+                      </View>
+                      <View style={[$radio, selected && $radioSelected]}>
+                        {selected && <View style={$radioDot} />}
+                      </View>
                     </View>
                   </Pressable>
                 )
@@ -753,16 +784,22 @@ export default function OnboardingScreen() {
                     id: "small" as FarmSizeUI,
                     label: "Small Farm",
                     desc: "Under 1 acre",
+                    emoji: "🌿🌿",
+                    icon: "🌱",
                   },
                   {
                     id: "medium" as FarmSizeUI,
                     label: "Medium Farm",
                     desc: "1 to 5 acres",
+                    emoji: "🌾🌾🌾",
+                    icon: "🌿",
                   },
                   {
                     id: "large" as FarmSizeUI,
                     label: "Large Farm",
                     desc: "Over 5 acres",
+                    emoji: "🌳🌳🌳🌳",
+                    icon: "🍃",
                   },
                 ] as const
               ).map((opt) => {
@@ -773,9 +810,10 @@ export default function OnboardingScreen() {
                     style={[$sizeCard, selected && $sizeCardSelected]}
                     onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
                   >
+                    <Text style={{ fontSize: 32, marginRight: spacing.s4 }}>{opt.emoji}</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={[$sizeLabel, selected && { color: forest500 }]}>
-                        {opt.label}
+                        {opt.icon} {opt.label}
                       </Text>
                       <Text style={$sizeDesc}>{opt.desc}</Text>
                     </View>
@@ -793,12 +831,13 @@ export default function OnboardingScreen() {
             <>
               <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
               <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
-              {goalsQuery.isLoading && !goalsQuery.data?.length ? (
+              {goalsQuery.isLoading ? (
                 <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
               ) : (
                 <View style={$grid}>
-                  {allGoals.map((goal) => {
+                  {(goalsQuery.data ?? []).map((goal) => {
                     const selected = draft.goals.includes(goal.slug)
+                    const emoji = GOAL_EMOJI[goal.slug] ?? "🎯"
                     return (
                       <Pressable
                         key={goal.id}
@@ -812,6 +851,7 @@ export default function OnboardingScreen() {
                           }))
                         }
                       >
+                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
                         <Text style={[$goalLabel, selected && { color: forest500 }]}>
                           {goal.name}
                         </Text>
@@ -820,6 +860,50 @@ export default function OnboardingScreen() {
                   })}
                 </View>
               )}
+            </>
+          )}
+
+          {/* ---- 2-week goal ---- */}
+          {step === 8 && (
+            <>
+              <Text style={$stepHeading}>{"What's your #1 goal\nfor the next 2 weeks?"}</Text>
+              <Text style={$stepSubtitle}>
+                {"Be specific — this helps us personalise your daily activities."}
+              </Text>
+              <TextInput
+                style={$goalTextInput}
+                value={draft.twoWeekGoal}
+                onChangeText={(twoWeekGoal) =>
+                  setDraft((d) => ({
+                    ...d,
+                    twoWeekGoal: twoWeekGoal.slice(0, TWO_WEEK_GOAL_MAX_LENGTH),
+                  }))
+                }
+                placeholder="e.g. Get my maize planted before the next rains"
+                placeholderTextColor={ink4}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                maxLength={TWO_WEEK_GOAL_MAX_LENGTH}
+                autoFocus
+              />
+              <View style={$goalCounterRow}>
+                {draft.twoWeekGoal.trim().length > 0 &&
+                draft.twoWeekGoal.trim().length < TWO_WEEK_GOAL_MIN_LENGTH ? (
+                  <Text style={$goalHintText}>
+                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length} more character
+                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length === 1
+                      ? ""
+                      : "s"}{" "}
+                    needed
+                  </Text>
+                ) : (
+                  <View />
+                )}
+                <Text style={$goalCounterText}>
+                  {draft.twoWeekGoal.length}/{TWO_WEEK_GOAL_MAX_LENGTH}
+                </Text>
+              </View>
             </>
           )}
         </ScrollView>
@@ -973,6 +1057,11 @@ const $scrollContent: ViewStyle = {
 }
 
 // Step headings
+const $stepEmoji: TextStyle = {
+  fontSize: 40,
+  marginBottom: spacing.s4,
+}
+
 const $stepHeading: TextStyle = {
   fontFamily: typography.primary.bold,
   fontSize: 26,
@@ -1004,9 +1093,6 @@ const $nameInput: TextStyle = {
 }
 
 const $nameConfirm: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 6,
   backgroundColor: forest50,
   borderRadius: radii.lg,
   paddingVertical: spacing.s3,
@@ -1014,7 +1100,6 @@ const $nameConfirm: ViewStyle = {
 }
 
 const $nameConfirmText: TextStyle = {
-  flex: 1,
   fontFamily: typography.primary.normal,
   fontSize: 14,
   color: forest500,
@@ -1088,6 +1173,46 @@ const $locationCheck: ViewStyle = {
   position: "absolute",
   top: spacing.s2,
   right: spacing.s2,
+}
+
+// Big cards (farm type, helpers)
+const $bigCard: ViewStyle = {
+  backgroundColor: card,
+  borderRadius: radii.xl,
+  borderWidth: 1.5,
+  borderColor: hairline,
+  marginBottom: spacing.s4,
+  overflow: "hidden",
+}
+
+const $bigCardSelected: ViewStyle = {
+  borderColor: forest500,
+}
+
+const $bigCardIllustration: ViewStyle = {
+  height: 110,
+  alignItems: "center",
+  justifyContent: "center",
+}
+
+const $bigCardFooter: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  paddingHorizontal: spacing.s4,
+  paddingVertical: spacing.s4,
+}
+
+const $bigCardLabel: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 15,
+  color: ink,
+  marginBottom: 2,
+}
+
+const $bigCardDesc: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink3,
 }
 
 // Radio
@@ -1209,6 +1334,39 @@ const $goalLabel: TextStyle = {
   textAlign: "center",
 }
 
+// 2-week goal step
+const $goalTextInput: TextStyle = {
+  minHeight: 120,
+  borderWidth: 1.5,
+  borderColor: hairline,
+  borderRadius: radii.xl,
+  paddingHorizontal: spacing.s4,
+  paddingVertical: spacing.s3,
+  fontFamily: typography.primary.normal,
+  fontSize: 16,
+  color: ink,
+  backgroundColor: card,
+}
+
+const $goalCounterRow: ViewStyle = {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginTop: spacing.s2,
+}
+
+const $goalHintText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink3,
+}
+
+const $goalCounterText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink4,
+}
+
 // Footer
 const $footer: ViewStyle = {
   paddingHorizontal: spacing.s5,
@@ -1241,60 +1399,4 @@ const $ctaBtnText: TextStyle = {
   fontSize: 16,
   color: "#FFFFFF",
   letterSpacing: 0.2,
-}
-
-// Success screen
-const $successCenter: ViewStyle = {
-  flex: 1,
-  alignItems: "center",
-  justifyContent: "center",
-  paddingHorizontal: spacing.s5,
-}
-
-const $trophyCircle: ViewStyle = {
-  width: 120,
-  height: 120,
-  borderRadius: 60,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: spacing.s6,
-}
-
-const $successHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 26,
-  color: ink,
-  textAlign: "center",
-  lineHeight: 34,
-  marginBottom: spacing.s3,
-}
-
-const $successSubtitle: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 15,
-  color: ink3,
-  textAlign: "center",
-  lineHeight: 22,
-  marginBottom: spacing.s6,
-}
-
-const $tagRow: ViewStyle = {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: spacing.s2,
-  justifyContent: "center",
-}
-
-const $tag: ViewStyle = {
-  backgroundColor: forest50,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s3,
-  paddingVertical: 6,
-}
-
-const $tagText: TextStyle = {
-  fontFamily: typography.primary.medium,
-  fontSize: 13,
-  color: forest500,
 }

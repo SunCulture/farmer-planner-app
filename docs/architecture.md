@@ -1,4 +1,4 @@
-# Tapit Mobile Architecture
+# Tujiweze Mobile Architecture
 
 ## Goals
 
@@ -32,7 +32,7 @@ Add:
 - `zustand` for lightweight app state that is not server state
 - `zod` for runtime validation of API payloads, storage payloads, and navigation params
 - `react-hook-form` for non-trivial forms
-- `expo-sqlite` plus `drizzle-orm` for durable structured local data and migrations
+- `expo-sqlite` for durable structured local data and migrations (custom migration runner, not an ORM)
 - `expo-notifications` for push and local notifications
 - `expo-task-manager` and `expo-background-task` for opportunistic background work
 - `expo-secure-store` for secrets such as refresh tokens or device credentials
@@ -217,9 +217,9 @@ Guidelines:
 
 ### 2. Durable Local Structured State
 
-Use SQLite with Drizzle for data that must survive restarts and support querying, sorting, joins, and offline workflows.
+Use SQLite for data that must survive restarts and support querying, sorting, joins, and offline workflows.
 
-See [ADR-002: Use SQLite and Drizzle for Durable Local Data](./adr/002-use-sqlite-and-drizzle.md).
+See [ADR-002: Use SQLite for Durable Local Data](./adr/002-use-sqlite-and-drizzle.md).
 
 Use it for:
 
@@ -274,7 +274,7 @@ Default read flow:
 
 ## Database Strategy
 
-For a budgeting app, a local-first database is justified. Use SQLite plus Drizzle ORM rather than using MMKV as a pseudo-database.
+For a budgeting app, a local-first database is justified. Use SQLite rather than using MMKV as a pseudo-database.
 
 ### Schema Design Principles
 
@@ -315,7 +315,7 @@ Examples:
 
 See [docs/migrations.md](./migrations.md) for the full workflow. Summary:
 
-Tapp uses a custom sequential migration runner (`src/shared/infrastructure/database/migrator.ts`). There is no drizzle-kit CLI involved at runtime. Each migration is a TypeScript file with an `up()` function and a `down()` function. Migrations are tracked in a `_migrations` table and applied in order at app startup.
+Tujiweze uses a custom sequential migration runner (`src/shared/infrastructure/database/migrator.ts`). There is no drizzle-kit CLI involved at runtime. Each migration is a TypeScript file with an `up()` function and a `down()` function. Migrations are tracked in a `_migrations` table and applied in order at app startup.
 
 Rules:
 
@@ -708,7 +708,7 @@ The current app is already on a current Expo and React Native baseline. The mode
 
 1. create `src/modules` and migrate feature code out of generic `screens`, `services`, and `utils` buckets
 2. introduce TanStack Query and a shared query client
-3. introduce SQLite plus Drizzle for structured local data
+3. introduce SQLite for structured local data
 4. move secrets to Secure Store
 5. wrap notifications, background work, storage, and transport behind ports
 6. add Sentry and release health monitoring
@@ -729,7 +729,7 @@ Keep current core versions aligned with the installed Expo SDK. Do not manually 
 ### Suggested Near-Term Package Additions
 
 ```bash
-pnpm add @tanstack/react-query zustand zod react-hook-form drizzle-orm expo-notifications expo-task-manager expo-background-task expo-secure-store expo-sqlite @sentry/react-native
+pnpm add @tanstack/react-query zustand zod react-hook-form expo-notifications expo-task-manager expo-background-task expo-secure-store expo-sqlite @sentry/react-native
 ```
 
 If backend contracts are stable, also consider:
@@ -778,4 +778,4 @@ Keep the root layout thin and move bootstrap orchestration into `src/bootstrap/a
 
 ## Final Recommendation
 
-Use a local-first, modular clean architecture with React Query for server state, SQLite plus Drizzle for durable offline data, MMKV for lightweight preferences, and Expo platform services wrapped behind infrastructure ports. Keep Ignite for productivity, but stop organizing feature code around generic technical folders. Organize the app around domains and use cases, enforce boundaries in CI, and treat sync, notification handling, and release operations as first-class architecture concerns from the start.
+Use a local-first, modular clean architecture with React Query for server state, SQLite for durable offline data, MMKV for lightweight preferences, and Expo platform services wrapped behind infrastructure ports. Keep Ignite for productivity, but stop organizing feature code around generic technical folders. Organize the app around domains and use cases, enforce boundaries in CI, and treat sync, notification handling, and release operations as first-class architecture concerns from the start.

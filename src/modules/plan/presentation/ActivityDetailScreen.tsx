@@ -17,7 +17,9 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { ApiErrorView } from "@/components/ApiErrorView"
 import type { ContestReaction } from "@/services/api"
+import { isNotFoundError } from "@/shared/infrastructure/api-error"
 import {
   forest50,
   forest100,
@@ -37,10 +39,10 @@ import {
   statusGoodBg,
   statusWarn,
   statusWarnBg,
-} from "@/theme/tapp-tokens"
+} from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
-import { getActivityErrorMessage, isActivityNotFoundError } from "../application/activity-errors"
+import { getActivityErrorMessage } from "../application/activity-errors"
 import {
   useContestActivity,
   useMarkActivityDone,
@@ -48,12 +50,11 @@ import {
 } from "../application/use-activity-actions"
 import { useActivityDetail } from "../application/use-activity-detail"
 import { useActivityQA } from "../application/use-activity-qa"
-import { ActivityErrorView } from "./components/ActivityErrorView"
+import type { ActivityHighlight } from "../domain/entities/activity-highlight"
+import { statusColorToUi } from "../infrastructure/api-mappers"
 import { AskQuestionBar } from "./components/AskQuestionBar"
 import { HighlightBadge } from "./components/HighlightBadge"
 import { QuestionBubble } from "./components/QuestionBubble"
-import type { ActivityHighlight } from "../domain/entities/activity-qa"
-import { statusColorToUi } from "../domain/policies/activity-status-ui"
 
 const REACTIONS: { id: ContestReaction; label: string }[] = [
   { id: "too_hard", label: "Too hard" },
@@ -72,8 +73,8 @@ function statusUiColors(color: string): { bg: string; text: string } {
 export default function ActivityDetailScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const params = useLocalSearchParams<{ activityId?: string; id?: string }>()
-  const activityId = (params.activityId ?? params.id ?? "") as string
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const activityId = typeof id === "string" ? id : ""
 
   const {
     data: activity,
@@ -88,7 +89,8 @@ export default function ActivityDetailScreen() {
   const contest = useContestActivity(activityId)
 
   const [localHighlight, setLocalHighlight] = useState<ActivityHighlight | null>(null)
-  const [qaInput, setQaInput] = useState("")
+  const [highlightSourceId, setHighlightSourceId] = useState<string | null>(null)
+  const [input, setInput] = useState("")
   const [actionError, setActionError] = useState<string | null>(null)
 
   const [skipOpen, setSkipOpen] = useState(false)
@@ -99,14 +101,18 @@ export default function ActivityDetailScreen() {
   const [contestPending, setContestPending] = useState(false)
 
   const scrollRef = useRef<ScrollView>(null)
+  const qaSectionY = useRef(0)
+  const questionYs = useRef<Map<string, number>>(new Map())
   const prevFetching = useRef(false)
 
-  const qa = useActivityQA(activityId, (highlight) => {
+  const qa = useActivityQA(activityId, (highlight, sourceQuestionId) => {
     setLocalHighlight(highlight)
+    setHighlightSourceId(sourceQuestionId)
   })
 
   useEffect(() => {
     setLocalHighlight(null)
+    setHighlightSourceId(null)
     setContestPending(false)
     setActionError(null)
   }, [activityId])
@@ -119,6 +125,27 @@ export default function ActivityDetailScreen() {
   }, [contestPending, isFetching, activity])
 
   const highlight = localHighlight ?? activity?.highlight ?? null
+
+  function scrollToHighlightSource() {
+    const y = highlightSourceId ? questionYs.current.get(highlightSourceId) : undefined
+    scrollRef.current?.scrollTo({ y: y ?? qaSectionY.current, animated: true })
+  }
+
+  async function handleSend() {
+    const text = input.trim()
+    if (!text) return
+    setInput("")
+    setActionError(null)
+    try {
+      await qa.ask(text)
+    } catch (err) {
+      setActionError(getActivityErrorMessage(err))
+    }
+  }
+
+  function handleFaqPress(faqQuestion: string) {
+    setInput(faqQuestion)
+  }
 
   async function handleDone() {
     setActionError(null)
@@ -174,7 +201,7 @@ export default function ActivityDetailScreen() {
   }
 
   if (isError && !activity) {
-    if (isActivityNotFoundError(error)) {
+    if (isNotFoundError(error)) {
       return (
         <View style={[$root, $centered, { paddingTop: insets.top }]}>
           <Text style={$emptyTitle}>Activity not found</Text>
@@ -186,14 +213,7 @@ export default function ActivityDetailScreen() {
     }
     return (
       <View style={[$root, $centered, { paddingTop: insets.top }]}>
-        <ActivityErrorView
-          error={error}
-          onRetry={() => refetch()}
-          title="Could not load activity"
-        />
-        <TouchableOpacity onPress={() => router.back()} style={$emptyLink}>
-          <Text style={$emptyLinkText}>Go back</Text>
-        </TouchableOpacity>
+        <ApiErrorView error={error} onRetry={() => refetch()} title="Could not load activity" />
       </View>
     )
   }
@@ -211,7 +231,7 @@ export default function ActivityDetailScreen() {
           <Ionicons name="arrow-back" size={22} color={ink} />
         </TouchableOpacity>
         <Text style={$headerTitle} numberOfLines={1}>
-          Activity
+          Activity Detail
         </Text>
       </View>
 
@@ -223,8 +243,13 @@ export default function ActivityDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={$titleRow}>
+          {activity.iconEmoji ? <Text style={$titleIcon}>{activity.iconEmoji}</Text> : null}
           <Text style={$title}>{activity.title}</Text>
         </View>
+
+        {highlight ? (
+          <HighlightBadge highlight={highlight} onPress={scrollToHighlightSource} />
+        ) : null}
 
         <View style={$metaRow}>
           {activity.subtitle ? (
@@ -236,8 +261,6 @@ export default function ActivityDetailScreen() {
             <Text style={[$statusBadgeText, { color: colors.text }]}>{activity.status.label}</Text>
           </View>
         </View>
-
-        {highlight ? <HighlightBadge highlight={highlight} /> : null}
 
         {contestPending ? (
           <View style={$pendingBanner}>
@@ -297,7 +320,7 @@ export default function ActivityDetailScreen() {
 
         <TouchableOpacity
           style={$journalLink}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           onPress={() =>
             router.push({
               pathname: "/(tabs)/journal",
@@ -305,32 +328,30 @@ export default function ActivityDetailScreen() {
                 date: activity.date,
                 activityId: activity.id,
                 activityName: activity.title,
+                activityIcon: activity.iconEmoji,
                 mode: "new",
               },
             })
           }
         >
           <Ionicons name="journal-outline" size={16} color={forest500} />
-          <Text style={$journalLinkText}>Log in journal (optional for Verified)</Text>
+          <Text style={$journalLinkText}>
+            {activity.ctaLabel ?? "Log in journal (optional for Verified)"}
+          </Text>
           <Ionicons name="arrow-forward" size={14} color={forest500} />
         </TouchableOpacity>
 
-        <View style={$divider} />
+        <View style={$divider} onLayout={(e) => (qaSectionY.current = e.nativeEvent.layout.y)} />
         <Text style={$sectionTitle}>Ask a question</Text>
+
         <AskQuestionBar
-          value={qaInput}
-          onChangeText={setQaInput}
-          onSend={async () => {
-            const text = qaInput.trim()
-            if (!text) return
-            setQaInput("")
-            try {
-              await qa.ask(text)
-            } catch (err) {
-              setActionError(getActivityErrorMessage(err))
-            }
-          }}
+          value={input}
+          onChangeText={setInput}
+          onSend={handleSend}
+          disabled={false}
         />
+
+        <Text style={[$sectionTitle, { marginTop: spacing.s5 }]}>Previous Q&A</Text>
 
         {qa.isLoading ? (
           <ActivityIndicator
@@ -339,24 +360,38 @@ export default function ActivityDetailScreen() {
             style={{ marginVertical: spacing.s3 }}
           />
         ) : null}
+
         {qa.isError ? (
-          <ActivityErrorView
-            error={qa.error}
-            onRetry={() => qa.refetch()}
-            title="Could not load Q&A"
-          />
+          <ApiErrorView error={qa.error} onRetry={() => qa.refetch()} title="Could not load Q&A" />
         ) : null}
+
         {!qa.isLoading && qa.questions.length === 0 ? (
           <Text style={$emptyQaText}>No questions yet — ask anything about this activity.</Text>
         ) : null}
+
         {qa.questions.map((question) => (
-          <QuestionBubble
+          <View
             key={question.questionId}
-            question={question}
-            onRetry={() => qa.retry(question)}
-            onFaqPress={(faq) => setQaInput(faq)}
-          />
+            onLayout={(e) => questionYs.current.set(question.questionId, e.nativeEvent.layout.y)}
+          >
+            <QuestionBubble
+              question={question}
+              onRetry={() => qa.retry(question)}
+              onFaqPress={handleFaqPress}
+            />
+          </View>
         ))}
+
+        {qa.questions.length > 0 ? (
+          <TouchableOpacity
+            style={$viewAllLink}
+            activeOpacity={0.7}
+            onPress={() => router.push(`/activity/${activityId}/qa` as any)}
+          >
+            <Text style={$viewAllLinkText}>View all Q&A</Text>
+            <Ionicons name="arrow-forward" size={13} color={forest500} />
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
 
       <Modal
@@ -454,7 +489,7 @@ export default function ActivityDetailScreen() {
 }
 
 const $root: ViewStyle = { flex: 1, backgroundColor: paper }
-const $scroll: ViewStyle = { flex: 1 }
+const $scroll: ViewStyle = { flex: 1, backgroundColor: paper }
 const $centered: ViewStyle = {
   flex: 1,
   justifyContent: "center",
@@ -466,6 +501,7 @@ const $header: ViewStyle = {
   alignItems: "center",
   paddingHorizontal: spacing.s4,
   paddingBottom: spacing.s3,
+  backgroundColor: paper,
   gap: spacing.s3,
 }
 const $backBtn: ViewStyle = { padding: spacing.s1 }
@@ -481,6 +517,7 @@ const $titleRow: ViewStyle = {
   gap: spacing.s2,
   marginBottom: spacing.s3,
 }
+const $titleIcon: TextStyle = { fontSize: 22 }
 const $title: TextStyle = {
   flex: 1,
   fontFamily: typography.primary.bold,
@@ -497,30 +534,29 @@ const $metaRow: ViewStyle = {
 }
 const $categoryChip: ViewStyle = {
   backgroundColor: forest50,
-  borderRadius: 999,
+  borderRadius: radii.pill,
   paddingHorizontal: spacing.s3,
   paddingVertical: spacing.s1,
 }
 const $categoryChipText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 12,
-  color: forest600,
+  color: forest500,
 }
 const $statusBadge: ViewStyle = {
-  borderRadius: 999,
+  borderRadius: radii.pill,
   paddingHorizontal: spacing.s3,
   paddingVertical: spacing.s1,
 }
 const $statusBadgeText: TextStyle = {
-  fontFamily: typography.primary.semiBold,
+  fontFamily: typography.primary.medium,
   fontSize: 12,
 }
 const $sectionTitle: TextStyle = {
   fontFamily: typography.primary.bold,
-  fontSize: 15,
+  fontSize: 16,
   color: ink,
-  marginBottom: spacing.s2,
-  marginTop: spacing.s2,
+  marginBottom: spacing.s3,
 }
 const $educationText: TextStyle = {
   fontFamily: typography.primary.normal,
@@ -574,20 +610,16 @@ const $journalLinkText: TextStyle = {
   color: forest500,
 }
 const $divider: ViewStyle = {
-  height: 1,
-  backgroundColor: hairline,
-  marginVertical: spacing.s4,
-}
-const $emptyQaText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink3,
-  marginVertical: spacing.s3,
+  borderTopWidth: 1,
+  borderTopColor: hairline,
+  marginBottom: spacing.s5,
+  marginTop: spacing.s2,
 }
 const $loadingText: TextStyle = {
-  marginTop: spacing.s3,
   fontFamily: typography.primary.normal,
+  fontSize: 14,
   color: ink3,
+  marginTop: spacing.s3,
 }
 const $emptyTitle: TextStyle = {
   fontFamily: typography.primary.bold,
@@ -595,10 +627,17 @@ const $emptyTitle: TextStyle = {
   color: ink,
   marginBottom: spacing.s3,
 }
-const $emptyLink: ViewStyle = { padding: spacing.s2 }
+const $emptyLink: ViewStyle = { padding: spacing.s3 }
 const $emptyLinkText: TextStyle = {
-  fontFamily: typography.primary.semiBold,
+  fontFamily: typography.primary.medium,
+  fontSize: 14,
   color: forest500,
+}
+const $emptyQaText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink3,
+  marginBottom: spacing.s4,
 }
 const $actionError: TextStyle = {
   fontFamily: typography.primary.medium,
@@ -620,6 +659,20 @@ const $pendingBannerText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 13,
   color: forest600,
+}
+const $viewAllLink: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: spacing.s2,
+  paddingVertical: spacing.s3,
+  marginTop: spacing.s2,
+  marginBottom: spacing.s6,
+}
+const $viewAllLinkText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+  color: forest500,
 }
 const $modalBackdrop: ViewStyle = {
   flex: 1,
@@ -651,7 +704,7 @@ const $reactionRow: ViewStyle = {
   marginBottom: spacing.s3,
 }
 const $reactionChip: ViewStyle = {
-  borderRadius: 999,
+  borderRadius: radii.pill,
   borderWidth: 1,
   borderColor: hairline,
   paddingHorizontal: spacing.s3,

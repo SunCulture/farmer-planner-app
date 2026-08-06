@@ -1,6 +1,6 @@
 import { Text, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
 
-import { forest500, ink, radii, spacing, statusBad } from "@/theme/tapp-tokens"
+import { forest500, ink, radii, spacing, statusBad } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 import { getActivityErrorMessage } from "../../application/activity-errors"

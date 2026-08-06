@@ -7,7 +7,30 @@ import type {
   ProductionType,
 } from "@/modules/onboarding/domain/entities/farmer-profile"
 
+import type {
+  AcceptSuggestionResponseDto,
+  ActivityDetailDto,
+  ActivitySuggestionDto,
+  AskActivityQuestionResponseDto,
+  DayActivityQuestionsDto,
+  DayCompletionsDto,
+  DayPlanDto,
+  EnrollPlanBody,
+  GeneratePlanBody,
+  GeneratedPlanDto,
+  HomeDataDto,
+  PatchPlanBody,
+  PlanChatResponseDto,
+  PlanRecommendationDto,
+  PlanTemplateDto,
+  ActivityQuestionsListDto,
+} from "./planner-types"
 import type { ApiConfig } from "./types"
+import { unwrap, unwrapRaw, unwrapVoid } from "./unwrap"
+
+export { ApiRequestError, unwrap, unwrapRaw, unwrapVoid } from "./unwrap"
+export type { ApiEnvelope, ApiErrorBody } from "./unwrap"
+export type * from "./planner-types"
 
 export const DEFAULT_API_CONFIG: ApiConfig = {
   url: Config.API_URL,
@@ -94,6 +117,7 @@ export interface OnboardingData {
   helpersLevel: HelpersLevel | null
   acreage: number | null
   goalSlugs: string[]
+  /** Free-text farmer goal for the next 2 weeks, captured at the end of onboarding. */
   twoWeekGoal?: string | null
   onboardingCompletedAt: string | null
   suggestedStep: string | null
@@ -112,14 +136,10 @@ export interface PatchOnboardingBody {
   twoWeekGoal?: string
 }
 
+/** Reaction payload for POST /api/me/activities/:id/contest */
 export type ContestReaction = "too_hard" | "too_easy" | "not_relevant" | "loved_it"
 
-export interface ActivityHighlightResponse {
-  text: string
-  addedAt: string
-}
-
-export interface ActivityCompletionResponse {
+export interface ActivityActionCompletionResponse {
   id: string
   journalText?: string | null
   photoUrls?: string[]
@@ -128,51 +148,11 @@ export interface ActivityCompletionResponse {
   verifiedAt?: string | null
 }
 
-export interface ActivityDetailResponse {
-  id: string
-  title: string
-  subtitle?: string
-  description?: string
-  educationBrief?: string
-  status?: { code: string; label: string; color: string }
-  iconKey?: string
-  highlight: ActivityHighlightResponse | null
-  cta?: { label: string; route: string }
-  planId?: string
-  date?: string
-  completion?: ActivityCompletionResponse | null
-}
-
-export interface AskActivityQuestionBody {
-  question: string
-}
-
-export interface AskActivityQuestionData {
-  questionId: string
-  question: string
-  status: "pending" | "answered" | "failed"
-}
-
-export interface ActivityQuestionItemResponse {
-  id?: string
-  questionId?: string
-  question: string
-  answer: string | null
-  status: "pending" | "answered" | "failed"
-  relatedFaqs?: { question: string; previewAnswer: string }[]
-  createdAt: string
-}
-
-export interface DayActivityQuestionResponse {
+export interface ContestActivityResponse {
+  feedbackId: string
   activityId: string
-  activityTitle: string
-  highlight: ActivityHighlightResponse | null
-  questions: {
-    questionId: string
-    question: string
-    answer: string | null
-    createdAt: string
-  }[]
+  status: string
+  message: string
 }
 
 // ---- Api class ----------------------------------------------------------------
@@ -268,59 +248,143 @@ export class Api {
     }>("/api/me/onboarding/complete")
   }
 
-  // ---- Activities + Q&A ------------------------------------------------------
+  // ---- Home & plans (authenticated) -----------------------------------------
 
-  async getDayPlan(date: string) {
-    return this.apisauce.get<{
-      data?: { activities?: ActivityDetailResponse[] }
-      activities?: ActivityDetailResponse[]
-    }>(`/api/me/days/${date}/plan`)
+  async getHome(): Promise<HomeDataDto> {
+    const response = await this.apisauce.get("/api/me/home")
+    return unwrap<HomeDataDto>(response)
   }
 
-  async getActivityDetail(activityId: string) {
-    return this.apisauce.get<{ data?: ActivityDetailResponse; activity?: ActivityDetailResponse }>(
-      `/api/me/activities/${activityId}`,
-    )
+  async getPlanRecommendations(): Promise<{ recommendations: PlanRecommendationDto[] }> {
+    const response = await this.apisauce.get("/api/me/plans/recommendations")
+    return unwrap<{ recommendations: PlanRecommendationDto[] }>(response)
   }
 
+  async generatePlan(body: GeneratePlanBody): Promise<GeneratedPlanDto> {
+    const response = await this.apisauce.post("/api/me/plans/generate", body)
+    return unwrap<GeneratedPlanDto>(response)
+  }
+
+  async enrollPlan(body: EnrollPlanBody): Promise<{ planId: string }> {
+    const response = await this.apisauce.post("/api/me/plans", body)
+    return unwrap<{ planId: string }>(response)
+  }
+
+  async listTemplates(params?: {
+    goal?: string
+    durationDays?: number
+  }): Promise<{ templates: PlanTemplateDto[] }> {
+    const response = await this.apisauce.get("/api/templates", params)
+    return unwrapRaw<{ templates: PlanTemplateDto[] }>(response)
+  }
+
+  async getDayPlan(date: string): Promise<DayPlanDto> {
+    const response = await this.apisauce.get(`/api/me/days/${date}/plan`)
+    return unwrap<DayPlanDto>(response)
+  }
+
+  async getActivity(activityId: string): Promise<ActivityDetailDto> {
+    const response = await this.apisauce.get(`/api/me/activities/${activityId}`)
+    return unwrap<ActivityDetailDto>(response)
+  }
+
+  /** Mark activity done — returns raw Apisauce response for activity-detail-service. */
   async markActivityDone(activityId: string) {
-    return this.apisauce.post<{ data: ActivityCompletionResponse }>(
+    return this.apisauce.post<{ data: ActivityActionCompletionResponse }>(
       `/api/me/activities/${activityId}/done`,
     )
   }
 
+  /** Skip activity — returns raw Apisauce response for activity-detail-service. */
   async skipActivity(activityId: string, note?: string) {
-    return this.apisauce.post<{ data: ActivityCompletionResponse }>(
+    return this.apisauce.post<{ data: ActivityActionCompletionResponse }>(
       `/api/me/activities/${activityId}/skip`,
       note ? { note } : {},
     )
   }
 
+  /** Contest activity feedback — returns raw Apisauce response for activity-detail-service. */
   async contestActivity(activityId: string, body: { reaction: ContestReaction; note: string }) {
-    return this.apisauce.post<{
-      data: { feedbackId: string; activityId: string; status: string; message: string }
-    }>(`/api/me/activities/${activityId}/contest`, body)
-  }
-
-  async askActivityQuestion(activityId: string, body: AskActivityQuestionBody) {
-    return this.apisauce.post<{ data: AskActivityQuestionData }>(
-      `/api/me/activities/${activityId}/questions`,
+    return this.apisauce.post<{ data: ContestActivityResponse }>(
+      `/api/me/activities/${activityId}/contest`,
       body,
     )
   }
 
-  async getActivityQuestions(activityId: string) {
-    return this.apisauce.get<{
-      data?: { questions?: ActivityQuestionItemResponse[] }
-      questions?: ActivityQuestionItemResponse[]
-    }>(`/api/me/activities/${activityId}/questions`)
+  async getActivityQuestions(activityId: string): Promise<ActivityQuestionsListDto> {
+    const response = await this.apisauce.get(`/api/me/activities/${activityId}/questions`)
+    return unwrap<ActivityQuestionsListDto>(response)
   }
 
-  async getDayActivityQuestions(date: string) {
-    return this.apisauce.get<{
-      data?: { activities?: DayActivityQuestionResponse[] }
-      activities?: DayActivityQuestionResponse[]
-    }>(`/api/me/days/${date}/activity-questions`)
+  async askActivityQuestion(
+    activityId: string,
+    question: string,
+  ): Promise<AskActivityQuestionResponseDto> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/questions`, {
+      question,
+    })
+    return unwrap<AskActivityQuestionResponseDto>(response)
+  }
+
+  async getDayActivityQuestions(date: string): Promise<DayActivityQuestionsDto> {
+    const response = await this.apisauce.get(`/api/me/days/${date}/activity-questions`)
+    return unwrap<DayActivityQuestionsDto>(response)
+  }
+
+  async getDayCompletions(date: string): Promise<DayCompletionsDto> {
+    const response = await this.apisauce.get(`/api/me/days/${date}/completions`)
+    return unwrap<DayCompletionsDto>(response)
+  }
+
+  async submitCompletion(
+    activityId: string,
+    formData: FormData,
+  ): Promise<{
+    id: string
+    activityId: string
+    journalText: string
+    photoUrls: string[]
+    status: string
+    verifiedAt: string | null
+  }> {
+    const response = await this.apisauce.post(
+      `/api/activities/${activityId}/completions`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    )
+    return unwrap(response)
+  }
+
+  async chatPlan(planId: string, message: string): Promise<PlanChatResponseDto> {
+    const response = await this.apisauce.post(`/api/me/plans/${planId}/chat`, { message })
+    return unwrap<PlanChatResponseDto>(response)
+  }
+
+  async patchPlan(
+    planId: string,
+    body: PatchPlanBody,
+  ): Promise<{ planId: string; updated: boolean }> {
+    const response = await this.apisauce.patch(`/api/me/plans/${planId}`, body)
+    return unwrap<{ planId: string; updated: boolean }>(response)
+  }
+
+  // ---- Activity suggestions (AI re-queue, authenticated) ----------------------
+
+  async listActivitySuggestions(date: string): Promise<ActivitySuggestionDto[]> {
+    const response = await this.apisauce.get("/api/me/activity-suggestions", { date })
+    return unwrap<ActivitySuggestionDto[]>(response)
+  }
+
+  async acceptActivitySuggestion(id: string): Promise<AcceptSuggestionResponseDto> {
+    const response = await this.apisauce.post(`/api/me/activity-suggestions/${id}/accept`)
+    return unwrap<AcceptSuggestionResponseDto>(response)
+  }
+
+  async dismissActivitySuggestion(id: string): Promise<void> {
+    const response = await this.apisauce.post(`/api/me/activity-suggestions/${id}/dismiss`)
+    unwrapVoid(response)
   }
 }
 
