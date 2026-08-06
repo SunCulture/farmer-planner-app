@@ -32,9 +32,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.100.7
         version: 5.100.7(react@19.2.0)
-      '@tapp/tapp-widget':
-        specifier: workspace:*
-        version: link:modules/tapp-widget
       apisauce:
         specifier: 3.1.1
         version: 3.1.1
@@ -210,8 +207,6 @@ importers:
       typescript:
         specifier: ~5.9.2
         version: 5.9.3
-
-  modules/tapp-widget: {}
 
 packages:
 

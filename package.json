@@ -29,6 +29,9 @@
     "build:android:device": "eas build --profile development:device --platform android --local",
     "build:android:preview": "eas build --profile preview --platform android --local",
     "build:android:prod": "eas build --profile production --platform android --local",
+    "eas:android:development": "eas build --profile development --platform android --non-interactive",
+    "eas:android:preview": "eas build --profile preview --platform android --non-interactive",
+    "eas:android:production": "eas build --profile production --platform android --non-interactive",
     "migrate:make": "node scripts/make-migration.js"
   },
   "dependencies": {
@@ -40,7 +43,6 @@
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.2.0",
     "@tanstack/react-query": "^5.100.7",
-    "@tapp/tapp-widget": "workspace:*",
     "apisauce": "3.1.1",
     "date-fns": "^4.1.0",
     "expo": "55.0.17",
