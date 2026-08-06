@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { api } from "@/services/api"
+import { getApiErrorMessage } from "@/shared/infrastructure/api-error"
 import {
   card,
   forest50,
@@ -38,6 +39,7 @@ import {
   saveFarmerProfile,
   setOnboardingComplete,
 } from "../application/farmer-profile-store"
+import { mapDraftToProfile } from "../application/map-profile"
 import {
   draftFromOnboardingData,
   uiStepFromSuggested,
@@ -133,12 +135,6 @@ const INITIAL_DRAFT: DraftProfile = {
   farmSize: null,
   goals: [],
   twoWeekGoal: "",
-}
-
-const FARM_SIZE_ACREAGE: Record<FarmSizeUI, number> = {
-  small: 0.5,
-  medium: 2.5,
-  large: 7.5,
 }
 
 // Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers
@@ -276,27 +272,24 @@ export default function OnboardingScreen() {
     setFinishError(null)
     setFinishLoading(true)
     try {
-      const profile = {
+      const profile = mapDraftToProfile({
         name: draft.name,
-        location: { label: draft.location, county: draft.locationSlug, country: "Kenya" },
-        productionType: (draft.farmType === "crops"
-          ? "CROPS"
-          : "LIVESTOCK") as import("../domain/entities/farmer-profile").ProductionType,
-        cropIds: draft.crops,
-        livestockIds: draft.livestock,
-        helpersLevel: (draft.workStyle === "solo"
-          ? "SOLO"
-          : "WITH_HELPERS") as import("../domain/entities/farmer-profile").HelpersLevel,
-        acreage: FARM_SIZE_ACREAGE[draft.farmSize!],
-        goalSlugs: draft.goals,
-        twoWeekGoal: draft.twoWeekGoal.trim(),
-      }
+        location: draft.location,
+        locationSlug: draft.locationSlug,
+        farmType: draft.farmType,
+        crops: draft.crops,
+        livestock: draft.livestock,
+        workStyle: draft.workStyle,
+        farmSize: draft.farmSize,
+        goals: draft.goals,
+        twoWeekGoal: draft.twoWeekGoal,
+      })
       saveFarmerProfile(profile)
 
       try {
         await patchOnboardingMutation.mutateAsync(profile)
       } catch (err) {
-        setFinishError(err instanceof Error ? err.message : "Save failed. Please try again.")
+        setFinishError(getApiErrorMessage(err) || "Save failed. Please try again.")
         return
       }
 
@@ -307,7 +300,7 @@ export default function OnboardingScreen() {
         await completeOnboardingMutation.mutateAsync()
       } catch (err) {
         setFinishError(
-          err instanceof Error ? err.message : "Could not complete onboarding. Please try again.",
+          getApiErrorMessage(err) || "Could not complete onboarding. Please try again.",
         )
         return
       }

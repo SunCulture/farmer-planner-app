@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from "react"
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -46,6 +47,8 @@ import {
 import { typography } from "@/theme/typography"
 
 import { ActivitySuggestionsBanner } from "./ActivitySuggestionsBanner"
+import { getActivityErrorMessage } from "../application/activity-errors"
+import { useMarkActivityDone, useSkipActivity } from "../application/use-activity-actions"
 import { useDayPlan } from "../application/use-day-plan"
 import type { ActivityCard } from "../domain/entities/activity-card"
 import type { SuggestionCard } from "../domain/entities/plan-chat"
@@ -354,12 +357,55 @@ function ActivityRow({
   onToggleExpand: () => void
 }) {
   const router = useRouter()
+  const markDone = useMarkActivityDone(activity.id)
+  const skip = useSkipActivity(activity.id)
+  const [actionError, setActionError] = useState<string | null>(null)
+
   const colors = statusUiColors(activity.status.color)
   const isVerified = activity.status.code === "VERIFIED"
+  const isComplete =
+    activity.status.code === "DONE" ||
+    activity.status.code === "VERIFIED" ||
+    activity.status.code === "SKIPPED"
+  const busy = markDone.isPending || skip.isPending
+
+  async function handleMarkDone() {
+    setActionError(null)
+    try {
+      await markDone.mutateAsync()
+    } catch (err) {
+      setActionError(getActivityErrorMessage(err))
+    }
+  }
+
+  function handleSkip() {
+    Alert.alert("Skip this task?", "Mark it as not done for today. You can still journal later.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Skip",
+        style: "destructive",
+        onPress: async () => {
+          setActionError(null)
+          try {
+            await skip.mutateAsync(undefined)
+          } catch (err) {
+            setActionError(getActivityErrorMessage(err))
+          }
+        },
+      },
+    ])
+  }
 
   return (
     <View style={[$activityCard, isExpanded && $activityCardExpanded]}>
-      <View style={$activityMainRow}>
+      <TouchableOpacity
+        style={$activityMainRow}
+        onPress={onToggleExpand}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isExpanded }}
+        accessibilityLabel={`${activity.title}. ${isExpanded ? "Collapse" : "Expand"} options`}
+      >
         <View style={[$statusDot, { backgroundColor: colors.text }]} />
 
         <View style={$activityIconCircle}>
@@ -375,16 +421,30 @@ function ActivityRow({
           <Text style={[$statusBadgeText, { color: colors.text }]}>{activity.status.label}</Text>
         </View>
 
-        <TouchableOpacity onPress={onToggleExpand} hitSlop={8} style={$chevronBtn}>
+        <View style={$chevronBtn}>
           <Ionicons name={isExpanded ? "chevron-up" : "chevron-forward"} size={16} color={ink4} />
-        </TouchableOpacity>
-      </View>
+        </View>
+      </TouchableOpacity>
 
       {isExpanded ? (
         <View style={$expandedSection}>
           {activity.description ? (
             <Text style={$descriptionText}>{activity.description}</Text>
           ) : null}
+
+          {actionError ? <Text style={$inlineActionError}>{actionError}</Text> : null}
+
+          <TouchableOpacity
+            style={$journalLink}
+            onPress={() => router.push(`/activity/${activity.id}` as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color={forest500} />
+            <Text style={$journalLinkText}>
+              {activity.highlight ? activity.highlight.text : "View details & ask a question"}
+            </Text>
+            <Ionicons name="arrow-forward" size={13} color={forest500} />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={$journalLink}
@@ -403,21 +463,45 @@ function ActivityRow({
             activeOpacity={0.7}
           >
             <Ionicons name="journal-outline" size={14} color={forest500} />
-            <Text style={$journalLinkText}>{activity.ctaLabel ?? "Log what you did"}</Text>
+            <Text style={$journalLinkText}>Journal</Text>
             <Ionicons name="arrow-forward" size={13} color={forest500} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={$journalLink}
-            onPress={() => router.push(`/activity/${activity.id}` as any)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={14} color={forest500} />
-            <Text style={$journalLinkText}>
-              {activity.highlight ? activity.highlight.text : "View details & ask a question"}
-            </Text>
-            <Ionicons name="arrow-forward" size={13} color={forest500} />
-          </TouchableOpacity>
+          {!isComplete ? (
+            <View style={$inlineActionsRow}>
+              <TouchableOpacity
+                style={[$inlineActionBtn, $inlineDoneBtn]}
+                onPress={handleMarkDone}
+                disabled={busy}
+                activeOpacity={0.85}
+              >
+                {markDone.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                    <Text style={$inlineDoneText}>Mark done</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[$inlineActionBtn, $inlineSkipBtn]}
+                onPress={handleSkip}
+                disabled={busy}
+                activeOpacity={0.85}
+              >
+                {skip.isPending ? (
+                  <ActivityIndicator color={ink2} size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="close-circle-outline" size={16} color={ink2} />
+                    <Text style={$inlineSkipText}>Didn&apos;t do</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -632,6 +716,48 @@ const $journalLinkText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 13,
   color: forest500,
+}
+const $inlineActionError: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 12,
+  color: statusBad,
+  marginBottom: spacing.s2,
+}
+const $inlineActionsRow: ViewStyle = {
+  flexDirection: "row",
+  gap: spacing.s2,
+  marginTop: spacing.s3,
+  paddingTop: spacing.s3,
+  borderTopWidth: 1,
+  borderTopColor: hairline,
+}
+const $inlineActionBtn: ViewStyle = {
+  flex: 1,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: spacing.s1,
+  borderRadius: radii.pill,
+  paddingVertical: spacing.s3,
+  minHeight: 40,
+}
+const $inlineDoneBtn: ViewStyle = {
+  backgroundColor: forest500,
+}
+const $inlineDoneText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+  color: "#FFFFFF",
+}
+const $inlineSkipBtn: ViewStyle = {
+  backgroundColor: card,
+  borderWidth: 1,
+  borderColor: cardBorder,
+}
+const $inlineSkipText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+  color: ink2,
 }
 const $tipCard: ViewStyle = {
   backgroundColor: forest50,

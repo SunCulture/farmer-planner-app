@@ -18,7 +18,14 @@ export {
   useMarkActivityDone,
   useSkipActivity,
 } from "./application/use-activity-actions"
+export { useEducationCourses } from "./application/use-education-course"
 export type { ActivityDetail } from "./domain/entities/activity-detail"
+export type {
+  EducationCourseListItem,
+  EducationCoursesSummary,
+  EducationProgress,
+  EducationRating,
+} from "./domain/entities/education-course"
 export type { ActivityQuestion } from "./domain/entities/activity-question"
 export { statusColorToUi as activityStatusColorToUi } from "./domain/policies/activity-status-ui"
 export { isUuidLike } from "./infrastructure/activity-qa-service"
