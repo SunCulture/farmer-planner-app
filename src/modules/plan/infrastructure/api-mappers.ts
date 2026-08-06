@@ -136,6 +136,14 @@ export function mapHomeDashboard(dto: HomeDataDto): HomeDashboard {
       ctaLabel: dto.todaySection.cta?.label,
     },
     activePlanId: dto.activePlanId,
+    activePlan: dto.activePlan
+      ? {
+          id: dto.activePlan.id,
+          title: dto.activePlan.title,
+          summary: dto.activePlan.summary,
+          durationDays: dto.activePlan.durationDays,
+        }
+      : null,
   }
 }
 

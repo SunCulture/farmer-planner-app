@@ -32,6 +32,12 @@ export interface HomeDashboard {
   templateCards: TemplateCard[]
   todaySection: TodaySection
   activePlanId: string | null
+  activePlan: {
+    id: string
+    title: string
+    summary: string | null
+    durationDays: number
+  } | null
 }
 
 export interface PlanRecommendation {

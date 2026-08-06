@@ -1,5 +1,9 @@
 import { Platform } from "react-native"
 import {
+  Newsreader_400Regular as newsreaderRegular,
+  Newsreader_700Bold as newsreaderBold,
+} from "@expo-google-fonts/newsreader"
+import {
   SpaceGrotesk_300Light as spaceGroteskLight,
   SpaceGrotesk_400Regular as spaceGroteskRegular,
   SpaceGrotesk_500Medium as spaceGroteskMedium,
@@ -17,6 +21,8 @@ export const customFontsToLoad = {
   spaceGroteskSemiBold,
   spaceGroteskBold,
   spaceMonoRegular,
+  newsreaderRegular,
+  newsreaderBold,
 }
 
 const fonts = {
@@ -30,6 +36,11 @@ const fonts = {
   // SpaceMono: used for ALL numeric amounts and percentages (Tujiweze design rule)
   spaceMono: {
     normal: "spaceMonoRegular",
+  },
+  // Display serif — screen titles and onboarding heroes only
+  newsreader: {
+    normal: "newsreaderRegular",
+    bold: "newsreaderBold",
   },
   helveticaNeue: {
     // iOS only
@@ -59,6 +70,8 @@ export const typography = {
   fonts,
   /** Body and UI text — SpaceGrotesk */
   primary: fonts.spaceGrotesk,
+  /** Display headings — Newsreader (titles only, never dense lists) */
+  display: fonts.newsreader,
   /** Alternate for system-default secondary text */
   secondary: Platform.select({ ios: fonts.helveticaNeue, android: fonts.sansSerif }),
   /** Mono font for all numeric amounts (Tujiweze design rule) */

@@ -72,6 +72,12 @@ export interface HomeDataDto {
   templateCards: TemplateCardDto[]
   todaySection: TodaySectionDto
   activePlanId: string | null
+  activePlan?: {
+    id: string
+    title: string
+    summary: string | null
+    durationDays: number
+  } | null
 }
 
 export interface PlanRecommendationDto {

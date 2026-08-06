@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_BOTTOM_GAP, FLOATING_NAV_HEIGHT } from "@/app/(tabs)/_layout"
 import { ApiErrorView } from "@/components/ApiErrorView"
+import { GlyphMark } from "@/components/GlyphMark"
+import { SoftEmptyState } from "@/components/SoftEmptyState"
 import { useGeneratePlan } from "@/modules/plan/application/use-generate-plan"
 import { usePlanChat } from "@/modules/plan/application/use-plan-chat"
 import { isNotFoundError } from "@/shared/infrastructure/api-error"
@@ -51,7 +53,19 @@ import { useMarkActivityDone, useSkipActivity } from "../application/use-activit
 import { useDayPlan } from "../application/use-day-plan"
 import type { ActivityCard } from "../domain/entities/activity-card"
 import type { SuggestionCard } from "../domain/entities/plan-chat"
+import { todayDateStr } from "../domain/policies/date-utils"
 import { statusColorToUi } from "../infrastructure/api-mappers"
+import { emptyStateGlyph, iconKeyToGlyph } from "../infrastructure/icon-key-map"
+
+function emptyActivitiesMessage(dateStr: string, today: string = todayDateStr()): string {
+  if (dateStr > today) {
+    return "No activities for this day yet. Finish and journal today's tasks first — tomorrow's plan usually fills in from there."
+  }
+  if (dateStr < today) {
+    return "No activities were scheduled for this day."
+  }
+  return "No activities scheduled for today yet. Check back after you've journaled recent work."
+}
 
 const CHAT_SUGGESTIONS = [
   "Rain is expected tomorrow. Should I delay field work?",
@@ -87,10 +101,6 @@ function statusUiColors(color: string): { bg: string; text: string } {
   return { bg: statusBadBg, text: statusBad }
 }
 
-function activityInitial(title: string): string {
-  return title.trim().charAt(0).toUpperCase() || "T"
-}
-
 export default function PlanScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -124,11 +134,13 @@ export default function PlanScreen() {
   const totalCount = activities.length
   const percentage = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
+  const hasActivities = activities.length > 0
   const aiPanelBottom = insets.bottom + FLOATING_NAV_BOTTOM_GAP + FLOATING_NAV_HEIGHT
   const collapsedPanelHeight = 56
   const expandedPanelHeight = Math.min(Math.round(Dimensions.get("window").height * 0.78), 640)
-  const scrollPaddingBottom =
-    aiPanelBottom + (chatOpen ? expandedPanelHeight : collapsedPanelHeight) + spacing.s4
+  const scrollPaddingBottom = hasActivities
+    ? aiPanelBottom + (chatOpen ? expandedPanelHeight : collapsedPanelHeight) + spacing.s4
+    : aiPanelBottom + spacing.s4
 
   async function handleSendChat(explicit?: string) {
     const message = (explicit ?? chatInput).trim()
@@ -188,20 +200,17 @@ export default function PlanScreen() {
         <View style={[$root, $emptyState, { paddingTop: insets.top + spacing.s5 }]}>
           <Text style={$planLabel}>PLAN ON A PAGE</Text>
           <Text style={$dateHeading}>{dateLabel}</Text>
-          <Text style={$emptyTitle}>No plan for this day</Text>
-          <Text style={$emptyBody}>Start a farm plan from Home or generate one now.</Text>
-          <TouchableOpacity
-            style={$emptyCta}
-            onPress={handleStartPlan}
-            disabled={generatePlan.isPending}
-            activeOpacity={0.85}
-          >
-            {generatePlan.isPending ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={$emptyCtaText}>Generate 5-day plan</Text>
-            )}
-          </TouchableOpacity>
+          <SoftEmptyState
+            heading="No plan for this day"
+            body="Start a farm plan from Home or generate one now."
+            source={emptyStateGlyph("plan")}
+            fallbackIcon="calendar-outline"
+            ctaLabel={generatePlan.isPending ? undefined : "Generate 5-day plan"}
+            onPressCta={generatePlan.isPending ? undefined : handleStartPlan}
+          />
+          {generatePlan.isPending ? (
+            <ActivityIndicator color={forest500} style={{ marginTop: spacing.s3 }} />
+          ) : null}
           <TouchableOpacity onPress={() => router.push("/(tabs)/" as any)} style={$emptyLink}>
             <Text style={$emptyLinkText}>Browse templates on Home</Text>
           </TouchableOpacity>
@@ -238,32 +247,41 @@ export default function PlanScreen() {
           </View>
         ) : null}
 
-        <View style={$progressCard}>
-          <View style={$progressCardHeader}>
-            <Text style={$progressCardTitle}>Daily Progress</Text>
-            <Text style={$progressDoneText}>
-              {doneCount}/{totalCount} done
-            </Text>
+        {totalCount > 0 ? (
+          <View style={$progressCard}>
+            <View style={$progressCardHeader}>
+              <Text style={$progressCardTitle}>Daily Progress</Text>
+              <Text style={$progressDoneText}>
+                {doneCount}/{totalCount} done
+              </Text>
+            </View>
+            <View style={$progressBarBg}>
+              <View style={[$progressBarFill, { width: `${percentage}%` as `${number}%` }]} />
+            </View>
+            <Text style={$progressPercent}>{percentage}% complete</Text>
           </View>
-          <View style={$progressBarBg}>
-            <View style={[$progressBarFill, { width: `${percentage}%` as `${number}%` }]} />
-          </View>
-          <Text style={$progressPercent}>{percentage}% complete</Text>
-        </View>
+        ) : null}
 
         <Text style={$sectionTitle}>Today's Activities</Text>
 
-        {activities.map((activity) => (
-          <ActivityRow
-            key={activity.id}
-            activity={activity}
-            dateStr={dateStr}
-            isExpanded={expandedId === activity.id}
-            onToggleExpand={() =>
-              setExpandedId((prev) => (prev === activity.id ? null : activity.id))
-            }
-          />
-        ))}
+        {!hasActivities ? (
+          <View style={$activitiesEmpty}>
+            <Text style={$activitiesEmptyTitle}>Nothing here yet</Text>
+            <Text style={$activitiesEmptyBody}>{emptyActivitiesMessage(dateStr)}</Text>
+          </View>
+        ) : (
+          activities.map((activity) => (
+            <ActivityRow
+              key={activity.id}
+              activity={activity}
+              dateStr={dateStr}
+              isExpanded={expandedId === activity.id}
+              onToggleExpand={() =>
+                setExpandedId((prev) => (prev === activity.id ? null : activity.id))
+              }
+            />
+          ))
+        )}
 
         {dayPlan?.tips && dayPlan.tips.length > 0 ? (
           <>
@@ -277,37 +295,39 @@ export default function PlanScreen() {
         ) : null}
       </ScrollView>
 
-      <AiAssistantPanel
-        title={dayPlan?.chatCtaLabel ?? "AI Farm Assistant"}
-        expanded={chatOpen}
-        onToggle={() => setChatOpen((v) => !v)}
-        messages={chatMessages}
-        input={chatInput}
-        onChangeInput={setChatInput}
-        onSend={handleSendChat}
-        pending={planChat.isPending}
-        starterChips={CHAT_SUGGESTIONS}
-        bottomOffset={aiPanelBottom}
-        renderAfterMessage={(msg) => {
-          const cards = (msg as ChatMessage).suggestionCards
-          if (!cards || cards.length === 0) return null
-          return (
-            <>
-              {cards.map((suggestion) => (
-                <View key={suggestion.id} style={$suggestionCard}>
-                  <View style={$suggestionCardBody}>
-                    <Text style={$suggestionCardTitle}>{suggestion.title}</Text>
-                    <Text style={$suggestionCardReason}>{suggestion.reason}</Text>
+      {hasActivities ? (
+        <AiAssistantPanel
+          title={dayPlan?.chatCtaLabel ?? "AI Farm Assistant"}
+          expanded={chatOpen}
+          onToggle={() => setChatOpen((v) => !v)}
+          messages={chatMessages}
+          input={chatInput}
+          onChangeInput={setChatInput}
+          onSend={handleSendChat}
+          pending={planChat.isPending}
+          starterChips={CHAT_SUGGESTIONS}
+          bottomOffset={aiPanelBottom}
+          renderAfterMessage={(msg) => {
+            const cards = (msg as ChatMessage).suggestionCards
+            if (!cards || cards.length === 0) return null
+            return (
+              <>
+                {cards.map((suggestion) => (
+                  <View key={suggestion.id} style={$suggestionCard}>
+                    <View style={$suggestionCardBody}>
+                      <Text style={$suggestionCardTitle}>{suggestion.title}</Text>
+                      <Text style={$suggestionCardReason}>{suggestion.reason}</Text>
+                    </View>
+                    <TouchableOpacity style={$suggestionCardCta} activeOpacity={0.7}>
+                      <Text style={$suggestionCardCtaText}>{suggestion.ctaLabel}</Text>
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity style={$suggestionCardCta} activeOpacity={0.7}>
-                    <Text style={$suggestionCardCtaText}>{suggestion.ctaLabel}</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </>
-          )
-        }}
-      />
+                ))}
+              </>
+            )
+          }}
+        />
+      ) : null}
     </View>
   )
 }
@@ -375,9 +395,12 @@ function ActivityRow({
       >
         <View style={[$statusDot, { backgroundColor: colors.text }]} />
 
-        <View style={$activityIconCircle}>
-          <Text style={$activityIcon}>{activityInitial(activity.title)}</Text>
-        </View>
+        <GlyphMark
+          source={iconKeyToGlyph(activity.iconKey)}
+          fallbackIcon="leaf-outline"
+          size="md"
+          style={$activityIconMark}
+        />
 
         <View style={$activityBody}>
           <Text style={isVerified ? $activityNameDone : $activityName}>{activity.title}</Text>
@@ -486,10 +509,10 @@ const $planLabel: TextStyle = {
   marginBottom: spacing.s1,
 }
 const $dateHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 26,
+  fontFamily: typography.display.bold,
+  fontSize: 28,
   color: ink,
-  lineHeight: 32,
+  lineHeight: 34,
   marginBottom: spacing.s5,
 }
 const $heroCard: ViewStyle = {
@@ -559,6 +582,24 @@ const $sectionTitle: TextStyle = {
   color: ink,
   marginBottom: spacing.s3,
 }
+const $activitiesEmpty: ViewStyle = {
+  backgroundColor: forest50,
+  borderRadius: radii.xl,
+  padding: spacing.s4,
+  marginBottom: spacing.s3,
+}
+const $activitiesEmptyTitle: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 14,
+  color: ink,
+  marginBottom: spacing.s1,
+}
+const $activitiesEmptyBody: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink3,
+  lineHeight: 19,
+}
 const $loadingText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 14,
@@ -615,19 +656,7 @@ const $activityMainRow: ViewStyle = {
   gap: spacing.s3,
 }
 const $statusDot: ViewStyle = { width: 8, height: 8, borderRadius: 4 }
-const $activityIconCircle: ViewStyle = {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-}
-const $activityIcon: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 14,
-  color: forest500,
-}
+const $activityIconMark: ViewStyle = {}
 const $activityBody: ViewStyle = { flex: 1 }
 const $activityName: TextStyle = {
   fontFamily: typography.primary.medium,

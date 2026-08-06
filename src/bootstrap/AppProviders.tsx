@@ -8,6 +8,7 @@ import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-c
 import appBootstrap from "@/bootstrap/app-bootstrap"
 import { container } from "@/bootstrap/container"
 import { setupNotifications, addNotificationResponseListener } from "@/bootstrap/notifications"
+import { SessionExpiredListener } from "@/bootstrap/SessionExpiredListener"
 import { initI18n } from "@/i18n"
 import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
@@ -105,6 +106,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={appBootstrap.queryClient}>
         <ThemeProvider>
+          <SessionExpiredListener />
           <KeyboardProvider>{children}</KeyboardProvider>
         </ThemeProvider>
       </QueryClientProvider>

@@ -4,11 +4,13 @@ import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { GlyphMark } from "@/components/GlyphMark"
 import { Text } from "@/components/Text"
 import { markOnboardingComplete } from "@/modules/onboarding"
 import { card, forest50, forest500, ink, ink3, radii, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
+import { structuralGlyph } from "./catalog-glyphs"
 import { useOnboardingActivation } from "../application/use-onboarding-activation"
 
 /**
@@ -45,7 +47,14 @@ export default function OnboardingActivationStep() {
     return (
       <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={$center}>
-          <Ionicons name="time-outline" size={48} color={forest500} style={$statusIcon} />
+          <View style={$glyphBackdrop}>
+            <GlyphMark
+              source={structuralGlyph("sprout")}
+              fallbackIcon="time-outline"
+              size="hero"
+            />
+          </View>
+          <Ionicons name="time-outline" size={28} color={forest500} style={$statusIcon} />
           <Text style={$heading}>Something took too long.</Text>
           <Text style={$subtitle}>
             We are still building your farm plan. Tap below to check again.
@@ -66,12 +75,13 @@ export default function OnboardingActivationStep() {
     return (
       <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={$center}>
-          <Ionicons
-            name="checkmark-circle-outline"
-            size={48}
-            color={forest500}
-            style={$statusIcon}
-          />
+          <View style={$glyphBackdrop}>
+            <GlyphMark
+              source={structuralGlyph("sprout")}
+              fallbackIcon="checkmark-circle-outline"
+              size="hero"
+            />
+          </View>
           <Text style={$heading}>Your plan is ready!</Text>
           <View style={$tooltip}>
             <Text style={$tooltipText}>
@@ -93,7 +103,10 @@ export default function OnboardingActivationStep() {
   return (
     <View style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={$center}>
-        <ActivityIndicator color={forest500} size="large" />
+        <View style={$glyphBackdrop}>
+          <GlyphMark source={structuralGlyph("sprout")} fallbackIcon="leaf-outline" size="hero" />
+        </View>
+        <ActivityIndicator color={forest500} size="large" style={{ marginTop: spacing.s4 }} />
         <Text style={[$heading, { marginTop: spacing.s5 }]}>Setting up your farm plan...</Text>
         <Text style={$subtitle}>
           We are building your first day of activities based on what you told us.
@@ -115,13 +128,23 @@ const $center: ViewStyle = {
   paddingHorizontal: spacing.s5,
 }
 
+const $glyphBackdrop: ViewStyle = {
+  width: 120,
+  height: 120,
+  borderRadius: 60,
+  backgroundColor: forest50,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: spacing.s2,
+}
+
 const $statusIcon: TextStyle = {
-  marginBottom: spacing.s4,
+  marginBottom: spacing.s3,
 }
 
 const $heading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 22,
+  fontFamily: typography.display.bold,
+  fontSize: 24,
   color: ink,
   textAlign: "center",
   marginBottom: spacing.s2,
