@@ -2,10 +2,10 @@ import React, { useState } from "react"
 import {
   ActivityIndicator,
   Dimensions,
-  KeyboardAvoidingView,
-  Platform,
+  Image,
+  ImageStyle,
+  Linking,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   TextStyle,
@@ -13,12 +13,15 @@ import {
   View,
   ViewStyle,
 } from "react-native"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import { LinearGradient } from "expo-linear-gradient"
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { GlyphHeroBand, GlyphMark } from "@/components/GlyphMark"
 import { api } from "@/services/api"
-import { getApiErrorMessage } from "@/shared/infrastructure/api-error"
+import { getApiErrorMessage, problemFromResponse } from "@/shared/infrastructure/api-error"
 import {
   card,
   forest50,
@@ -27,81 +30,42 @@ import {
   ink,
   ink3,
   ink4,
+  paper,
+  paper2,
   radii,
   spacing,
 } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
+import {
+  cropGlyph,
+  goalGlyph,
+  ICONS8_ATTRIBUTION_LABEL,
+  ICONS8_ATTRIBUTION_URL,
+  livestockGlyph,
+  regionWeatherGlyph,
+  structuralGlyph,
+} from "./catalog-glyphs"
 import OnboardingActivationStep from "./OnboardingActivationStep"
 import {
   markOnboardingComplete,
-  saveAuthToken,
+  loadFarmerProfile,
+  saveAuthSession,
   saveFarmerProfile,
   setOnboardingComplete,
 } from "../application/farmer-profile-store"
 import { mapDraftToProfile } from "../application/map-profile"
-import {
-  draftFromOnboardingData,
-  uiStepFromSuggested,
-} from "../application/resume-onboarding"
+import { draftFromOnboardingData, uiStepFromSuggested } from "../application/resume-onboarding"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
 import { useCompleteOnboarding, usePatchOnboarding } from "../application/use-onboarding-mutations"
+import type { FarmerProfile } from "../domain/entities/farmer-profile"
 import {
   isValidTwoWeekGoal,
   TWO_WEEK_GOAL_MAX_LENGTH,
   TWO_WEEK_GOAL_MIN_LENGTH,
 } from "../domain/policies/two-week-goal"
 
-// Display-only emoji lookups — purely cosmetic, not data
-const CROP_EMOJI: Record<string, string> = {
-  maize: "🌽",
-  beans: "🫘",
-  tomatoes: "🍅",
-  kale: "🥬",
-  potatoes: "🥔",
-  onions: "🧅",
-  capsicum: "🫑",
-  watermelon: "🍉",
-  avocado: "🥑",
-  mango: "🥭",
-  banana: "🍌",
-  coffee: "☕",
-  tea: "🍵",
-}
-const LIVESTOCK_EMOJI: Record<string, string> = {
-  cattle: "🐄",
-  chickens: "🐔",
-  goats: "🐐",
-  sheep: "🐑",
-  pigs: "🐷",
-  rabbits: "🐰",
-  ducks: "🦆",
-  bees: "🐝",
-}
-const GOAL_EMOJI: Record<string, string> = {
-  MAKE_MONEY: "💰",
-  FOOD_SECURITY: "🌽",
-  SAVE_TIME: "⏰",
-  REDUCE_LOSSES: "📉",
-  LIVESTOCK_HEALTH: "🐄",
-  MODERN_FARMING: "📚",
-}
-const REGION_EMOJI: Record<string, string> = {
-  nairobi: "🏙️",
-  nakuru: "🌽",
-  kisumu: "🌊",
-  mombasa: "☀️",
-  eldoret: "🥬",
-  kitale: "🌽",
-  machakos: "⛰️",
-  nyeri: "🍃",
-  meru: "🌱",
-  thika: "🍍",
-  kisii: "🫐",
-  kakamega: "🌧️",
-  garissa: "🌵",
-  narok: "🦁",
-}
+const brandLogo = require("@assets/images/logo.png")
 
 // ---------------------------------------------------------------------------
 // Types (UI-local — not the same as the API entity)
@@ -137,6 +101,22 @@ const INITIAL_DRAFT: DraftProfile = {
   twoWeekGoal: "",
 }
 
+function draftFromSavedProfile(profile: FarmerProfile | null): DraftProfile {
+  if (!profile) return INITIAL_DRAFT
+  return {
+    name: profile.name,
+    location: profile.location.label,
+    locationSlug: profile.location.county ?? "",
+    farmType: profile.productionType === "LIVESTOCK" ? "livestock" : "crops",
+    crops: profile.cropIds,
+    livestock: profile.livestockIds,
+    workStyle: profile.helpersLevel === "SOLO" ? "solo" : "helpers",
+    farmSize: profile.acreage <= 1 ? "small" : profile.acreage <= 5 ? "medium" : "large",
+    goals: profile.goalSlugs,
+    twoWeekGoal: profile.twoWeekGoal ?? "",
+  }
+}
+
 // Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers
 // 6=farmSize  7=goals  8=twoWeekGoal  9=activating (SSE wait -> plan day view)
 const PROGRESS_STEPS = 8
@@ -149,9 +129,18 @@ const GRID_CARD_W = (W - spacing.s5 * 2 - spacing.s3) / 2
 // ---------------------------------------------------------------------------
 
 export default function OnboardingScreen() {
-  const [step, setStep] = useState(0)
-  const [draft, setDraft] = useState<DraftProfile>(INITIAL_DRAFT)
-  const [locationQuery, setLocationQuery] = useState("")
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
+  const { preview: previewParam } = useLocalSearchParams<{ preview?: string }>()
+  const isPreview = previewParam === "1" || previewParam === "true"
+
+  const [step, setStep] = useState(() => (isPreview ? 1 : 0))
+  const [draft, setDraft] = useState<DraftProfile>(() =>
+    isPreview ? draftFromSavedProfile(loadFarmerProfile()) : INITIAL_DRAFT,
+  )
+  const [locationQuery, setLocationQuery] = useState(() =>
+    isPreview ? (loadFarmerProfile()?.location.label ?? "") : "",
+  )
 
   // Auth step state
   const [authMode, setAuthMode] = useState<"login" | "register">("login")
@@ -165,9 +154,6 @@ export default function OnboardingScreen() {
   const [finishLoading, setFinishLoading] = useState(false)
   const [finishError, setFinishError] = useState<string | null>(null)
 
-  const router = useRouter()
-  const insets = useSafeAreaInsets()
-
   const cropsQuery = useCrops()
   const livestockQuery = useLivestock()
   const regionsQuery = useRegions()
@@ -175,20 +161,47 @@ export default function OnboardingScreen() {
   const patchOnboardingMutation = usePatchOnboarding()
   const completeOnboardingMutation = useCompleteOnboarding()
 
-  const goNext = () => setStep((s) => s + 1)
-  const goBack = () => setStep((s) => Math.max(0, s - 1))
+  const exitPreview = () => {
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+    router.replace("/profile" as any)
+  }
+
+  const goNext = () => setStep((s) => Math.min(8, s + 1))
+  const goBack = () => {
+    if (isPreview && step <= 1) {
+      exitPreview()
+      return
+    }
+    setStep((s) => Math.max(isPreview ? 1 : 0, s - 1))
+  }
 
   const handleAuth = async () => {
     setAuthError(null)
+
+    const email = authEmail.trim().toLowerCase()
+    const password = authPassword
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    if (!emailOk) {
+      setAuthError("Enter a valid email address (e.g. you@example.com).")
+      return
+    }
+    if (authMode === "register" && password.length < 8) {
+      setAuthError("Password must be at least 8 characters.")
+      return
+    }
+
     setAuthLoading(true)
     try {
       let res
       if (authMode === "login") {
-        res = await api.login({ email: authEmail.trim(), password: authPassword })
+        res = await api.login({ email, password })
       } else {
         res = await api.register({
-          email: authEmail.trim(),
-          password: authPassword,
+          email,
+          password,
           name: authName.trim(),
         })
       }
@@ -196,7 +209,9 @@ export default function OnboardingScreen() {
       console.log("[auth] status:", res.status, "ok:", res.ok, "data:", JSON.stringify(res.data))
 
       if (!res.ok || !res.data?.data?.accessToken) {
+        const apiErr = problemFromResponse(res)
         const msg =
+          (apiErr ? getApiErrorMessage(apiErr) : null) ??
           (res.data as any)?.error?.message ??
           res.originalError?.message ??
           `Request failed (${res.status ?? "no response"})`
@@ -204,8 +219,8 @@ export default function OnboardingScreen() {
         return
       }
 
-      const { accessToken, farmer } = res.data.data
-      saveAuthToken(accessToken)
+      const { accessToken, refreshToken, farmer } = res.data.data
+      saveAuthSession(accessToken, refreshToken)
       setOnboardingComplete(!!farmer.onboardingCompleted)
       api.setAuthToken(accessToken)
 
@@ -305,6 +320,7 @@ export default function OnboardingScreen() {
         return
       }
 
+      markOnboardingComplete()
       setStep(9) // -> activation wait screen (SSE), see OnboardingActivationStep
     } finally {
       setFinishLoading(false)
@@ -318,6 +334,7 @@ export default function OnboardingScreen() {
     !authLoading
 
   const ctaEnabled =
+    isPreview ||
     (step === 1 && draft.name.trim().length >= 2) ||
     (step === 2 && draft.location !== "") ||
     (step === 3 && draft.farmType !== null) ||
@@ -328,10 +345,12 @@ export default function OnboardingScreen() {
     (step === 7 && draft.goals.length > 0) ||
     (step === 8 && isValidTwoWeekGoal(draft.twoWeekGoal))
 
-  const ctaLabel = step === 8 ? "Build My Farm Plan 🌱" : "Continue  →"
-  const ctaOnPress = step === 8 ? handleFinish : goNext
+  const ctaLabel =
+    isPreview && step === 8 ? "Exit preview" : step === 8 ? "Build My Farm Plan" : "Continue"
+  const ctaOnPress =
+    isPreview && step === 8 ? exitPreview : step === 8 ? handleFinish : goNext
 
-  const isAuth = step === 0
+  const isAuth = step === 0 && !isPreview
   const isActivating = step === 9
   const showHeader = !isAuth && !isActivating
 
@@ -352,113 +371,137 @@ export default function OnboardingScreen() {
 
   if (isAuth) {
     return (
-      <KeyboardAvoidingView
-        style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      <LinearGradient
+        colors={[paper, paper2]}
+        style={$root}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       >
-        <ScrollView
-          contentContainerStyle={$authScroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView
+          style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+          behavior="padding"
         >
-          {/* Brand badge */}
-          <View style={$authBadge}>
-            <Text style={$authBadgeText}>✦ Tujiweze</Text>
-          </View>
+          <KeyboardAwareScrollView
+            contentContainerStyle={$authScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bottomOffset={spacing.s6}
+          >
+            <Image source={brandLogo} style={$authLogo} resizeMode="contain" />
 
-          <Text style={$authHeading}>
-            {authMode === "login" ? "Welcome back 👋" : "Create your account 🌱"}
-          </Text>
-          <Text style={$authSubtitle}>
-            {authMode === "login"
-              ? "Sign in to continue your farming journey."
-              : "Enter your email to get started."}
-          </Text>
+            <View style={$authBadge}>
+              <Text style={$authBadgeText}>Tujiweze</Text>
+            </View>
 
-          {/* Name — register only */}
-          {authMode === "register" && (
-            <>
-              <Text style={$fieldLabel}>Full name</Text>
+            <Text style={$authHeading}>
+              {authMode === "login" ? "Welcome back" : "Create your account"}
+            </Text>
+            <Text style={$authSubtitle}>
+              {authMode === "login"
+                ? "Sign in to continue your farming journey."
+                : "Enter your email to get started."}
+            </Text>
+
+            {authMode === "register" && (
+              <>
+                <Text style={$fieldLabel}>Full name</Text>
+                <View style={$authInputRow}>
+                  <Ionicons name="person-outline" size={18} color={ink3} style={$authInputIcon} />
+                  <TextInput
+                    style={$authInputFlex}
+                    value={authName}
+                    onChangeText={(v) => {
+                      setAuthName(v)
+                      setAuthError(null)
+                    }}
+                    placeholder="John Kamau"
+                    placeholderTextColor={ink4}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                </View>
+              </>
+            )}
+
+            <Text style={$fieldLabel}>Email</Text>
+            <View style={$authInputRow}>
+              <Ionicons name="mail-outline" size={18} color={ink3} style={$authInputIcon} />
               <TextInput
-                style={$authInput}
-                value={authName}
+                style={$authInputFlex}
+                value={authEmail}
                 onChangeText={(v) => {
-                  setAuthName(v)
+                  setAuthEmail(v.replace(/\s/g, ""))
                   setAuthError(null)
                 }}
-                placeholder="John Kamau"
+                placeholder="you@example.com"
                 placeholderTextColor={ink4}
-                autoCapitalize="words"
+                keyboardType="email-address"
+                autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
               />
-            </>
-          )}
+            </View>
 
-          {/* Email */}
-          <Text style={$fieldLabel}>Email</Text>
-          <TextInput
-            style={$authInput}
-            value={authEmail}
-            onChangeText={(v) => {
-              setAuthEmail(v)
-              setAuthError(null)
-            }}
-            placeholder="you@example.com"
-            placeholderTextColor={ink4}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+            <Text style={$fieldLabel}>Password</Text>
+            <View style={$authInputRow}>
+              <Ionicons name="lock-closed-outline" size={18} color={ink3} style={$authInputIcon} />
+              <TextInput
+                style={$authInputFlex}
+                value={authPassword}
+                onChangeText={(v) => {
+                  setAuthPassword(v)
+                  setAuthError(null)
+                }}
+                placeholder="••••••••"
+                placeholderTextColor={ink4}
+                secureTextEntry
+                autoComplete={authMode === "login" ? "password" : "new-password"}
+                textContentType="password"
+              />
+            </View>
 
-          {/* Password */}
-          <Text style={$fieldLabel}>Password</Text>
-          <TextInput
-            style={$authInput}
-            value={authPassword}
-            onChangeText={(v) => {
-              setAuthPassword(v)
-              setAuthError(null)
-            }}
-            placeholder="••••••••"
-            placeholderTextColor={ink4}
-            secureTextEntry
-          />
+            {authError ? <Text style={$authErrorText}>{authError}</Text> : null}
 
-          {/* Error */}
-          {authError ? <Text style={$authErrorText}>{authError}</Text> : null}
+            <TouchableOpacity
+              style={[$ctaBtn, !authCtaEnabled && $ctaBtnDisabled, { marginTop: spacing.s4 }]}
+              onPress={handleAuth}
+              disabled={!authCtaEnabled}
+              activeOpacity={0.85}
+            >
+              {authLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={$ctaBtnText}>
+                  {authMode === "login" ? "Sign in" : "Create account"}
+                </Text>
+              )}
+            </TouchableOpacity>
 
-          {/* Primary CTA */}
-          <TouchableOpacity
-            style={[$ctaBtn, !authCtaEnabled && $ctaBtnDisabled, { marginTop: spacing.s4 }]}
-            onPress={handleAuth}
-            disabled={!authCtaEnabled}
-            activeOpacity={0.85}
-          >
-            {authLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={$ctaBtnText}>
-                {authMode === "login" ? "Sign in  →" : "Create account  →"}
+            <TouchableOpacity
+              style={$authToggle}
+              onPress={() => {
+                setAuthMode((m) => (m === "login" ? "register" : "login"))
+                setAuthName("")
+                setAuthError(null)
+              }}
+            >
+              <Text style={$authToggleText}>
+                {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+                <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
               </Text>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          {/* Mode toggle */}
-          <TouchableOpacity
-            style={$authToggle}
-            onPress={() => {
-              setAuthMode((m) => (m === "login" ? "register" : "login"))
-              setAuthName("")
-              setAuthError(null)
-            }}
-          >
-            <Text style={$authToggleText}>
-              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
-              <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <TouchableOpacity
+              style={$authAttribution}
+              onPress={() => Linking.openURL(ICONS8_ATTRIBUTION_URL)}
+              hitSlop={8}
+            >
+              <Text style={$authAttributionText}>{ICONS8_ATTRIBUTION_LABEL}</Text>
+            </TouchableOpacity>
+          </KeyboardAwareScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     )
   }
 
@@ -482,425 +525,440 @@ export default function OnboardingScreen() {
               />
             ))}
           </View>
+          {isPreview ? (
+            <View style={$previewPill}>
+              <Text style={$previewPillText}>Preview</Text>
+            </View>
+          ) : null}
         </View>
       )}
 
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        contentContainerStyle={[$scrollContent, { paddingTop: spacing.s6 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={spacing.s10}
       >
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={[$scrollContent, { paddingTop: spacing.s6 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ---- Name ---- */}
-          {step === 1 && (
-            <>
-              <Text style={$stepEmoji}>👋</Text>
-              <Text style={$stepHeading}>{"What should we\ncall you?"}</Text>
-              <Text style={$stepSubtitle}>{"We'll personalise your experience just for you."}</Text>
-              <TextInput
-                style={$nameInput}
-                value={draft.name}
-                onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
-                placeholder="Your name"
-                placeholderTextColor={ink4}
-                autoFocus
-                returnKeyType="done"
-              />
-              {draft.name.trim().length >= 2 && (
-                <View style={$nameConfirm}>
-                  <Text style={$nameConfirmText}>✓ Great to meet you, {draft.name.trim()}!</Text>
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ---- Location ---- */}
-          {step === 2 && (
-            <>
-              <Text style={$stepHeading}>{"Where's your farm?"}</Text>
-              <Text style={$stepSubtitle}>{"We'll show local weather and soil advice."}</Text>
-              <View style={$searchBar}>
-                <Ionicons name="search-outline" size={16} color={ink3} style={{ marginRight: 8 }} />
-                <TextInput
-                  style={$searchInput}
-                  value={locationQuery}
-                  onChangeText={setLocationQuery}
-                  placeholder="Search county or region..."
-                  placeholderTextColor={ink4}
-                />
+        {/* ---- Name ---- */}
+        {step === 1 && (
+          <>
+            <Text style={$stepHeading}>{"What should we\ncall you?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll personalise your experience just for you."}</Text>
+            <TextInput
+              style={$nameInput}
+              value={draft.name}
+              onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
+              placeholder="Your name"
+              placeholderTextColor={ink4}
+              autoFocus
+              returnKeyType="done"
+            />
+            {draft.name.trim().length >= 2 && (
+              <View style={$nameConfirm}>
+                <Text style={$nameConfirmText}>Great to meet you, {draft.name.trim()}!</Text>
               </View>
-              {regionsQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {filteredRegions.map((region) => {
-                    const selected = draft.location === region.name
-                    const emoji = REGION_EMOJI[region.slug] ?? "📍"
-                    const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
-                    return (
-                      <Pressable
-                        key={region.id}
-                        style={[$locationCard, selected && $locationCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            location: region.name,
-                            locationSlug: region.slug,
-                          }))
-                        }
-                      >
-                        <Text style={{ fontSize: 22 }}>{emoji}</Text>
-                        <Text style={[$locationName, selected && { color: forest500 }]}>
-                          {region.name}
-                        </Text>
-                        {tempLabel && <Text style={$locationTemp}>{tempLabel}</Text>}
-                        {region.weather && (
-                          <Text style={$locationWeatherDesc} numberOfLines={1}>
-                            {region.weather.description}
-                          </Text>
-                        )}
-                        {selected && (
-                          <View style={$locationCheck}>
-                            <Ionicons name="checkmark-circle" size={18} color={forest500} />
-                          </View>
-                        )}
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
+            )}
+          </>
+        )}
 
-          {/* ---- Farm type ---- */}
-          {step === 3 && (
-            <>
-              <Text style={$stepHeading}>{"What do you farm?"}</Text>
-              <Text style={$stepSubtitle}>{"Choose your primary farming type."}</Text>
-              {(
-                [
-                  {
-                    id: "crops" as FarmTypeUI,
-                    label: "Crops",
-                    desc: "Fruits, vegetables & grains",
-                    illustration: "🌳🌽🍅",
-                    illustrationBg: forest50,
-                    icon: "🌱",
-                  },
-                  {
-                    id: "livestock" as FarmTypeUI,
-                    label: "Livestock",
-                    desc: "Cows, goats, chickens & more",
-                    illustration: "🐄🐔🐐",
-                    illustrationBg: "#FDF3E7",
-                    icon: "🐄",
-                  },
-                ] as const
-              ).map((opt) => {
-                const selected = draft.farmType === opt.id
-                return (
-                  <Pressable
-                    key={opt.id}
-                    style={[$bigCard, selected && $bigCardSelected]}
-                    onPress={() =>
-                      setDraft((d) => ({ ...d, farmType: opt.id, crops: [], livestock: [] }))
-                    }
-                  >
-                    <View style={[$bigCardIllustration, { backgroundColor: opt.illustrationBg }]}>
-                      <Text style={{ fontSize: 44 }}>{opt.illustration}</Text>
-                    </View>
-                    <View style={$bigCardFooter}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.icon} {opt.label}
-                        </Text>
-                        <Text style={$bigCardDesc}>{opt.desc}</Text>
-                      </View>
-                      <View style={[$radio, selected && $radioSelected]}>
-                        {selected && <View style={$radioDot} />}
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              })}
-            </>
-          )}
-
-          {/* ---- Crops ---- */}
-          {step === 4 && draft.farmType === "crops" && (
-            <>
-              <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
-              <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {cropsQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {(cropsQuery.data ?? []).map((crop) => {
-                    const selected = draft.crops.includes(crop.id)
-                    const emoji = CROP_EMOJI[crop.slug] ?? "🌱"
-                    return (
-                      <Pressable
-                        key={crop.id}
-                        style={[$speciesCard, selected && $speciesCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            crops: d.crops.includes(crop.id)
-                              ? d.crops.filter((c) => c !== crop.id)
-                              : [...d.crops, crop.id],
-                          }))
-                        }
-                      >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
-                        <Text style={[$speciesLabel, selected && { color: forest500 }]}>
-                          {crop.name}
-                        </Text>
-                        <View
-                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
-                        >
-                          {selected && <Ionicons name="checkmark" size={10} color={card} />}
-                        </View>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ---- Livestock ---- */}
-          {step === 4 && draft.farmType !== "crops" && (
-            <>
-              <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
-              <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
-              {livestockQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {(livestockQuery.data ?? []).map((animal) => {
-                    const selected = draft.livestock.includes(animal.id)
-                    const emoji = LIVESTOCK_EMOJI[animal.slug] ?? "🐾"
-                    return (
-                      <Pressable
-                        key={animal.id}
-                        style={[$speciesCard, selected && $speciesCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            livestock: d.livestock.includes(animal.id)
-                              ? d.livestock.filter((a) => a !== animal.id)
-                              : [...d.livestock, animal.id],
-                          }))
-                        }
-                      >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
-                        <Text style={[$speciesLabel, selected && { color: forest500 }]}>
-                          {animal.name}
-                        </Text>
-                        <View
-                          style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}
-                        >
-                          {selected && <Ionicons name="checkmark" size={10} color={card} />}
-                        </View>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ---- Helpers ---- */}
-          {step === 5 && (
-            <>
-              <Text style={$stepHeading}>{"Do you work alone\nor with helpers?"}</Text>
-              <Text style={$stepSubtitle}>
-                {"We'll plan the right workload for your situation."}
-              </Text>
-              {(
-                [
-                  {
-                    id: "solo" as WorkStyleUI,
-                    label: "Solo Farmer",
-                    desc: "I work my farm on my own",
-                    illustration: "🧑‍🌾",
-                    icon: "👤",
-                  },
-                  {
-                    id: "helpers" as WorkStyleUI,
-                    label: "With Helpers",
-                    desc: "I have farmhands or family help",
-                    illustration: "👨‍👩‍👧",
-                    icon: "👥",
-                  },
-                ] as const
-              ).map((opt) => {
-                const selected = draft.workStyle === opt.id
-                return (
-                  <Pressable
-                    key={opt.id}
-                    style={[$bigCard, selected && $bigCardSelected]}
-                    onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
-                  >
-                    <View style={[$bigCardIllustration, { backgroundColor: "#F5F5F2" }]}>
-                      <Text style={{ fontSize: 56 }}>{opt.illustration}</Text>
-                    </View>
-                    <View style={$bigCardFooter}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
-                          {opt.icon} {opt.label}
-                        </Text>
-                        <Text style={$bigCardDesc}>{opt.desc}</Text>
-                      </View>
-                      <View style={[$radio, selected && $radioSelected]}>
-                        {selected && <View style={$radioDot} />}
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              })}
-            </>
-          )}
-
-          {/* ---- Farm size ---- */}
-          {step === 6 && (
-            <>
-              <Text style={$stepHeading}>{"How large is\nyour farm?"}</Text>
-              <Text style={$stepSubtitle}>{"Helps us tailor your schedule and task load."}</Text>
-              {(
-                [
-                  {
-                    id: "small" as FarmSizeUI,
-                    label: "Small Farm",
-                    desc: "Under 1 acre",
-                    emoji: "🌿🌿",
-                    icon: "🌱",
-                  },
-                  {
-                    id: "medium" as FarmSizeUI,
-                    label: "Medium Farm",
-                    desc: "1 to 5 acres",
-                    emoji: "🌾🌾🌾",
-                    icon: "🌿",
-                  },
-                  {
-                    id: "large" as FarmSizeUI,
-                    label: "Large Farm",
-                    desc: "Over 5 acres",
-                    emoji: "🌳🌳🌳🌳",
-                    icon: "🍃",
-                  },
-                ] as const
-              ).map((opt) => {
-                const selected = draft.farmSize === opt.id
-                return (
-                  <Pressable
-                    key={opt.id}
-                    style={[$sizeCard, selected && $sizeCardSelected]}
-                    onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
-                  >
-                    <Text style={{ fontSize: 32, marginRight: spacing.s4 }}>{opt.emoji}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[$sizeLabel, selected && { color: forest500 }]}>
-                        {opt.icon} {opt.label}
+        {/* ---- Location ---- */}
+        {step === 2 && (
+          <>
+            <Text style={$stepHeading}>{"Where's your farm?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll show local weather and soil advice."}</Text>
+            <View style={$searchBar}>
+              <Ionicons name="search-outline" size={16} color={ink3} style={{ marginRight: 8 }} />
+              <TextInput
+                style={$searchInput}
+                value={locationQuery}
+                onChangeText={setLocationQuery}
+                placeholder="Search county or region..."
+                placeholderTextColor={ink4}
+              />
+            </View>
+            {regionsQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {filteredRegions.map((region) => {
+                  const selected = draft.location === region.name
+                  const tempLabel = region.weather ? `${region.weather.temperature}°C` : null
+                  return (
+                    <Pressable
+                      key={region.id}
+                      style={[$locationCard, selected && $locationCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          location: region.name,
+                          locationSlug: region.slug,
+                        }))
+                      }
+                    >
+                      <GlyphMark
+                        source={regionWeatherGlyph(region.weather)}
+                        fallbackIcon="partly-sunny-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
+                      <Text style={[$locationName, selected && { color: forest500 }]}>
+                        {region.name}
                       </Text>
-                      <Text style={$sizeDesc}>{opt.desc}</Text>
+                      {tempLabel && <Text style={$locationTemp}>{tempLabel}</Text>}
+                      {region.weather && (
+                        <Text style={$locationWeatherDesc} numberOfLines={1}>
+                          {region.weather.description}
+                        </Text>
+                      )}
+                      {selected && (
+                        <View style={$locationCheck}>
+                          <Ionicons name="checkmark-circle" size={18} color={forest500} />
+                        </View>
+                      )}
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ---- Farm type ---- */}
+        {step === 3 && (
+          <>
+            <Text style={$stepHeading}>{"What do you farm?"}</Text>
+            <Text style={$stepSubtitle}>{"Choose your primary farming type."}</Text>
+            {(
+              [
+                {
+                  id: "crops" as FarmTypeUI,
+                  label: "Crops",
+                  desc: "Fruits, vegetables & grains",
+                  glyph: structuralGlyph("farm-crops"),
+                  fallbackIcon: "leaf-outline" as const,
+                  illustrationBg: forest50,
+                },
+                {
+                  id: "livestock" as FarmTypeUI,
+                  label: "Livestock",
+                  desc: "Cows, goats, chickens & more",
+                  glyph: structuralGlyph("farm-livestock"),
+                  fallbackIcon: "paw-outline" as const,
+                  illustrationBg: paper2,
+                },
+              ] as const
+            ).map((opt) => {
+              const selected = draft.farmType === opt.id
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[$bigCard, selected && $bigCardSelected]}
+                  onPress={() =>
+                    setDraft((d) => ({ ...d, farmType: opt.id, crops: [], livestock: [] }))
+                  }
+                >
+                  <GlyphHeroBand
+                    source={opt.glyph}
+                    fallbackIcon={opt.fallbackIcon}
+                    backgroundColor={opt.illustrationBg}
+                    selected={selected}
+                  />
+                  <View style={$bigCardFooter}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={$bigCardDesc}>{opt.desc}</Text>
                     </View>
                     <View style={[$radio, selected && $radioSelected]}>
                       {selected && <View style={$radioDot} />}
                     </View>
-                  </Pressable>
-                )
-              })}
-            </>
-          )}
+                  </View>
+                </Pressable>
+              )
+            })}
+          </>
+        )}
 
-          {/* ---- Goals ---- */}
-          {step === 7 && (
-            <>
-              <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
-              <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
-              {goalsQuery.isLoading ? (
-                <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
-              ) : (
-                <View style={$grid}>
-                  {(goalsQuery.data ?? []).map((goal) => {
-                    const selected = draft.goals.includes(goal.slug)
-                    const emoji = GOAL_EMOJI[goal.slug] ?? "🎯"
-                    return (
-                      <Pressable
-                        key={goal.id}
-                        style={[$goalCard, selected && $goalCardSelected]}
-                        onPress={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            goals: d.goals.includes(goal.slug)
-                              ? d.goals.filter((g) => g !== goal.slug)
-                              : [...d.goals, goal.slug],
-                          }))
-                        }
-                      >
-                        <Text style={{ fontSize: 30, marginBottom: spacing.s2 }}>{emoji}</Text>
-                        <Text style={[$goalLabel, selected && { color: forest500 }]}>
-                          {goal.name}
-                        </Text>
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              )}
-            </>
-          )}
-
-          {/* ---- 2-week goal ---- */}
-          {step === 8 && (
-            <>
-              <Text style={$stepHeading}>{"What's your #1 goal\nfor the next 2 weeks?"}</Text>
-              <Text style={$stepSubtitle}>
-                {"Be specific — this helps us personalise your daily activities."}
-              </Text>
-              <TextInput
-                style={$goalTextInput}
-                value={draft.twoWeekGoal}
-                onChangeText={(twoWeekGoal) =>
-                  setDraft((d) => ({
-                    ...d,
-                    twoWeekGoal: twoWeekGoal.slice(0, TWO_WEEK_GOAL_MAX_LENGTH),
-                  }))
-                }
-                placeholder="e.g. Get my maize planted before the next rains"
-                placeholderTextColor={ink4}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                maxLength={TWO_WEEK_GOAL_MAX_LENGTH}
-                autoFocus
-              />
-              <View style={$goalCounterRow}>
-                {draft.twoWeekGoal.trim().length > 0 &&
-                draft.twoWeekGoal.trim().length < TWO_WEEK_GOAL_MIN_LENGTH ? (
-                  <Text style={$goalHintText}>
-                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length} more character
-                    {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length === 1
-                      ? ""
-                      : "s"}{" "}
-                    needed
-                  </Text>
-                ) : (
-                  <View />
-                )}
-                <Text style={$goalCounterText}>
-                  {draft.twoWeekGoal.length}/{TWO_WEEK_GOAL_MAX_LENGTH}
-                </Text>
+        {/* ---- Crops ---- */}
+        {step === 4 && draft.farmType === "crops" && (
+          <>
+            <Text style={$stepHeading}>{"What crops do\nyou grow?"}</Text>
+            <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
+            {cropsQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {(cropsQuery.data ?? []).map((crop) => {
+                  const selected = draft.crops.includes(crop.id)
+                  return (
+                    <Pressable
+                      key={crop.id}
+                      style={[$speciesCard, selected && $speciesCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          crops: d.crops.includes(crop.id)
+                            ? d.crops.filter((c) => c !== crop.id)
+                            : [...d.crops, crop.id],
+                        }))
+                      }
+                    >
+                      <GlyphMark
+                        source={cropGlyph(crop.slug || crop.name)}
+                        fallbackIcon="leaf-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
+                      <Text style={[$speciesLabel, selected && { color: forest500 }]}>
+                        {crop.name}
+                      </Text>
+                      <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        {selected && <Ionicons name="checkmark" size={10} color={card} />}
+                      </View>
+                    </Pressable>
+                  )
+                })}
               </View>
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+            )}
+          </>
+        )}
+
+        {/* ---- Livestock ---- */}
+        {step === 4 && draft.farmType !== "crops" && (
+          <>
+            <Text style={$stepHeading}>{"What livestock do\nyou raise?"}</Text>
+            <Text style={$stepSubtitle}>{"Select all that apply."}</Text>
+            {livestockQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {(livestockQuery.data ?? []).map((animal) => {
+                  const selected = draft.livestock.includes(animal.id)
+                  return (
+                    <Pressable
+                      key={animal.id}
+                      style={[$speciesCard, selected && $speciesCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          livestock: d.livestock.includes(animal.id)
+                            ? d.livestock.filter((a) => a !== animal.id)
+                            : [...d.livestock, animal.id],
+                        }))
+                      }
+                    >
+                      <GlyphMark
+                        source={livestockGlyph(animal.slug || animal.name)}
+                        fallbackIcon="paw-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
+                      <Text style={[$speciesLabel, selected && { color: forest500 }]}>
+                        {animal.name}
+                      </Text>
+                      <View style={[$checkBadge, selected ? $checkBadgeFilled : $checkBadgeEmpty]}>
+                        {selected && <Ionicons name="checkmark" size={10} color={card} />}
+                      </View>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ---- Helpers ---- */}
+        {step === 5 && (
+          <>
+            <Text style={$stepHeading}>{"Do you work alone\nor with helpers?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll plan the right workload for your situation."}</Text>
+            {(
+              [
+                {
+                  id: "solo" as WorkStyleUI,
+                  label: "Solo Farmer",
+                  desc: "I work my farm on my own",
+                  glyph: structuralGlyph("solo"),
+                  fallbackIcon: "person-outline" as const,
+                },
+                {
+                  id: "helpers" as WorkStyleUI,
+                  label: "With Helpers",
+                  desc: "I have farmhands or family help",
+                  glyph: structuralGlyph("team"),
+                  fallbackIcon: "people-outline" as const,
+                },
+              ] as const
+            ).map((opt) => {
+              const selected = draft.workStyle === opt.id
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[$bigCard, selected && $bigCardSelected]}
+                  onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
+                >
+                  <GlyphHeroBand
+                    source={opt.glyph}
+                    fallbackIcon={opt.fallbackIcon}
+                    backgroundColor={paper2}
+                    selected={selected}
+                  />
+                  <View style={$bigCardFooter}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={$bigCardDesc}>{opt.desc}</Text>
+                    </View>
+                    <View style={[$radio, selected && $radioSelected]}>
+                      {selected && <View style={$radioDot} />}
+                    </View>
+                  </View>
+                </Pressable>
+              )
+            })}
+          </>
+        )}
+
+        {/* ---- Farm size ---- */}
+        {step === 6 && (
+          <>
+            <Text style={$stepHeading}>{"How large is\nyour farm?"}</Text>
+            <Text style={$stepSubtitle}>{"Helps us tailor your schedule and task load."}</Text>
+            {(
+              [
+                {
+                  id: "small" as FarmSizeUI,
+                  label: "Small Farm",
+                  desc: "Under 1 acre",
+                  glyph: structuralGlyph("size-small"),
+                },
+                {
+                  id: "medium" as FarmSizeUI,
+                  label: "Medium Farm",
+                  desc: "1 to 5 acres",
+                  glyph: structuralGlyph("size-medium"),
+                },
+                {
+                  id: "large" as FarmSizeUI,
+                  label: "Large Farm",
+                  desc: "Over 5 acres",
+                  glyph: structuralGlyph("size-large"),
+                },
+              ] as const
+            ).map((opt) => {
+              const selected = draft.farmSize === opt.id
+              return (
+                <Pressable
+                  key={opt.id}
+                  style={[$sizeCard, selected && $sizeCardSelected]}
+                  onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
+                >
+                  <GlyphMark
+                    source={opt.glyph}
+                    fallbackIcon="resize-outline"
+                    size="lg"
+                    selected={selected}
+                    style={$sizeMark}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[$sizeLabel, selected && { color: forest500 }]}>{opt.label}</Text>
+                    <Text style={$sizeDesc}>{opt.desc}</Text>
+                  </View>
+                  <View style={[$radio, selected && $radioSelected]}>
+                    {selected && <View style={$radioDot} />}
+                  </View>
+                </Pressable>
+              )
+            })}
+          </>
+        )}
+
+        {/* ---- Goals ---- */}
+        {step === 7 && (
+          <>
+            <Text style={$stepHeading}>{"What's your\nbiggest goal?"}</Text>
+            <Text style={$stepSubtitle}>{"We'll build your plan around what matters most."}</Text>
+            {goalsQuery.isLoading ? (
+              <ActivityIndicator color={forest500} style={{ marginTop: spacing.s6 }} />
+            ) : (
+              <View style={$grid}>
+                {(goalsQuery.data ?? []).map((goal) => {
+                  const selected = draft.goals.includes(goal.slug)
+                  return (
+                    <Pressable
+                      key={goal.id}
+                      style={[$goalCard, selected && $goalCardSelected]}
+                      onPress={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          goals: d.goals.includes(goal.slug)
+                            ? d.goals.filter((g) => g !== goal.slug)
+                            : [...d.goals, goal.slug],
+                        }))
+                      }
+                    >
+                      <GlyphMark
+                        source={goalGlyph(goal.illustrationKey || goal.slug)}
+                        fallbackIcon="flag-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
+                      <Text style={[$goalLabel, selected && { color: forest500 }]}>
+                        {goal.name}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ---- 2-week goal ---- */}
+        {step === 8 && (
+          <>
+            <Text style={$stepHeading}>{"What's your #1 goal\nfor the next 2 weeks?"}</Text>
+            <Text style={$stepSubtitle}>
+              {"Be specific — this helps us personalise your daily activities."}
+            </Text>
+            <TextInput
+              style={$goalTextInput}
+              value={draft.twoWeekGoal}
+              onChangeText={(twoWeekGoal) =>
+                setDraft((d) => ({
+                  ...d,
+                  twoWeekGoal: twoWeekGoal.slice(0, TWO_WEEK_GOAL_MAX_LENGTH),
+                }))
+              }
+              placeholder="e.g. Get my maize planted before the next rains"
+              placeholderTextColor={ink4}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              maxLength={TWO_WEEK_GOAL_MAX_LENGTH}
+              autoFocus
+            />
+            <View style={$goalCounterRow}>
+              {draft.twoWeekGoal.trim().length > 0 &&
+              draft.twoWeekGoal.trim().length < TWO_WEEK_GOAL_MIN_LENGTH ? (
+                <Text style={$goalHintText}>
+                  {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length} more character
+                  {TWO_WEEK_GOAL_MIN_LENGTH - draft.twoWeekGoal.trim().length === 1 ? "" : "s"}{" "}
+                  needed
+                </Text>
+              ) : (
+                <View />
+              )}
+              <Text style={$goalCounterText}>
+                {draft.twoWeekGoal.length}/{TWO_WEEK_GOAL_MAX_LENGTH}
+              </Text>
+            </View>
+          </>
+        )}
+      </KeyboardAwareScrollView>
 
       {/* Footer */}
       <View style={[$footer, { paddingBottom: insets.bottom + spacing.s2 }]}>
@@ -939,13 +997,19 @@ const $authScroll: ViewStyle = {
   paddingBottom: spacing.s8,
 }
 
+const $authLogo: ImageStyle = {
+  width: 56,
+  height: 56,
+  marginBottom: spacing.s4,
+}
+
 const $authBadge: ViewStyle = {
   alignSelf: "flex-start",
   backgroundColor: forest500,
   paddingHorizontal: spacing.s4,
   paddingVertical: 6,
   borderRadius: radii.pill,
-  marginBottom: spacing.s6,
+  marginBottom: spacing.s5,
 }
 
 const $authBadgeText: TextStyle = {
@@ -956,10 +1020,10 @@ const $authBadgeText: TextStyle = {
 }
 
 const $authHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 28,
+  fontFamily: typography.display.bold,
+  fontSize: 30,
   color: ink,
-  lineHeight: 36,
+  lineHeight: 38,
   marginBottom: spacing.s2,
 }
 
@@ -979,16 +1043,27 @@ const $fieldLabel: TextStyle = {
   marginTop: spacing.s3,
 }
 
-const $authInput: TextStyle = {
+const $authInputRow: ViewStyle = {
   height: 52,
   borderWidth: 1.5,
   borderColor: hairline,
   borderRadius: radii.xl,
   paddingHorizontal: spacing.s4,
+  backgroundColor: card,
+  flexDirection: "row",
+  alignItems: "center",
+}
+
+const $authInputIcon: TextStyle = {
+  marginRight: spacing.s2,
+}
+
+const $authInputFlex: TextStyle = {
+  flex: 1,
   fontFamily: typography.primary.normal,
   fontSize: 16,
   color: ink,
-  backgroundColor: card,
+  paddingVertical: 0,
 }
 
 const $authErrorText: TextStyle = {
@@ -1013,6 +1088,19 @@ const $authToggleText: TextStyle = {
 const $authToggleLink: TextStyle = {
   fontFamily: typography.primary.bold,
   color: forest500,
+}
+
+const $authAttribution: ViewStyle = {
+  alignItems: "center",
+  marginTop: spacing.s6,
+  paddingVertical: spacing.s2,
+}
+
+const $authAttributionText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink4,
+  textDecorationLine: "underline",
 }
 
 const $header: ViewStyle = {
@@ -1044,22 +1132,30 @@ const $progressSeg: ViewStyle = {
 const $progressFilled: ViewStyle = { backgroundColor: forest500 }
 const $progressEmpty: ViewStyle = { backgroundColor: hairline }
 
+const $previewPill: ViewStyle = {
+  marginLeft: spacing.s2,
+  backgroundColor: forest50,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.s2,
+  paddingVertical: 4,
+}
+
+const $previewPillText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 11,
+  color: forest500,
+}
+
 const $scrollContent: ViewStyle = {
   paddingHorizontal: spacing.s5,
   paddingBottom: spacing.s6,
 }
 
-// Step headings
-const $stepEmoji: TextStyle = {
-  fontSize: 40,
-  marginBottom: spacing.s4,
-}
-
 const $stepHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 26,
+  fontFamily: typography.display.bold,
+  fontSize: 28,
   color: ink,
-  lineHeight: 34,
+  lineHeight: 36,
   marginBottom: spacing.s2,
 }
 
@@ -1168,6 +1264,10 @@ const $locationCheck: ViewStyle = {
   right: spacing.s2,
 }
 
+const $speciesMark: ViewStyle = {
+  marginBottom: spacing.s2,
+}
+
 // Big cards (farm type, helpers)
 const $bigCard: ViewStyle = {
   backgroundColor: card,
@@ -1180,12 +1280,6 @@ const $bigCard: ViewStyle = {
 
 const $bigCardSelected: ViewStyle = {
   borderColor: forest500,
-}
-
-const $bigCardIllustration: ViewStyle = {
-  height: 110,
-  alignItems: "center",
-  justifyContent: "center",
 }
 
 const $bigCardFooter: ViewStyle = {
@@ -1289,6 +1383,10 @@ const $sizeCard: ViewStyle = {
 const $sizeCardSelected: ViewStyle = {
   backgroundColor: forest50,
   borderColor: forest500,
+}
+
+const $sizeMark: ViewStyle = {
+  marginRight: spacing.s4,
 }
 
 const $sizeLabel: TextStyle = {

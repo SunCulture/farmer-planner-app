@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
+  Dimensions,
   Modal,
-  Platform,
-  ScrollView,
   Text,
   TextInput,
   TextStyle,
@@ -15,9 +13,15 @@ import {
 } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import {
+  KeyboardAwareScrollView,
+  KeyboardAvoidingView,
+  type KeyboardAwareScrollViewRef,
+} from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ApiErrorView } from "@/components/ApiErrorView"
+import { GlyphMark } from "@/components/GlyphMark"
 import type { ContestReaction } from "@/services/api"
 import { isNotFoundError } from "@/shared/infrastructure/api-error"
 import {
@@ -52,10 +56,10 @@ import { useActivityDetail } from "../application/use-activity-detail"
 import { useActivityQA } from "../application/use-activity-qa"
 import type { ActivityHighlight } from "../domain/entities/activity-highlight"
 import { statusColorToUi } from "../infrastructure/api-mappers"
-import { AskQuestionBar } from "./components/AskQuestionBar"
+import { iconKeyToGlyph } from "../infrastructure/icon-key-map"
 import { ActivityEducationSection } from "./components/ActivityEducationSection"
+import { AiAssistantPanel, type AiChatMessage } from "./components/AiAssistantPanel"
 import { HighlightBadge } from "./components/HighlightBadge"
-import { QuestionBubble } from "./components/QuestionBubble"
 
 const REACTIONS: { id: ContestReaction; label: string }[] = [
   { id: "too_hard", label: "Too hard" },
@@ -90,7 +94,6 @@ export default function ActivityDetailScreen() {
   const contest = useContestActivity(activityId)
 
   const [localHighlight, setLocalHighlight] = useState<ActivityHighlight | null>(null)
-  const [highlightSourceId, setHighlightSourceId] = useState<string | null>(null)
   const [input, setInput] = useState("")
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -100,22 +103,48 @@ export default function ActivityDetailScreen() {
   const [contestReaction, setContestReaction] = useState<ContestReaction>("not_relevant")
   const [contestNote, setContestNote] = useState("")
   const [contestPending, setContestPending] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
 
-  const scrollRef = useRef<ScrollView>(null)
-  const qaSectionY = useRef(0)
-  const questionYs = useRef<Map<string, number>>(new Map())
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null)
   const prevFetching = useRef(false)
 
-  const qa = useActivityQA(activityId, (highlight, sourceQuestionId) => {
+  const qa = useActivityQA(activityId, (highlight) => {
     setLocalHighlight(highlight)
-    setHighlightSourceId(sourceQuestionId)
   })
+
+  const chatMessages: AiChatMessage[] = useMemo(() => {
+    const messages: AiChatMessage[] = []
+    for (const question of qa.questions) {
+      messages.push({
+        id: `${question.questionId}-q`,
+        role: "user",
+        text: question.question,
+      })
+      if (question.status === "answered" && question.answer) {
+        messages.push({
+          id: `${question.questionId}-a`,
+          role: "assistant",
+          text: question.answer,
+          chips: question.relatedFaqs.map((faq) => faq.question),
+        })
+      } else if (question.status === "failed") {
+        messages.push({
+          id: `${question.questionId}-a`,
+          role: "assistant",
+          text: "Couldn't get an answer. Please try again.",
+        })
+      }
+    }
+    return messages
+  }, [qa.questions])
+
+  const chatPending = qa.isAsking || qa.questions.some((question) => question.status === "pending")
 
   useEffect(() => {
     setLocalHighlight(null)
-    setHighlightSourceId(null)
     setContestPending(false)
     setActionError(null)
+    setChatOpen(false)
   }, [activityId])
 
   useEffect(() => {
@@ -128,24 +157,21 @@ export default function ActivityDetailScreen() {
   const highlight = localHighlight ?? activity?.highlight ?? null
 
   function scrollToHighlightSource() {
-    const y = highlightSourceId ? questionYs.current.get(highlightSourceId) : undefined
-    scrollRef.current?.scrollTo({ y: y ?? qaSectionY.current, animated: true })
+    setChatOpen(true)
   }
 
-  async function handleSend() {
-    const text = input.trim()
+  async function handleSend(explicit?: string) {
+    const text = (explicit ?? input).trim()
     if (!text) return
     setInput("")
     setActionError(null)
+    if (!chatOpen) setChatOpen(true)
     try {
       await qa.ask(text)
     } catch (err) {
       setActionError(getActivityErrorMessage(err))
+      setInput(text)
     }
-  }
-
-  function handleFaqPress(faqQuestion: string) {
-    setInput(faqQuestion)
   }
 
   async function handleDone() {
@@ -223,9 +249,14 @@ export default function ActivityDetailScreen() {
 
   const colors = statusUiColors(activity.status.color)
   const busy = markDone.isPending || skip.isPending || contest.isPending
+  const chatBottom = Math.max(insets.bottom, spacing.s3)
+  const collapsedChatHeight = 56
+  const expandedChatHeight = Math.min(Math.round(Dimensions.get("window").height * 0.78), 640)
+  const scrollBottomPad =
+    chatBottom + (chatOpen ? expandedChatHeight : collapsedChatHeight) + spacing.s4
 
   return (
-    <KeyboardAvoidingView style={$root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <View style={$root}>
       <View style={[$header, { paddingTop: insets.top + spacing.s2 }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10} style={$backBtn}>
           <Ionicons name="arrow-back" size={22} color={ink} />
@@ -235,15 +266,21 @@ export default function ActivityDetailScreen() {
         </Text>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         ref={scrollRef}
         style={$scroll}
-        contentContainerStyle={[$scrollContent, { paddingBottom: insets.bottom + spacing.s10 }]}
+        contentContainerStyle={[$scrollContent, { paddingBottom: scrollBottomPad }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bottomOffset={spacing.s6}
       >
         <View style={$titleRow}>
-          {activity.iconEmoji ? <Text style={$titleIcon}>{activity.iconEmoji}</Text> : null}
+          <GlyphMark
+            source={iconKeyToGlyph(activity.iconKey)}
+            fallbackIcon="leaf-outline"
+            size="lg"
+            style={$titleGlyph}
+          />
           <Text style={$title}>{activity.title}</Text>
         </View>
 
@@ -271,45 +308,47 @@ export default function ActivityDetailScreen() {
 
         {actionError ? <Text style={$actionError}>{actionError}</Text> : null}
 
-        <View style={$actionsRow}>
-          <TouchableOpacity
-            style={[$actionBtn, $actionDone]}
-            onPress={handleDone}
-            disabled={
-              busy || activity.status.code === "DONE" || activity.status.code === "VERIFIED"
-            }
-            activeOpacity={0.85}
-          >
-            {markDone.isPending ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={18} color="#FFF" />
-                <Text style={$actionDoneText}>Done</Text>
-              </>
-            )}
-          </TouchableOpacity>
+        {activity.status.code === "DONE" ||
+        activity.status.code === "VERIFIED" ||
+        activity.status.code === "SKIPPED" ? null : (
+          <View style={$actionsRow}>
+            <TouchableOpacity
+              style={[$actionBtn, $actionChoice]}
+              onPress={handleDone}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              {markDone.isPending ? (
+                <ActivityIndicator color={ink2} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={18} color={ink2} />
+                  <Text style={$actionChoiceText}>Done</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[$actionBtn, $actionSecondary]}
-            onPress={handleSkip}
-            disabled={busy}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="close-circle-outline" size={18} color={ink2} />
-            <Text style={$actionSecondaryText}>Didn&apos;t do</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[$actionBtn, $actionChoice]}
+              onPress={handleSkip}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="close-circle-outline" size={18} color={ink2} />
+              <Text style={$actionChoiceText}>Didn&apos;t do</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[$actionBtn, $actionSecondary]}
-            onPress={() => setContestOpen(true)}
-            disabled={busy}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={ink2} />
-            <Text style={$actionSecondaryText}>Contest</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[$actionBtn, $actionChoice]}
+              onPress={() => setContestOpen(true)}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={ink2} />
+              <Text style={$actionChoiceText}>Contest</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <TouchableOpacity
           style={$journalLink}
@@ -321,7 +360,6 @@ export default function ActivityDetailScreen() {
                 date: activity.date,
                 activityId: activity.id,
                 activityName: activity.title,
-                activityIcon: activity.iconEmoji,
                 mode: "new",
               },
             })
@@ -339,58 +377,47 @@ export default function ActivityDetailScreen() {
           fallbackText={activity.educationBrief?.trim() || activity.description}
         />
 
-        <View style={$divider} onLayout={(e) => (qaSectionY.current = e.nativeEvent.layout.y)} />
-        <Text style={$sectionTitle}>Ask a question</Text>
-
-        <AskQuestionBar
-          value={input}
-          onChangeText={setInput}
-          onSend={handleSend}
-          disabled={false}
-        />
-
-        <Text style={[$sectionTitle, { marginTop: spacing.s5 }]}>Previous Q&A</Text>
-
-        {qa.isLoading ? (
-          <ActivityIndicator
-            size="small"
-            color={forest500}
-            style={{ marginVertical: spacing.s3 }}
-          />
-        ) : null}
-
         {qa.isError ? (
-          <ApiErrorView error={qa.error} onRetry={() => qa.refetch()} title="Could not load Q&A" />
-        ) : null}
-
-        {!qa.isLoading && qa.questions.length === 0 ? (
-          <Text style={$emptyQaText}>No questions yet — ask anything about this activity.</Text>
-        ) : null}
-
-        {qa.questions.map((question) => (
-          <View
-            key={question.questionId}
-            onLayout={(e) => questionYs.current.set(question.questionId, e.nativeEvent.layout.y)}
-          >
-            <QuestionBubble
-              question={question}
-              onRetry={() => qa.retry(question)}
-              onFaqPress={handleFaqPress}
+          <View style={{ marginTop: spacing.s4 }}>
+            <ApiErrorView
+              error={qa.error}
+              onRetry={() => qa.refetch()}
+              title="Could not load Q&A"
             />
           </View>
-        ))}
-
-        {qa.questions.length > 0 ? (
-          <TouchableOpacity
-            style={$viewAllLink}
-            activeOpacity={0.7}
-            onPress={() => router.push(`/activity/${activityId}/qa` as any)}
-          >
-            <Text style={$viewAllLinkText}>View all Q&A</Text>
-            <Ionicons name="arrow-forward" size={13} color={forest500} />
-          </TouchableOpacity>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
+
+      <AiAssistantPanel
+        title="Ask about this activity"
+        expanded={chatOpen}
+        onToggle={() => setChatOpen((open) => !open)}
+        messages={chatMessages}
+        input={input}
+        onChangeInput={setInput}
+        onSend={handleSend}
+        pending={chatPending}
+        allowSendWhilePending
+        placeholder="Ask anything about this activity..."
+        emptyPrompt="No questions yet — ask anything about this activity."
+        bottomOffset={chatBottom}
+        renderAfterMessage={(msg) => {
+          const question = qa.questions.find(
+            (q) => msg.id === `${q.questionId}-a` && q.status === "failed",
+          )
+          if (!question) return null
+          return (
+            <TouchableOpacity
+              style={$retryChip}
+              onPress={() => qa.retry(question)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={13} color={forest500} />
+              <Text style={$retryChipText}>Try again</Text>
+            </TouchableOpacity>
+          )
+        }}
+      />
 
       <Modal
         visible={skipOpen}
@@ -398,7 +425,7 @@ export default function ActivityDetailScreen() {
         transparent
         onRequestClose={() => setSkipOpen(false)}
       >
-        <View style={$modalBackdrop}>
+        <KeyboardAvoidingView style={$modalBackdrop} behavior="padding">
           <View style={[$modalSheet, { paddingBottom: insets.bottom + spacing.s4 }]}>
             <Text style={$modalTitle}>Didn&apos;t do this task</Text>
             <Text style={$modalHint}>Optional: tell us why you skipped it.</Text>
@@ -428,7 +455,7 @@ export default function ActivityDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
@@ -437,7 +464,7 @@ export default function ActivityDetailScreen() {
         transparent
         onRequestClose={() => setContestOpen(false)}
       >
-        <View style={$modalBackdrop}>
+        <KeyboardAvoidingView style={$modalBackdrop} behavior="padding">
           <View style={[$modalSheet, { paddingBottom: insets.bottom + spacing.s4 }]}>
             <Text style={$modalTitle}>Contest / add info</Text>
             <Text style={$modalHint}>Tell us what to change about this task.</Text>
@@ -480,9 +507,9 @@ export default function ActivityDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   )
 }
 
@@ -511,17 +538,19 @@ const $headerTitle: TextStyle = {
 const $scrollContent: ViewStyle = { paddingHorizontal: spacing.s5 }
 const $titleRow: ViewStyle = {
   flexDirection: "row",
-  alignItems: "center",
-  gap: spacing.s2,
+  alignItems: "flex-start",
+  gap: spacing.s3,
   marginBottom: spacing.s3,
 }
-const $titleIcon: TextStyle = { fontSize: 22 }
+const $titleGlyph: ViewStyle = {
+  marginTop: 2,
+}
 const $title: TextStyle = {
   flex: 1,
-  fontFamily: typography.primary.bold,
-  fontSize: 22,
+  fontFamily: typography.display.bold,
+  fontSize: 24,
   color: ink,
-  lineHeight: 28,
+  lineHeight: 30,
 }
 const $metaRow: ViewStyle = {
   flexDirection: "row",
@@ -550,12 +579,6 @@ const $statusBadgeText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 12,
 }
-const $sectionTitle: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 16,
-  color: ink,
-  marginBottom: spacing.s3,
-}
 const $actionsRow: ViewStyle = {
   flexDirection: "row",
   gap: spacing.s2,
@@ -571,18 +594,12 @@ const $actionBtn: ViewStyle = {
   gap: spacing.s1,
   paddingHorizontal: spacing.s2,
 }
-const $actionDone: ViewStyle = { backgroundColor: forest500 }
-const $actionDoneText: TextStyle = {
-  fontFamily: typography.primary.semiBold,
-  fontSize: 13,
-  color: "#FFF",
-}
-const $actionSecondary: ViewStyle = {
+const $actionChoice: ViewStyle = {
   backgroundColor: forest50,
   borderWidth: 1,
   borderColor: forest100,
 }
-const $actionSecondaryText: TextStyle = {
+const $actionChoiceText: TextStyle = {
   fontFamily: typography.primary.semiBold,
   fontSize: 12,
   color: ink2,
@@ -599,12 +616,6 @@ const $journalLinkText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 14,
   color: forest500,
-}
-const $divider: ViewStyle = {
-  borderTopWidth: 1,
-  borderTopColor: hairline,
-  marginBottom: spacing.s5,
-  marginTop: spacing.s2,
 }
 const $loadingText: TextStyle = {
   fontFamily: typography.primary.normal,
@@ -623,12 +634,6 @@ const $emptyLinkText: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 14,
   color: forest500,
-}
-const $emptyQaText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink3,
-  marginBottom: spacing.s4,
 }
 const $actionError: TextStyle = {
   fontFamily: typography.primary.medium,
@@ -651,18 +656,21 @@ const $pendingBannerText: TextStyle = {
   fontSize: 13,
   color: forest600,
 }
-const $viewAllLink: ViewStyle = {
+const $retryChip: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
-  justifyContent: "center",
-  gap: spacing.s2,
-  paddingVertical: spacing.s3,
-  marginTop: spacing.s2,
-  marginBottom: spacing.s6,
+  alignSelf: "flex-start",
+  gap: spacing.s1,
+  backgroundColor: forest50,
+  borderRadius: radii.pill,
+  borderWidth: 1,
+  borderColor: hairline,
+  paddingHorizontal: spacing.s3,
+  paddingVertical: spacing.s2,
 }
-const $viewAllLinkText: TextStyle = {
+const $retryChipText: TextStyle = {
   fontFamily: typography.primary.semiBold,
-  fontSize: 13,
+  fontSize: 12,
   color: forest500,
 }
 const $modalBackdrop: ViewStyle = {

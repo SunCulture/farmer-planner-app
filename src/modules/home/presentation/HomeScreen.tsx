@@ -15,12 +15,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_CLEARANCE } from "@/app/(tabs)/_layout"
 import { ApiErrorView } from "@/components/ApiErrorView"
+import { GlyphMark } from "@/components/GlyphMark"
+import { SoftEmptyState } from "@/components/SoftEmptyState"
 import { loadFarmerProfile } from "@/modules/onboarding"
 import { ActivitySuggestionsBanner } from "@/modules/plan"
-import { useEnrollPlan } from "@/modules/plan/application/use-enroll-plan"
-import { useGeneratePlan } from "@/modules/plan/application/use-generate-plan"
 import type { ActivityCard } from "@/modules/plan/domain/entities/activity-card"
 import { statusColorToUi } from "@/modules/plan/infrastructure/api-mappers"
+import { emptyStateGlyph, iconKeyToGlyph } from "@/modules/plan/infrastructure/icon-key-map"
 import { plannerKeys } from "@/shared/query-keys"
 import {
   card,
@@ -46,14 +47,6 @@ import {
 import { typography } from "@/theme/typography"
 
 import { useHomeDashboard } from "../application/use-home-dashboard"
-import type { TemplateCard } from "../domain/entities/home-dashboard"
-
-const PLAN_CARD_W = 148
-
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
 
 function getDynamicSubtitle(cropIds: string[]): string {
   if (cropIds.length === 0) return "Check your farm plan for today."
@@ -73,9 +66,7 @@ export default function HomeScreen() {
   const queryClient = useQueryClient()
   const profile = loadFarmerProfile()
 
-  const { data: dashboard, isLoading, isError, error, refetch, isRefetching } = useHomeDashboard()
-  const enrollPlan = useEnrollPlan()
-  const generatePlan = useGeneratePlan()
+  const { data: dashboard, isLoading, isError, error, refetch } = useHomeDashboard()
 
   useFocusEffect(
     useCallback(() => {
@@ -88,30 +79,13 @@ export default function HomeScreen() {
   const subtitle = getDynamicSubtitle(profile?.cropIds ?? [])
 
   const weekStrip = dashboard?.weekStrip ?? []
-  const templateCards = dashboard?.templateCards ?? []
   const todayActivities = dashboard?.todaySection.activities ?? []
-  const remaining = todayActivities.filter((a) => a.status.code !== "VERIFIED").length
-  const isPlanActionPending = enrollPlan.isPending || generatePlan.isPending
-
-  async function handleTemplatePress(template: TemplateCard) {
-    try {
-      await enrollPlan.mutateAsync({
-        templateId: template.id,
-        startDate: todayStr(),
-      })
-      router.push({ pathname: "/(tabs)/plan", params: { date: todayStr() } })
-    } catch {
-      try {
-        await generatePlan.mutateAsync({
-          durationDays: template.durationDays as 5 | 10 | 20,
-          startDate: todayStr(),
-        })
-        router.push({ pathname: "/(tabs)/plan", params: { date: todayStr() } })
-      } catch {
-        // errors surface via mutation state if needed
-      }
-    }
-  }
+  const remaining = todayActivities.filter(
+    (a) => a.status.code !== "VERIFIED" && a.status.code !== "DONE" && a.status.code !== "SKIPPED",
+  ).length
+  const planSummary =
+    dashboard?.todaySection.tips[0]?.body ?? dashboard?.activePlan?.summary ?? null
+  const planTitle = dashboard?.activePlan?.title
 
   if (isLoading && !dashboard) {
     return (
@@ -138,7 +112,7 @@ export default function HomeScreen() {
       <View style={[$heroCard, { paddingTop: insets.top + spacing.s4 }]}>
         <View style={$header}>
           <View style={{ flex: 1 }}>
-            <Text style={$greeting}>Good morning, {firstName} 👋</Text>
+            <Text style={$greeting}>Good morning, {firstName}</Text>
             <Text style={$greetingSubtitle}>{subtitle}</Text>
           </View>
           <TouchableOpacity
@@ -187,52 +161,13 @@ export default function HomeScreen() {
       <View style={$lowerSection}>
         <ActivitySuggestionsBanner />
 
-        <View style={$sectionHeaderRow}>
-          <Text style={$sectionTitle}>Farm Plan Templates</Text>
-          {isRefetching ? <ActivityIndicator size="small" color={forest500} /> : null}
-        </View>
-
-        {!dashboard?.activePlanId && templateCards.length === 0 ? (
-          <Text style={$emptyHint}>
-            No templates yet. Complete onboarding to get recommendations.
-          </Text>
+        {planTitle || planSummary ? (
+          <View style={$tipCard}>
+            {planTitle ? <Text style={$tipTitle}>{planTitle}</Text> : null}
+            {planSummary ? <Text style={$tipText}>{planSummary}</Text> : null}
+          </View>
         ) : null}
-      </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={$plansScroll}
-      >
-        {templateCards.map((plan) => (
-          <TouchableOpacity
-            key={plan.id}
-            style={[$planCard, isPlanActionPending && $planCardDisabled]}
-            activeOpacity={0.8}
-            disabled={isPlanActionPending}
-            onPress={() => handleTemplatePress(plan)}
-          >
-            <Text style={$planEmoji}>🌱</Text>
-            <Text style={$planName}>{plan.title}</Text>
-            <Text style={$planSubtitle} numberOfLines={2}>
-              {plan.subtitle ?? plan.description}
-            </Text>
-            <View style={$planTags}>
-              <View style={$planDaysTag}>
-                <Text style={$planDaysText}>⏱ {plan.durationDays} Days</Text>
-              </View>
-              {plan.badge ? (
-                <View style={$planBadgeTag}>
-                  <Text style={$planBadgeText}>{plan.badge}</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={$planCta}>{plan.ctaLabel ?? "Start this plan"}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <View style={[$lowerSection, { marginTop: spacing.s5 }]}>
         <View style={$sectionHeaderRow}>
           <Text style={$sectionTitle}>{dashboard?.todaySection.title ?? "Today's Activities"}</Text>
           <View style={$remainingBadge}>
@@ -241,26 +176,28 @@ export default function HomeScreen() {
         </View>
 
         {todayActivities.length === 0 ? (
-          <Text style={$emptyHint}>
-            {dashboard?.activePlanId
-              ? "No activities scheduled for today."
-              : "Start a plan to see today's activities."}
-          </Text>
+          <SoftEmptyState
+            heading={
+              dashboard?.activePlanId ? "Nothing scheduled today" : "No activities yet"
+            }
+            body={
+              dashboard?.activePlanId
+                ? "Check another day on the week strip, or open Plan."
+                : "Start a plan to see today's activities."
+            }
+            source={emptyStateGlyph("sprout")}
+            fallbackIcon="leaf-outline"
+          />
         ) : (
           todayActivities.map((activity) => (
             <HomeActivityCard key={activity.id} activity={activity} />
           ))
         )}
-
-        {dashboard?.todaySection.tips.map((tip, i) => (
-          <View key={tip.id ?? `tip-${i}`} style={$tipCard}>
-            <Text style={$tipText}>{tip.body}</Text>
-          </View>
-        ))}
       </View>
     </ScrollView>
   )
 }
+
 
 function HomeActivityCard({ activity }: { activity: ActivityCard }) {
   const router = useRouter()
@@ -272,9 +209,12 @@ function HomeActivityCard({ activity }: { activity: ActivityCard }) {
       activeOpacity={0.7}
       onPress={() => router.push(`/activity/${activity.id}` as any)}
     >
-      <View style={$activityIconCircle}>
-        <Text style={$activityIcon}>{activity.iconEmoji}</Text>
-      </View>
+      <GlyphMark
+        source={iconKeyToGlyph(activity.iconKey)}
+        fallbackIcon="leaf-outline"
+        size="md"
+        style={$activityIconMark}
+      />
       <View style={$activityBody}>
         <View style={$activityTitleRow}>
           <Text style={$activityName} numberOfLines={2}>
@@ -308,10 +248,10 @@ const $heroCard: ViewStyle = {
 }
 const $header: ViewStyle = { flexDirection: "row", alignItems: "center", marginBottom: spacing.s4 }
 const $greeting: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 22,
+  fontFamily: typography.display.bold,
+  fontSize: 24,
   color: ink,
-  lineHeight: 28,
+  lineHeight: 30,
 }
 const $greetingSubtitle: TextStyle = {
   fontFamily: typography.primary.normal,
@@ -373,75 +313,6 @@ const $sectionTitle: TextStyle = {
   fontSize: 16,
   color: ink,
 }
-const $emptyHint: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink3,
-  marginBottom: spacing.s3,
-}
-const $plansScroll: ViewStyle = {
-  paddingHorizontal: spacing.s5,
-  gap: spacing.s3,
-  paddingBottom: 4,
-}
-const $planCard: ViewStyle = {
-  width: PLAN_CARD_W,
-  borderRadius: radii.xl,
-  borderWidth: 1,
-  borderColor: hairline,
-  padding: spacing.s4,
-  backgroundColor: card,
-  ...elevation.card,
-}
-const $planCardDisabled: ViewStyle = { opacity: 0.6 }
-const $planEmoji: TextStyle = { fontSize: 36, marginBottom: spacing.s2 }
-const $planName: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 13,
-  color: ink,
-  lineHeight: 18,
-  marginBottom: spacing.s1,
-}
-const $planSubtitle: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 11,
-  color: ink3,
-  marginBottom: spacing.s2,
-  lineHeight: 15,
-}
-const $planTags: ViewStyle = {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: spacing.s1,
-  marginBottom: spacing.s2,
-}
-const $planDaysTag: ViewStyle = {
-  backgroundColor: hairline,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s2,
-  paddingVertical: 3,
-}
-const $planDaysText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 11,
-  color: ink3,
-}
-const $planBadgeTag: ViewStyle = {
-  backgroundColor: forest50,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s2,
-  paddingVertical: 3,
-}
-const $planBadgeText: TextStyle = {
-  fontFamily: typography.primary.medium,
-  fontSize: 11,
-  color: forest500,
-}
-const $planCta: TextStyle = {
-  fontFamily: typography.primary.semiBold,
-  fontSize: 12,
-  color: forest500,
-}
 const $remainingBadge: ViewStyle = {
   backgroundColor: forest50,
   borderRadius: radii.pill,
@@ -465,16 +336,9 @@ const $activityCard: ViewStyle = {
   marginBottom: spacing.s3,
   ...elevation.card,
 }
-const $activityIconCircle: ViewStyle = {
-  width: 38,
-  height: 38,
-  borderRadius: 19,
-  backgroundColor: "#E8F4FC",
-  alignItems: "center",
-  justifyContent: "center",
+const $activityIconMark: ViewStyle = {
   marginRight: spacing.s3,
 }
-const $activityIcon: TextStyle = { fontSize: 18 }
 const $activityBody: ViewStyle = { flex: 1 }
 const $activityTitleRow: ViewStyle = {
   flexDirection: "row",
@@ -506,7 +370,13 @@ const $tipCard: ViewStyle = {
   backgroundColor: forest50,
   borderRadius: radii.lg,
   padding: spacing.s3,
-  marginBottom: spacing.s2,
+  marginBottom: spacing.s4,
+}
+const $tipTitle: TextStyle = {
+  fontFamily: typography.primary.bold,
+  fontSize: 14,
+  color: ink,
+  marginBottom: 2,
 }
 const $tipText: TextStyle = {
   fontFamily: typography.primary.normal,

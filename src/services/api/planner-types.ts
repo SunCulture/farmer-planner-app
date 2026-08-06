@@ -1,7 +1,7 @@
 // Shared API response shapes for planner endpoints (from Tujiweze Postman collection)
 
 export interface ActivityStatusDto {
-  code: "PENDING" | "VERIFIED" | "REJECTED"
+  code: "PENDING" | "DONE" | "VERIFIED" | "SKIPPED" | "REJECTED"
   label: string
   color: string
 }
@@ -72,6 +72,12 @@ export interface HomeDataDto {
   templateCards: TemplateCardDto[]
   todaySection: TodaySectionDto
   activePlanId: string | null
+  activePlan?: {
+    id: string
+    title: string
+    summary: string | null
+    durationDays: number
+  } | null
 }
 
 export interface PlanRecommendationDto {

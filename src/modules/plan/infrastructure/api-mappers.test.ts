@@ -33,6 +33,7 @@ describe("api-mappers", () => {
     const card = mapActivityCard(activityDto)
     expect(card.title).toBe("Scout maize")
     expect(card.iconKey).toBe("pest-scout")
+    expect(card.iconEmoji).toBe("")
     expect(card.ctaLabel).toBe("Log")
   })
 
@@ -153,6 +154,22 @@ describe("api-mappers", () => {
       createdAt: "2026-06-03T09:00:00Z",
     }
     expect(mapActivityQuestion(dto)).toEqual(dto)
+  })
+
+  it("maps legacy activity question payloads that use id instead of questionId", () => {
+    const dto = {
+      id: "q-legacy",
+      questionId: "",
+      question: "When should I water?",
+      answer: "Early morning.",
+      status: "answered" as const,
+      relatedFaqs: [],
+      createdAt: "2026-06-03T09:00:00Z",
+    }
+    expect(mapActivityQuestion(dto)).toMatchObject({
+      questionId: "q-legacy",
+      question: "When should I water?",
+    })
   })
 
   it("maps day activity questions, mapping highlight per activity", () => {

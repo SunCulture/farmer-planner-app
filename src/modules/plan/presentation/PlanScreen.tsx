@@ -1,12 +1,10 @@
-import React, { useCallback, useRef, useState } from "react"
+import React, { useCallback, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
+  Dimensions,
   ScrollView,
   Text,
-  TextInput,
   TextStyle,
   TouchableOpacity,
   View,
@@ -19,6 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_BOTTOM_GAP, FLOATING_NAV_HEIGHT } from "@/app/(tabs)/_layout"
 import { ApiErrorView } from "@/components/ApiErrorView"
+import { GlyphMark } from "@/components/GlyphMark"
+import { SoftEmptyState } from "@/components/SoftEmptyState"
 import { useGeneratePlan } from "@/modules/plan/application/use-generate-plan"
 import { usePlanChat } from "@/modules/plan/application/use-plan-chat"
 import { isNotFoundError } from "@/shared/infrastructure/api-error"
@@ -47,12 +47,25 @@ import {
 import { typography } from "@/theme/typography"
 
 import { ActivitySuggestionsBanner } from "./ActivitySuggestionsBanner"
+import { AiAssistantPanel, type AiChatMessage } from "./components/AiAssistantPanel"
 import { getActivityErrorMessage } from "../application/activity-errors"
 import { useMarkActivityDone, useSkipActivity } from "../application/use-activity-actions"
 import { useDayPlan } from "../application/use-day-plan"
 import type { ActivityCard } from "../domain/entities/activity-card"
 import type { SuggestionCard } from "../domain/entities/plan-chat"
+import { todayDateStr } from "../domain/policies/date-utils"
 import { statusColorToUi } from "../infrastructure/api-mappers"
+import { emptyStateGlyph, iconKeyToGlyph } from "../infrastructure/icon-key-map"
+
+function emptyActivitiesMessage(dateStr: string, today: string = todayDateStr()): string {
+  if (dateStr > today) {
+    return "No activities for this day yet. Finish and journal today's tasks first — tomorrow's plan usually fills in from there."
+  }
+  if (dateStr < today) {
+    return "No activities were scheduled for this day."
+  }
+  return "No activities scheduled for today yet. Check back after you've journaled recent work."
+}
 
 const CHAT_SUGGESTIONS = [
   "Rain is expected tomorrow. Should I delay field work?",
@@ -101,15 +114,12 @@ export default function PlanScreen() {
   const generatePlan = useGeneratePlan()
   const planChat = usePlanChat(dayPlan?.planId)
 
-  type ChatMessage =
-    | { role: "user"; text: string }
-    | { role: "assistant"; text: string; suggestionCards: SuggestionCard[] }
+  type ChatMessage = AiChatMessage & { suggestionCards: SuggestionCard[] }
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState("")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const chatScrollRef = useRef<ScrollView>(null)
 
   useFocusEffect(
     useCallback(() => {
@@ -118,39 +128,52 @@ export default function PlanScreen() {
   )
 
   const activities = dayPlan?.activities ?? []
-  const doneCount = activities.filter((a) => a.status.code === "VERIFIED").length
+  const doneCount = activities.filter(
+    (a) => a.status.code === "DONE" || a.status.code === "VERIFIED",
+  ).length
   const totalCount = activities.length
   const percentage = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
+  const hasActivities = activities.length > 0
   const aiPanelBottom = insets.bottom + FLOATING_NAV_BOTTOM_GAP + FLOATING_NAV_HEIGHT
   const collapsedPanelHeight = 56
-  const expandedPanelHeight = 420
-  const scrollPaddingBottom =
-    aiPanelBottom + (chatOpen ? expandedPanelHeight : collapsedPanelHeight) + spacing.s4
+  const expandedPanelHeight = Math.min(Math.round(Dimensions.get("window").height * 0.78), 640)
+  const scrollPaddingBottom = hasActivities
+    ? aiPanelBottom + (chatOpen ? expandedPanelHeight : collapsedPanelHeight) + spacing.s4
+    : aiPanelBottom + spacing.s4
 
-  async function handleSendChat() {
-    const message = chatInput.trim()
-    if (!message || !dayPlan?.planId) return
+  async function handleSendChat(explicit?: string) {
+    const message = (explicit ?? chatInput).trim()
+    if (!message || !dayPlan?.planId || planChat.isPending) return
     setChatInput("")
-    setChatMessages((prev) => [...prev, { role: "user", text: message }])
-    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 50)
+    const userId = `u-${Date.now()}`
+    setChatMessages((prev) => [
+      ...prev,
+      { id: userId, role: "user", text: message, suggestionCards: [] },
+    ])
+    if (!chatOpen) setChatOpen(true)
     try {
       const result = await planChat.mutateAsync(message)
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", text: result.reply.plain, suggestionCards: result.suggestionCards },
+        {
+          id: result.messageId || `a-${Date.now()}`,
+          role: "assistant",
+          text: result.reply.markdown || result.reply.plain,
+          suggestionCards: result.suggestionCards,
+        },
       ])
     } catch {
       setChatMessages((prev) => [
         ...prev,
         {
+          id: `err-${Date.now()}`,
           role: "assistant",
           text: "Sorry, I could not reach the farm assistant right now.",
           suggestionCards: [],
         },
       ])
     }
-    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100)
   }
 
   async function handleStartPlan() {
@@ -177,20 +200,17 @@ export default function PlanScreen() {
         <View style={[$root, $emptyState, { paddingTop: insets.top + spacing.s5 }]}>
           <Text style={$planLabel}>PLAN ON A PAGE</Text>
           <Text style={$dateHeading}>{dateLabel}</Text>
-          <Text style={$emptyTitle}>No plan for this day</Text>
-          <Text style={$emptyBody}>Start a farm plan from Home or generate one now.</Text>
-          <TouchableOpacity
-            style={$emptyCta}
-            onPress={handleStartPlan}
-            disabled={generatePlan.isPending}
-            activeOpacity={0.85}
-          >
-            {generatePlan.isPending ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={$emptyCtaText}>Generate 5-day plan</Text>
-            )}
-          </TouchableOpacity>
+          <SoftEmptyState
+            heading="No plan for this day"
+            body="Start a farm plan from Home or generate one now."
+            source={emptyStateGlyph("plan")}
+            fallbackIcon="calendar-outline"
+            ctaLabel={generatePlan.isPending ? undefined : "Generate 5-day plan"}
+            onPressCta={generatePlan.isPending ? undefined : handleStartPlan}
+          />
+          {generatePlan.isPending ? (
+            <ActivityIndicator color={forest500} style={{ marginTop: spacing.s3 }} />
+          ) : null}
           <TouchableOpacity onPress={() => router.push("/(tabs)/" as any)} style={$emptyLink}>
             <Text style={$emptyLinkText}>Browse templates on Home</Text>
           </TouchableOpacity>
@@ -206,7 +226,7 @@ export default function PlanScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={$root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <View style={$root}>
       <ScrollView
         style={{ flex: 1, backgroundColor: paper }}
         contentContainerStyle={[
@@ -227,32 +247,41 @@ export default function PlanScreen() {
           </View>
         ) : null}
 
-        <View style={$progressCard}>
-          <View style={$progressCardHeader}>
-            <Text style={$progressCardTitle}>Daily Progress</Text>
-            <Text style={$progressDoneText}>
-              {doneCount}/{totalCount} verified
-            </Text>
+        {totalCount > 0 ? (
+          <View style={$progressCard}>
+            <View style={$progressCardHeader}>
+              <Text style={$progressCardTitle}>Daily Progress</Text>
+              <Text style={$progressDoneText}>
+                {doneCount}/{totalCount} done
+              </Text>
+            </View>
+            <View style={$progressBarBg}>
+              <View style={[$progressBarFill, { width: `${percentage}%` as `${number}%` }]} />
+            </View>
+            <Text style={$progressPercent}>{percentage}% complete</Text>
           </View>
-          <View style={$progressBarBg}>
-            <View style={[$progressBarFill, { width: `${percentage}%` as `${number}%` }]} />
-          </View>
-          <Text style={$progressPercent}>{percentage}% complete</Text>
-        </View>
+        ) : null}
 
         <Text style={$sectionTitle}>Today's Activities</Text>
 
-        {activities.map((activity) => (
-          <ActivityRow
-            key={activity.id}
-            activity={activity}
-            dateStr={dateStr}
-            isExpanded={expandedId === activity.id}
-            onToggleExpand={() =>
-              setExpandedId((prev) => (prev === activity.id ? null : activity.id))
-            }
-          />
-        ))}
+        {!hasActivities ? (
+          <View style={$activitiesEmpty}>
+            <Text style={$activitiesEmptyTitle}>Nothing here yet</Text>
+            <Text style={$activitiesEmptyBody}>{emptyActivitiesMessage(dateStr)}</Text>
+          </View>
+        ) : (
+          activities.map((activity) => (
+            <ActivityRow
+              key={activity.id}
+              activity={activity}
+              dateStr={dateStr}
+              isExpanded={expandedId === activity.id}
+              onToggleExpand={() =>
+                setExpandedId((prev) => (prev === activity.id ? null : activity.id))
+              }
+            />
+          ))
+        )}
 
         {dayPlan?.tips && dayPlan.tips.length > 0 ? (
           <>
@@ -266,82 +295,40 @@ export default function PlanScreen() {
         ) : null}
       </ScrollView>
 
-      <View style={[$aiPanel, { bottom: aiPanelBottom }, chatOpen && $aiPanelExpanded]}>
-        <TouchableOpacity
-          style={$aiPanelHeader}
-          onPress={() => setChatOpen((v) => !v)}
-          activeOpacity={0.8}
-        >
-          <View style={$aiAvatarCircle}>
-            <Text style={$aiAvatarEmoji}>🤖</Text>
-          </View>
-          <Text style={$aiPanelTitle}>{dayPlan?.chatCtaLabel ?? "AI Farm Assistant"}</Text>
-          <View style={$aiDot} />
-          <Ionicons
-            name={chatOpen ? "chevron-down" : "chevron-up"}
-            size={18}
-            color={ink3}
-            style={{ marginLeft: spacing.s2 }}
-          />
-        </TouchableOpacity>
-
-        {chatOpen ? (
-          <>
-            <ScrollView ref={chatScrollRef} style={$chatMessages} nestedScrollEnabled>
-              {chatMessages.length === 0 ? (
-                <View style={$chatMessageBubble}>
-                  <Text style={$chatMessageText}>
-                    Ask me about weather, pests, or whether to adjust today's plan.
-                  </Text>
-                </View>
-              ) : (
-                chatMessages.map((msg, i) => (
-                  <View key={`msg-${i}`}>
-                    <View style={msg.role === "user" ? $chatUserBubble : $chatMessageBubble}>
-                      <Text style={$chatMessageText}>{msg.text}</Text>
+      {hasActivities ? (
+        <AiAssistantPanel
+          title={dayPlan?.chatCtaLabel ?? "AI Farm Assistant"}
+          expanded={chatOpen}
+          onToggle={() => setChatOpen((v) => !v)}
+          messages={chatMessages}
+          input={chatInput}
+          onChangeInput={setChatInput}
+          onSend={handleSendChat}
+          pending={planChat.isPending}
+          starterChips={CHAT_SUGGESTIONS}
+          bottomOffset={aiPanelBottom}
+          renderAfterMessage={(msg) => {
+            const cards = (msg as ChatMessage).suggestionCards
+            if (!cards || cards.length === 0) return null
+            return (
+              <>
+                {cards.map((suggestion) => (
+                  <View key={suggestion.id} style={$suggestionCard}>
+                    <View style={$suggestionCardBody}>
+                      <Text style={$suggestionCardTitle}>{suggestion.title}</Text>
+                      <Text style={$suggestionCardReason}>{suggestion.reason}</Text>
                     </View>
-                    {msg.role === "assistant" &&
-                      msg.suggestionCards.length > 0 &&
-                      msg.suggestionCards.map((card) => (
-                        <View key={card.id} style={$suggestionCard}>
-                          <View style={$suggestionCardBody}>
-                            <Text style={$suggestionCardTitle}>{card.title}</Text>
-                            <Text style={$suggestionCardReason}>{card.reason}</Text>
-                          </View>
-                          <TouchableOpacity style={$suggestionCardCta} activeOpacity={0.7}>
-                            <Text style={$suggestionCardCtaText}>{card.ctaLabel}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ))}
+                    <TouchableOpacity style={$suggestionCardCta} activeOpacity={0.7}>
+                      <Text style={$suggestionCardCtaText}>{suggestion.ctaLabel}</Text>
+                    </TouchableOpacity>
                   </View>
-                ))
-              )}
-              {planChat.isPending ? <ActivityIndicator size="small" color={forest500} /> : null}
-            </ScrollView>
-
-            <View style={$chatInputRow}>
-              <TextInput
-                style={$chatInput}
-                value={chatInput}
-                onChangeText={setChatInput}
-                placeholder="Ask about your farm..."
-                placeholderTextColor={ink4}
-                returnKeyType="send"
-                onSubmitEditing={handleSendChat}
-              />
-              <TouchableOpacity
-                style={[$sendBtn, (!chatInput.trim() || planChat.isPending) && $sendBtnDisabled]}
-                activeOpacity={0.85}
-                onPress={handleSendChat}
-                disabled={!chatInput.trim() || planChat.isPending}
-              >
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : null}
-      </View>
-    </KeyboardAvoidingView>
+                ))}
+              </>
+            )
+          }}
+        />
+      ) : null}
+    </View>
   )
 }
 
@@ -408,9 +395,12 @@ function ActivityRow({
       >
         <View style={[$statusDot, { backgroundColor: colors.text }]} />
 
-        <View style={$activityIconCircle}>
-          <Text style={$activityIcon}>{activity.iconEmoji}</Text>
-        </View>
+        <GlyphMark
+          source={iconKeyToGlyph(activity.iconKey)}
+          fallbackIcon="leaf-outline"
+          size="md"
+          style={$activityIconMark}
+        />
 
         <View style={$activityBody}>
           <Text style={isVerified ? $activityNameDone : $activityName}>{activity.title}</Text>
@@ -455,7 +445,6 @@ function ActivityRow({
                   date: dateStr,
                   activityId: activity.id,
                   activityName: activity.title,
-                  activityIcon: activity.iconEmoji,
                   mode: "new",
                 },
               })
@@ -470,23 +459,23 @@ function ActivityRow({
           {!isComplete ? (
             <View style={$inlineActionsRow}>
               <TouchableOpacity
-                style={[$inlineActionBtn, $inlineDoneBtn]}
+                style={[$inlineActionBtn, $inlineChoiceBtn]}
                 onPress={handleMarkDone}
                 disabled={busy}
                 activeOpacity={0.85}
               >
                 {markDone.isPending ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={ink2} size="small" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                    <Text style={$inlineDoneText}>Mark done</Text>
+                    <Ionicons name="checkmark-circle-outline" size={16} color={ink2} />
+                    <Text style={$inlineChoiceText}>Mark done</Text>
                   </>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[$inlineActionBtn, $inlineSkipBtn]}
+                style={[$inlineActionBtn, $inlineChoiceBtn]}
                 onPress={handleSkip}
                 disabled={busy}
                 activeOpacity={0.85}
@@ -496,7 +485,7 @@ function ActivityRow({
                 ) : (
                   <>
                     <Ionicons name="close-circle-outline" size={16} color={ink2} />
-                    <Text style={$inlineSkipText}>Didn&apos;t do</Text>
+                    <Text style={$inlineChoiceText}>Didn&apos;t do</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -520,10 +509,10 @@ const $planLabel: TextStyle = {
   marginBottom: spacing.s1,
 }
 const $dateHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 26,
+  fontFamily: typography.display.bold,
+  fontSize: 28,
   color: ink,
-  lineHeight: 32,
+  lineHeight: 34,
   marginBottom: spacing.s5,
 }
 const $heroCard: ViewStyle = {
@@ -593,6 +582,24 @@ const $sectionTitle: TextStyle = {
   color: ink,
   marginBottom: spacing.s3,
 }
+const $activitiesEmpty: ViewStyle = {
+  backgroundColor: forest50,
+  borderRadius: radii.xl,
+  padding: spacing.s4,
+  marginBottom: spacing.s3,
+}
+const $activitiesEmptyTitle: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 14,
+  color: ink,
+  marginBottom: spacing.s1,
+}
+const $activitiesEmptyBody: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 13,
+  color: ink3,
+  lineHeight: 19,
+}
 const $loadingText: TextStyle = {
   fontFamily: typography.primary.normal,
   fontSize: 14,
@@ -649,15 +656,7 @@ const $activityMainRow: ViewStyle = {
   gap: spacing.s3,
 }
 const $statusDot: ViewStyle = { width: 8, height: 8, borderRadius: 4 }
-const $activityIconCircle: ViewStyle = {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-}
-const $activityIcon: TextStyle = { fontSize: 18 }
+const $activityIconMark: ViewStyle = {}
 const $activityBody: ViewStyle = { flex: 1 }
 const $activityName: TextStyle = {
   fontFamily: typography.primary.medium,
@@ -741,20 +740,12 @@ const $inlineActionBtn: ViewStyle = {
   paddingVertical: spacing.s3,
   minHeight: 40,
 }
-const $inlineDoneBtn: ViewStyle = {
-  backgroundColor: forest500,
-}
-const $inlineDoneText: TextStyle = {
-  fontFamily: typography.primary.semiBold,
-  fontSize: 13,
-  color: "#FFFFFF",
-}
-const $inlineSkipBtn: ViewStyle = {
+const $inlineChoiceBtn: ViewStyle = {
   backgroundColor: card,
   borderWidth: 1,
   borderColor: cardBorder,
 }
-const $inlineSkipText: TextStyle = {
+const $inlineChoiceText: TextStyle = {
   fontFamily: typography.primary.semiBold,
   fontSize: 13,
   color: ink2,
@@ -771,115 +762,6 @@ const $tipText: TextStyle = {
   color: ink2,
   lineHeight: 18,
 }
-const $aiPanel: ViewStyle = {
-  position: "absolute",
-  left: spacing.s4,
-  right: spacing.s4,
-  backgroundColor: card,
-  borderRadius: radii.xl,
-  borderWidth: 1,
-  borderColor: cardBorder,
-  ...elevation.card,
-  overflow: "hidden",
-}
-const $aiPanelExpanded: ViewStyle = { maxHeight: 440 }
-const $aiPanelHeader: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingHorizontal: spacing.s4,
-  paddingVertical: spacing.s3,
-}
-const $aiAvatarCircle: ViewStyle = {
-  width: 32,
-  height: 32,
-  borderRadius: 16,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-  marginRight: spacing.s3,
-}
-const $aiAvatarEmoji: TextStyle = { fontSize: 16 }
-const $aiPanelTitle: TextStyle = {
-  flex: 1,
-  fontFamily: typography.primary.semiBold,
-  fontSize: 14,
-  color: ink,
-}
-const $aiDot: ViewStyle = {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: statusGood,
-}
-const $chatMessages: ViewStyle = {
-  maxHeight: 280,
-  paddingHorizontal: spacing.s4,
-  marginBottom: spacing.s2,
-}
-const $chatMessageBubble: ViewStyle = {
-  backgroundColor: forest50,
-  borderRadius: radii.lg,
-  padding: spacing.s3,
-  marginBottom: spacing.s2,
-}
-const $chatUserBubble: ViewStyle = {
-  backgroundColor: hairline,
-  borderRadius: radii.lg,
-  padding: spacing.s3,
-  marginBottom: spacing.s2,
-  alignSelf: "flex-end",
-  maxWidth: "85%",
-}
-const $chatMessageText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 13,
-  color: ink2,
-  lineHeight: 18,
-}
-const $chipsScroll: ViewStyle = {
-  paddingHorizontal: spacing.s4,
-  gap: spacing.s2,
-  marginBottom: spacing.s2,
-}
-const $chip: ViewStyle = {
-  backgroundColor: forest50,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s3,
-  paddingVertical: spacing.s2,
-  borderWidth: 1,
-  borderColor: hairline,
-}
-const $chipText: TextStyle = {
-  fontFamily: typography.primary.normal,
-  fontSize: 12,
-  color: ink2,
-}
-const $chatInputRow: ViewStyle = {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingHorizontal: spacing.s4,
-  paddingBottom: spacing.s3,
-  gap: spacing.s2,
-}
-const $chatInput: TextStyle = {
-  flex: 1,
-  fontFamily: typography.primary.normal,
-  fontSize: 14,
-  color: ink,
-  backgroundColor: hairline,
-  borderRadius: radii.pill,
-  paddingHorizontal: spacing.s4,
-  paddingVertical: spacing.s2,
-}
-const $sendBtn: ViewStyle = {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  backgroundColor: forest500,
-  alignItems: "center",
-  justifyContent: "center",
-}
-const $sendBtnDisabled: ViewStyle = { opacity: 0.4 }
 const $suggestionCard: ViewStyle = {
   backgroundColor: forest50,
   borderRadius: radii.lg,

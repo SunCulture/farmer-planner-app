@@ -23,7 +23,7 @@ export function ActivitySuggestionsBanner() {
 
   return (
     <TouchableOpacity style={$banner} onPress={() => open(date)} activeOpacity={0.85}>
-      <Text style={$icon}>✨</Text>
+      <Ionicons name="sparkles-outline" size={16} color={forest500} />
       <Text style={$text}>You have AI suggestions — tap to review</Text>
       <Ionicons name="chevron-forward" size={16} color={forest500} />
     </TouchableOpacity>
@@ -42,7 +42,6 @@ const $banner: ViewStyle = {
   paddingVertical: spacing.s3,
   marginBottom: spacing.s4,
 }
-const $icon: TextStyle = { fontSize: 16 }
 const $text: TextStyle = {
   flex: 1,
   fontFamily: typography.primary.medium,
