@@ -19,6 +19,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_CLEARANCE } from "@/app/(tabs)/_layout"
 import { ApiErrorView } from "@/components/ApiErrorView"
+import { GlyphMark } from "@/components/GlyphMark"
+import { SoftEmptyState } from "@/components/SoftEmptyState"
+import { emptyStateGlyph, iconKeyToGlyph } from "@/modules/plan/infrastructure/icon-key-map"
 import { getApiErrorMessage } from "@/shared/infrastructure/api-error"
 import { plannerKeys } from "@/shared/query-keys"
 import {
@@ -77,10 +80,6 @@ function formatDayLabel(dateStr: string, today: string): string {
   return new Date(y, m - 1, d)
     .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
     .toUpperCase()
-}
-
-function activityInitial(title?: string): string {
-  return title?.trim().charAt(0).toUpperCase() || "T"
 }
 
 // ---------------------------------------------------------------------------
@@ -205,9 +204,12 @@ function EntryForm({
         {/* ── Context: activity card OR date label ── */}
         {isActivityLinked ? (
           <View style={$activityCtxCard}>
-            <View style={$activityCtxIconCircle}>
-              <Text style={$activityCtxIcon}>{activityInitial(activityName)}</Text>
-            </View>
+            <GlyphMark
+              source={iconKeyToGlyph("task")}
+              fallbackIcon="journal-outline"
+              size="md"
+              style={$activityCtxMark}
+            />
             <View style={{ flex: 1 }}>
               <Text style={$activityCtxName}>{activityName}</Text>
               <Text style={$activityCtxDate}>{formatLongDate(date)}</Text>
@@ -349,11 +351,12 @@ function JournalTimeline() {
         ) : hasError && daysWithContent.length === 0 ? (
           <ApiErrorView error={hasError} title="Could not load journal" />
         ) : daysWithContent.length === 0 ? (
-          <View style={$emptyState}>
-            <Text style={$emptyStateText}>
-              No entries yet.{"\n"}Tap an activity on Home or Plan to start journalling.
-            </Text>
-          </View>
+          <SoftEmptyState
+            heading="No entries yet"
+            body="Tap an activity on Home or Plan to start journalling."
+            source={emptyStateGlyph("journal")}
+            fallbackIcon="journal-outline"
+          />
         ) : (
           daysWithContent.map((day, i) => (
             <TimelineDay
@@ -501,19 +504,8 @@ const $activityCtxCard: ViewStyle = {
   ...elevation.card,
 }
 
-const $activityCtxIconCircle: ViewStyle = {
-  width: 44,
-  height: 44,
-  borderRadius: 22,
-  backgroundColor: forest50,
-  alignItems: "center",
-  justifyContent: "center",
-}
-
-const $activityCtxIcon: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 15,
-  color: forest500,
+const $activityCtxMark: ViewStyle = {
+  marginRight: spacing.s3,
 }
 
 const $activityCtxName: TextStyle = {
@@ -705,10 +697,10 @@ const $screenLabel: TextStyle = {
 }
 
 const $screenTitle: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 26,
+  fontFamily: typography.display.bold,
+  fontSize: 28,
   color: ink,
-  lineHeight: 32,
+  lineHeight: 34,
   marginBottom: spacing.s6,
 }
 

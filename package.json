@@ -35,6 +35,7 @@
     "migrate:make": "node scripts/make-migration.js"
   },
   "dependencies": {
+    "@expo-google-fonts/newsreader": "^0.4.1",
     "@expo-google-fonts/space-grotesk": "^0.4.0",
     "@expo-google-fonts/space-mono": "^0.4.0",
     "@expo/metro-runtime": "~55.0.6",

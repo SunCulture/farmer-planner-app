@@ -1,9 +1,9 @@
 import React, { useEffect } from "react"
 import { Text, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
-import { useRouter } from "expo-router"
 
 import { clearAuthToken } from "@/modules/onboarding"
 import { api } from "@/services/api"
+import { notifySessionExpired } from "@/services/api/session-expired"
 import { getApiErrorMessage, isUnauthorizedError } from "@/shared/infrastructure/api-error"
 import { forest500, ink, ink3, radii, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
@@ -15,15 +15,14 @@ interface ApiErrorViewProps {
 }
 
 export function ApiErrorView({ error, onRetry, title = "Could not load data" }: ApiErrorViewProps) {
-  const router = useRouter()
-
   useEffect(() => {
     if (isUnauthorizedError(error)) {
       clearAuthToken()
       api.clearAuthToken()
-      router.replace("/onboarding" as any)
+      // SessionExpiredListener redirects to login; avoids leaving tabs on a spinner.
+      notifySessionExpired()
     }
-  }, [error, router])
+  }, [error])
 
   if (isUnauthorizedError(error)) return null
 

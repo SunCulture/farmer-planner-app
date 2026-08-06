@@ -2,6 +2,9 @@ import React, { useState } from "react"
 import {
   ActivityIndicator,
   Dimensions,
+  Image,
+  ImageStyle,
+  Linking,
   Pressable,
   Text,
   TextInput,
@@ -10,11 +13,13 @@ import {
   View,
   ViewStyle,
 } from "react-native"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import { LinearGradient } from "expo-linear-gradient"
 import { KeyboardAwareScrollView, KeyboardAvoidingView } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { GlyphHeroBand, GlyphMark } from "@/components/GlyphMark"
 import { api } from "@/services/api"
 import { getApiErrorMessage, problemFromResponse } from "@/shared/infrastructure/api-error"
 import {
@@ -25,15 +30,26 @@ import {
   ink,
   ink3,
   ink4,
+  paper,
   paper2,
   radii,
   spacing,
 } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
+import {
+  cropGlyph,
+  goalGlyph,
+  ICONS8_ATTRIBUTION_LABEL,
+  ICONS8_ATTRIBUTION_URL,
+  livestockGlyph,
+  regionWeatherGlyph,
+  structuralGlyph,
+} from "./catalog-glyphs"
 import OnboardingActivationStep from "./OnboardingActivationStep"
 import {
   markOnboardingComplete,
+  loadFarmerProfile,
   saveAuthSession,
   saveFarmerProfile,
   setOnboardingComplete,
@@ -42,23 +58,14 @@ import { mapDraftToProfile } from "../application/map-profile"
 import { draftFromOnboardingData, uiStepFromSuggested } from "../application/resume-onboarding"
 import { useCrops, useGoals, useLivestock, useRegions } from "../application/use-catalog-queries"
 import { useCompleteOnboarding, usePatchOnboarding } from "../application/use-onboarding-mutations"
+import type { FarmerProfile } from "../domain/entities/farmer-profile"
 import {
   isValidTwoWeekGoal,
   TWO_WEEK_GOAL_MAX_LENGTH,
   TWO_WEEK_GOAL_MIN_LENGTH,
 } from "../domain/policies/two-week-goal"
 
-function initialsForLabel(label: string): string {
-  const initials = label
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase()
-
-  return initials || "?"
-}
+const brandLogo = require("@assets/images/logo.png")
 
 // ---------------------------------------------------------------------------
 // Types (UI-local — not the same as the API entity)
@@ -94,6 +101,22 @@ const INITIAL_DRAFT: DraftProfile = {
   twoWeekGoal: "",
 }
 
+function draftFromSavedProfile(profile: FarmerProfile | null): DraftProfile {
+  if (!profile) return INITIAL_DRAFT
+  return {
+    name: profile.name,
+    location: profile.location.label,
+    locationSlug: profile.location.county ?? "",
+    farmType: profile.productionType === "LIVESTOCK" ? "livestock" : "crops",
+    crops: profile.cropIds,
+    livestock: profile.livestockIds,
+    workStyle: profile.helpersLevel === "SOLO" ? "solo" : "helpers",
+    farmSize: profile.acreage <= 1 ? "small" : profile.acreage <= 5 ? "medium" : "large",
+    goals: profile.goalSlugs,
+    twoWeekGoal: profile.twoWeekGoal ?? "",
+  }
+}
+
 // Steps: 0=auth(login/register)  1=name  2=location  3=farmType  4=species  5=helpers
 // 6=farmSize  7=goals  8=twoWeekGoal  9=activating (SSE wait -> plan day view)
 const PROGRESS_STEPS = 8
@@ -106,9 +129,18 @@ const GRID_CARD_W = (W - spacing.s5 * 2 - spacing.s3) / 2
 // ---------------------------------------------------------------------------
 
 export default function OnboardingScreen() {
-  const [step, setStep] = useState(0)
-  const [draft, setDraft] = useState<DraftProfile>(INITIAL_DRAFT)
-  const [locationQuery, setLocationQuery] = useState("")
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
+  const { preview: previewParam } = useLocalSearchParams<{ preview?: string }>()
+  const isPreview = previewParam === "1" || previewParam === "true"
+
+  const [step, setStep] = useState(() => (isPreview ? 1 : 0))
+  const [draft, setDraft] = useState<DraftProfile>(() =>
+    isPreview ? draftFromSavedProfile(loadFarmerProfile()) : INITIAL_DRAFT,
+  )
+  const [locationQuery, setLocationQuery] = useState(() =>
+    isPreview ? (loadFarmerProfile()?.location.label ?? "") : "",
+  )
 
   // Auth step state
   const [authMode, setAuthMode] = useState<"login" | "register">("login")
@@ -122,9 +154,6 @@ export default function OnboardingScreen() {
   const [finishLoading, setFinishLoading] = useState(false)
   const [finishError, setFinishError] = useState<string | null>(null)
 
-  const router = useRouter()
-  const insets = useSafeAreaInsets()
-
   const cropsQuery = useCrops()
   const livestockQuery = useLivestock()
   const regionsQuery = useRegions()
@@ -132,8 +161,22 @@ export default function OnboardingScreen() {
   const patchOnboardingMutation = usePatchOnboarding()
   const completeOnboardingMutation = useCompleteOnboarding()
 
-  const goNext = () => setStep((s) => s + 1)
-  const goBack = () => setStep((s) => Math.max(0, s - 1))
+  const exitPreview = () => {
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+    router.replace("/profile" as any)
+  }
+
+  const goNext = () => setStep((s) => Math.min(8, s + 1))
+  const goBack = () => {
+    if (isPreview && step <= 1) {
+      exitPreview()
+      return
+    }
+    setStep((s) => Math.max(isPreview ? 1 : 0, s - 1))
+  }
 
   const handleAuth = async () => {
     setAuthError(null)
@@ -291,6 +334,7 @@ export default function OnboardingScreen() {
     !authLoading
 
   const ctaEnabled =
+    isPreview ||
     (step === 1 && draft.name.trim().length >= 2) ||
     (step === 2 && draft.location !== "") ||
     (step === 3 && draft.farmType !== null) ||
@@ -301,10 +345,12 @@ export default function OnboardingScreen() {
     (step === 7 && draft.goals.length > 0) ||
     (step === 8 && isValidTwoWeekGoal(draft.twoWeekGoal))
 
-  const ctaLabel = step === 8 ? "Build My Farm Plan" : "Continue"
-  const ctaOnPress = step === 8 ? handleFinish : goNext
+  const ctaLabel =
+    isPreview && step === 8 ? "Exit preview" : step === 8 ? "Build My Farm Plan" : "Continue"
+  const ctaOnPress =
+    isPreview && step === 8 ? exitPreview : step === 8 ? handleFinish : goNext
 
-  const isAuth = step === 0
+  const isAuth = step === 0 && !isPreview
   const isActivating = step === 9
   const showHeader = !isAuth && !isActivating
 
@@ -325,116 +371,137 @@ export default function OnboardingScreen() {
 
   if (isAuth) {
     return (
-      <KeyboardAvoidingView
-        style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-        behavior="padding"
+      <LinearGradient
+        colors={[paper, paper2]}
+        style={$root}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       >
-        <KeyboardAwareScrollView
-          contentContainerStyle={$authScroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bottomOffset={spacing.s6}
+        <KeyboardAvoidingView
+          style={[$root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+          behavior="padding"
         >
-          {/* Brand badge */}
-          <View style={$authBadge}>
-            <Text style={$authBadgeText}>Tujiweze</Text>
-          </View>
+          <KeyboardAwareScrollView
+            contentContainerStyle={$authScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bottomOffset={spacing.s6}
+          >
+            <Image source={brandLogo} style={$authLogo} resizeMode="contain" />
 
-          <Text style={$authHeading}>
-            {authMode === "login" ? "Welcome back" : "Create your account"}
-          </Text>
-          <Text style={$authSubtitle}>
-            {authMode === "login"
-              ? "Sign in to continue your farming journey."
-              : "Enter your email to get started."}
-          </Text>
+            <View style={$authBadge}>
+              <Text style={$authBadgeText}>Tujiweze</Text>
+            </View>
 
-          {/* Name — register only */}
-          {authMode === "register" && (
-            <>
-              <Text style={$fieldLabel}>Full name</Text>
+            <Text style={$authHeading}>
+              {authMode === "login" ? "Welcome back" : "Create your account"}
+            </Text>
+            <Text style={$authSubtitle}>
+              {authMode === "login"
+                ? "Sign in to continue your farming journey."
+                : "Enter your email to get started."}
+            </Text>
+
+            {authMode === "register" && (
+              <>
+                <Text style={$fieldLabel}>Full name</Text>
+                <View style={$authInputRow}>
+                  <Ionicons name="person-outline" size={18} color={ink3} style={$authInputIcon} />
+                  <TextInput
+                    style={$authInputFlex}
+                    value={authName}
+                    onChangeText={(v) => {
+                      setAuthName(v)
+                      setAuthError(null)
+                    }}
+                    placeholder="John Kamau"
+                    placeholderTextColor={ink4}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                </View>
+              </>
+            )}
+
+            <Text style={$fieldLabel}>Email</Text>
+            <View style={$authInputRow}>
+              <Ionicons name="mail-outline" size={18} color={ink3} style={$authInputIcon} />
               <TextInput
-                style={$authInput}
-                value={authName}
+                style={$authInputFlex}
+                value={authEmail}
                 onChangeText={(v) => {
-                  setAuthName(v)
+                  setAuthEmail(v.replace(/\s/g, ""))
                   setAuthError(null)
                 }}
-                placeholder="John Kamau"
+                placeholder="you@example.com"
                 placeholderTextColor={ink4}
-                autoCapitalize="words"
+                keyboardType="email-address"
+                autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
               />
-            </>
-          )}
+            </View>
 
-          {/* Email */}
-          <Text style={$fieldLabel}>Email</Text>
-          <TextInput
-            style={$authInput}
-            value={authEmail}
-            onChangeText={(v) => {
-              setAuthEmail(v.replace(/\s/g, ""))
-              setAuthError(null)
-            }}
-            placeholder="you@example.com"
-            placeholderTextColor={ink4}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            textContentType="emailAddress"
-          />
+            <Text style={$fieldLabel}>Password</Text>
+            <View style={$authInputRow}>
+              <Ionicons name="lock-closed-outline" size={18} color={ink3} style={$authInputIcon} />
+              <TextInput
+                style={$authInputFlex}
+                value={authPassword}
+                onChangeText={(v) => {
+                  setAuthPassword(v)
+                  setAuthError(null)
+                }}
+                placeholder="••••••••"
+                placeholderTextColor={ink4}
+                secureTextEntry
+                autoComplete={authMode === "login" ? "password" : "new-password"}
+                textContentType="password"
+              />
+            </View>
 
-          {/* Password */}
-          <Text style={$fieldLabel}>Password</Text>
-          <TextInput
-            style={$authInput}
-            value={authPassword}
-            onChangeText={(v) => {
-              setAuthPassword(v)
-              setAuthError(null)
-            }}
-            placeholder="••••••••"
-            placeholderTextColor={ink4}
-            secureTextEntry
-            autoComplete={authMode === "login" ? "password" : "new-password"}
-            textContentType="password"
-          />
+            {authError ? <Text style={$authErrorText}>{authError}</Text> : null}
 
-          {/* Error */}
-          {authError ? <Text style={$authErrorText}>{authError}</Text> : null}
+            <TouchableOpacity
+              style={[$ctaBtn, !authCtaEnabled && $ctaBtnDisabled, { marginTop: spacing.s4 }]}
+              onPress={handleAuth}
+              disabled={!authCtaEnabled}
+              activeOpacity={0.85}
+            >
+              {authLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={$ctaBtnText}>
+                  {authMode === "login" ? "Sign in" : "Create account"}
+                </Text>
+              )}
+            </TouchableOpacity>
 
-          {/* Primary CTA */}
-          <TouchableOpacity
-            style={[$ctaBtn, !authCtaEnabled && $ctaBtnDisabled, { marginTop: spacing.s4 }]}
-            onPress={handleAuth}
-            disabled={!authCtaEnabled}
-            activeOpacity={0.85}
-          >
-            {authLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={$ctaBtnText}>{authMode === "login" ? "Sign in" : "Create account"}</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={$authToggle}
+              onPress={() => {
+                setAuthMode((m) => (m === "login" ? "register" : "login"))
+                setAuthName("")
+                setAuthError(null)
+              }}
+            >
+              <Text style={$authToggleText}>
+                {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+                <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
+              </Text>
+            </TouchableOpacity>
 
-          {/* Mode toggle */}
-          <TouchableOpacity
-            style={$authToggle}
-            onPress={() => {
-              setAuthMode((m) => (m === "login" ? "register" : "login"))
-              setAuthName("")
-              setAuthError(null)
-            }}
-          >
-            <Text style={$authToggleText}>
-              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
-              <Text style={$authToggleLink}>{authMode === "login" ? "Register" : "Sign in"}</Text>
-            </Text>
-          </TouchableOpacity>
-        </KeyboardAwareScrollView>
-      </KeyboardAvoidingView>
+            <TouchableOpacity
+              style={$authAttribution}
+              onPress={() => Linking.openURL(ICONS8_ATTRIBUTION_URL)}
+              hitSlop={8}
+            >
+              <Text style={$authAttributionText}>{ICONS8_ATTRIBUTION_LABEL}</Text>
+            </TouchableOpacity>
+          </KeyboardAwareScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     )
   }
 
@@ -458,6 +525,11 @@ export default function OnboardingScreen() {
               />
             ))}
           </View>
+          {isPreview ? (
+            <View style={$previewPill}>
+              <Text style={$previewPillText}>Preview</Text>
+            </View>
+          ) : null}
         </View>
       )}
 
@@ -524,9 +596,12 @@ export default function OnboardingScreen() {
                         }))
                       }
                     >
-                      <View style={[$optionMark, selected && $optionMarkSelected]}>
-                        <Text style={$optionMarkText}>{initialsForLabel(region.name)}</Text>
-                      </View>
+                      <GlyphMark
+                        source={regionWeatherGlyph(region.weather)}
+                        fallbackIcon="partly-sunny-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
                       <Text style={[$locationName, selected && { color: forest500 }]}>
                         {region.name}
                       </Text>
@@ -560,14 +635,16 @@ export default function OnboardingScreen() {
                   id: "crops" as FarmTypeUI,
                   label: "Crops",
                   desc: "Fruits, vegetables & grains",
-                  illustration: "CROPS",
+                  glyph: structuralGlyph("farm-crops"),
+                  fallbackIcon: "leaf-outline" as const,
                   illustrationBg: forest50,
                 },
                 {
                   id: "livestock" as FarmTypeUI,
                   label: "Livestock",
                   desc: "Cows, goats, chickens & more",
-                  illustration: "HERD",
+                  glyph: structuralGlyph("farm-livestock"),
+                  fallbackIcon: "paw-outline" as const,
                   illustrationBg: paper2,
                 },
               ] as const
@@ -581,9 +658,12 @@ export default function OnboardingScreen() {
                     setDraft((d) => ({ ...d, farmType: opt.id, crops: [], livestock: [] }))
                   }
                 >
-                  <View style={[$bigCardIllustration, { backgroundColor: opt.illustrationBg }]}>
-                    <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
-                  </View>
+                  <GlyphHeroBand
+                    source={opt.glyph}
+                    fallbackIcon={opt.fallbackIcon}
+                    backgroundColor={opt.illustrationBg}
+                    selected={selected}
+                  />
                   <View style={$bigCardFooter}>
                     <View style={{ flex: 1 }}>
                       <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
@@ -625,9 +705,12 @@ export default function OnboardingScreen() {
                         }))
                       }
                     >
-                      <View style={[$optionMark, selected && $optionMarkSelected]}>
-                        <Text style={$optionMarkText}>{initialsForLabel(crop.name)}</Text>
-                      </View>
+                      <GlyphMark
+                        source={cropGlyph(crop.slug || crop.name)}
+                        fallbackIcon="leaf-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
                       <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                         {crop.name}
                       </Text>
@@ -666,9 +749,12 @@ export default function OnboardingScreen() {
                         }))
                       }
                     >
-                      <View style={[$optionMark, selected && $optionMarkSelected]}>
-                        <Text style={$optionMarkText}>{initialsForLabel(animal.name)}</Text>
-                      </View>
+                      <GlyphMark
+                        source={livestockGlyph(animal.slug || animal.name)}
+                        fallbackIcon="paw-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
                       <Text style={[$speciesLabel, selected && { color: forest500 }]}>
                         {animal.name}
                       </Text>
@@ -694,13 +780,15 @@ export default function OnboardingScreen() {
                   id: "solo" as WorkStyleUI,
                   label: "Solo Farmer",
                   desc: "I work my farm on my own",
-                  illustration: "SOLO",
+                  glyph: structuralGlyph("solo"),
+                  fallbackIcon: "person-outline" as const,
                 },
                 {
                   id: "helpers" as WorkStyleUI,
                   label: "With Helpers",
                   desc: "I have farmhands or family help",
-                  illustration: "TEAM",
+                  glyph: structuralGlyph("team"),
+                  fallbackIcon: "people-outline" as const,
                 },
               ] as const
             ).map((opt) => {
@@ -711,9 +799,12 @@ export default function OnboardingScreen() {
                   style={[$bigCard, selected && $bigCardSelected]}
                   onPress={() => setDraft((d) => ({ ...d, workStyle: opt.id }))}
                 >
-                  <View style={[$bigCardIllustration, { backgroundColor: paper2 }]}>
-                    <Text style={$bigCardIllustrationText}>{opt.illustration}</Text>
-                  </View>
+                  <GlyphHeroBand
+                    source={opt.glyph}
+                    fallbackIcon={opt.fallbackIcon}
+                    backgroundColor={paper2}
+                    selected={selected}
+                  />
                   <View style={$bigCardFooter}>
                     <View style={{ flex: 1 }}>
                       <Text style={[$bigCardLabel, selected && { color: forest500 }]}>
@@ -742,19 +833,19 @@ export default function OnboardingScreen() {
                   id: "small" as FarmSizeUI,
                   label: "Small Farm",
                   desc: "Under 1 acre",
-                  mark: "S",
+                  glyph: structuralGlyph("size-small"),
                 },
                 {
                   id: "medium" as FarmSizeUI,
                   label: "Medium Farm",
                   desc: "1 to 5 acres",
-                  mark: "M",
+                  glyph: structuralGlyph("size-medium"),
                 },
                 {
                   id: "large" as FarmSizeUI,
                   label: "Large Farm",
                   desc: "Over 5 acres",
-                  mark: "L",
+                  glyph: structuralGlyph("size-large"),
                 },
               ] as const
             ).map((opt) => {
@@ -765,9 +856,13 @@ export default function OnboardingScreen() {
                   style={[$sizeCard, selected && $sizeCardSelected]}
                   onPress={() => setDraft((d) => ({ ...d, farmSize: opt.id }))}
                 >
-                  <View style={[$sizeMark, selected && $optionMarkSelected]}>
-                    <Text style={$sizeMarkText}>{opt.mark}</Text>
-                  </View>
+                  <GlyphMark
+                    source={opt.glyph}
+                    fallbackIcon="resize-outline"
+                    size="lg"
+                    selected={selected}
+                    style={$sizeMark}
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={[$sizeLabel, selected && { color: forest500 }]}>{opt.label}</Text>
                     <Text style={$sizeDesc}>{opt.desc}</Text>
@@ -805,9 +900,12 @@ export default function OnboardingScreen() {
                         }))
                       }
                     >
-                      <View style={[$optionMark, selected && $optionMarkSelected]}>
-                        <Text style={$optionMarkText}>{initialsForLabel(goal.name)}</Text>
-                      </View>
+                      <GlyphMark
+                        source={goalGlyph(goal.illustrationKey || goal.slug)}
+                        fallbackIcon="flag-outline"
+                        selected={selected}
+                        style={$speciesMark}
+                      />
                       <Text style={[$goalLabel, selected && { color: forest500 }]}>
                         {goal.name}
                       </Text>
@@ -899,13 +997,19 @@ const $authScroll: ViewStyle = {
   paddingBottom: spacing.s8,
 }
 
+const $authLogo: ImageStyle = {
+  width: 56,
+  height: 56,
+  marginBottom: spacing.s4,
+}
+
 const $authBadge: ViewStyle = {
   alignSelf: "flex-start",
   backgroundColor: forest500,
   paddingHorizontal: spacing.s4,
   paddingVertical: 6,
   borderRadius: radii.pill,
-  marginBottom: spacing.s6,
+  marginBottom: spacing.s5,
 }
 
 const $authBadgeText: TextStyle = {
@@ -916,10 +1020,10 @@ const $authBadgeText: TextStyle = {
 }
 
 const $authHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 28,
+  fontFamily: typography.display.bold,
+  fontSize: 30,
   color: ink,
-  lineHeight: 36,
+  lineHeight: 38,
   marginBottom: spacing.s2,
 }
 
@@ -939,16 +1043,27 @@ const $fieldLabel: TextStyle = {
   marginTop: spacing.s3,
 }
 
-const $authInput: TextStyle = {
+const $authInputRow: ViewStyle = {
   height: 52,
   borderWidth: 1.5,
   borderColor: hairline,
   borderRadius: radii.xl,
   paddingHorizontal: spacing.s4,
+  backgroundColor: card,
+  flexDirection: "row",
+  alignItems: "center",
+}
+
+const $authInputIcon: TextStyle = {
+  marginRight: spacing.s2,
+}
+
+const $authInputFlex: TextStyle = {
+  flex: 1,
   fontFamily: typography.primary.normal,
   fontSize: 16,
   color: ink,
-  backgroundColor: card,
+  paddingVertical: 0,
 }
 
 const $authErrorText: TextStyle = {
@@ -973,6 +1088,19 @@ const $authToggleText: TextStyle = {
 const $authToggleLink: TextStyle = {
   fontFamily: typography.primary.bold,
   color: forest500,
+}
+
+const $authAttribution: ViewStyle = {
+  alignItems: "center",
+  marginTop: spacing.s6,
+  paddingVertical: spacing.s2,
+}
+
+const $authAttributionText: TextStyle = {
+  fontFamily: typography.primary.normal,
+  fontSize: 12,
+  color: ink4,
+  textDecorationLine: "underline",
 }
 
 const $header: ViewStyle = {
@@ -1004,16 +1132,30 @@ const $progressSeg: ViewStyle = {
 const $progressFilled: ViewStyle = { backgroundColor: forest500 }
 const $progressEmpty: ViewStyle = { backgroundColor: hairline }
 
+const $previewPill: ViewStyle = {
+  marginLeft: spacing.s2,
+  backgroundColor: forest50,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.s2,
+  paddingVertical: 4,
+}
+
+const $previewPillText: TextStyle = {
+  fontFamily: typography.primary.medium,
+  fontSize: 11,
+  color: forest500,
+}
+
 const $scrollContent: ViewStyle = {
   paddingHorizontal: spacing.s5,
   paddingBottom: spacing.s6,
 }
 
 const $stepHeading: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 26,
+  fontFamily: typography.display.bold,
+  fontSize: 28,
   color: ink,
-  lineHeight: 34,
+  lineHeight: 36,
   marginBottom: spacing.s2,
 }
 
@@ -1122,25 +1264,8 @@ const $locationCheck: ViewStyle = {
   right: spacing.s2,
 }
 
-const $optionMark: ViewStyle = {
-  width: 40,
-  height: 40,
-  borderRadius: 20,
-  backgroundColor: paper2,
-  alignItems: "center",
-  justifyContent: "center",
+const $speciesMark: ViewStyle = {
   marginBottom: spacing.s2,
-}
-
-const $optionMarkSelected: ViewStyle = {
-  backgroundColor: card,
-}
-
-const $optionMarkText: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 12,
-  color: forest500,
-  letterSpacing: 0.6,
 }
 
 // Big cards (farm type, helpers)
@@ -1155,19 +1280,6 @@ const $bigCard: ViewStyle = {
 
 const $bigCardSelected: ViewStyle = {
   borderColor: forest500,
-}
-
-const $bigCardIllustration: ViewStyle = {
-  height: 110,
-  alignItems: "center",
-  justifyContent: "center",
-}
-
-const $bigCardIllustrationText: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 28,
-  color: forest500,
-  letterSpacing: 1.8,
 }
 
 const $bigCardFooter: ViewStyle = {
@@ -1274,20 +1386,7 @@ const $sizeCardSelected: ViewStyle = {
 }
 
 const $sizeMark: ViewStyle = {
-  width: 44,
-  height: 44,
-  borderRadius: 22,
-  backgroundColor: paper2,
-  alignItems: "center",
-  justifyContent: "center",
   marginRight: spacing.s4,
-}
-
-const $sizeMarkText: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 14,
-  color: forest500,
-  letterSpacing: 0.8,
 }
 
 const $sizeLabel: TextStyle = {

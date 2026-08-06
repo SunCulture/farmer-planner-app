@@ -1,16 +1,39 @@
 import React from "react"
-import { ScrollView, Text, TextStyle, TouchableOpacity, View, ViewStyle } from "react-native"
+import {
+  ImageSourcePropType,
+  Linking,
+  ScrollView,
+  Text,
+  TextStyle,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native"
 import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { container } from "@/bootstrap/container"
-import { clearAuthToken, loadFarmerProfile, loadRefreshToken } from "@/modules/onboarding"
+import { GlyphMark } from "@/components/GlyphMark"
+import { SoftEmptyState } from "@/components/SoftEmptyState"
+import {
+  clearAuthToken,
+  loadFarmerProfile,
+  loadRefreshToken,
+} from "@/modules/onboarding"
 import {
   useCrops,
   useGoals,
   useLivestock,
 } from "@/modules/onboarding/application/use-catalog-queries"
+import {
+  cropGlyph,
+  goalGlyph,
+  ICONS8_ATTRIBUTION_LABEL,
+  ICONS8_ATTRIBUTION_URL,
+  livestockGlyph,
+  structuralGlyph,
+} from "@/modules/onboarding/presentation/catalog-glyphs"
 import { useEducationCourses } from "@/modules/plan"
 import { api } from "@/services/api"
 import type { SseClient } from "@/shared/contracts/sse"
@@ -62,18 +85,19 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function TagChip({ label }: { label: string }) {
+function TagChip({
+  label,
+  source,
+}: {
+  label: string
+  source?: ImageSourcePropType | null
+}) {
   return (
     <View style={$chip}>
+      {source ? (
+        <GlyphMark source={source} size="sm" style={$chipGlyph} />
+      ) : null}
       <Text style={$chipLabel}>{label}</Text>
-    </View>
-  )
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <View style={$emptyState}>
-      <Text style={$emptyStateText}>{message}</Text>
     </View>
   )
 }
@@ -102,7 +126,12 @@ export default function ProfileScreen() {
           <Text style={$topBarTitle}>My Profile</Text>
           <View style={{ width: 36 }} />
         </View>
-        <EmptyState message="No profile data found. Complete onboarding first." />
+        <SoftEmptyState
+          heading="No profile yet"
+          body="Complete onboarding first to see your farm details."
+          source={structuralGlyph("sprout")}
+          fallbackIcon="person-outline"
+        />
       </View>
     )
   }
@@ -123,21 +152,30 @@ export default function ProfileScreen() {
   const allCrops = cropsQuery.data ?? []
   const resolvedCrops = profile.cropIds.map((id) => {
     const found = allCrops.find((c) => c.id === id)
-    return { name: found?.name ?? id }
+    return {
+      name: found?.name ?? id,
+      glyph: cropGlyph(found?.slug ?? found?.name ?? id),
+    }
   })
 
   // Resolve livestock names from catalog, fallback to slug
   const allLivestock = livestockQuery.data ?? []
   const resolvedLivestock = profile.livestockIds.map((id) => {
     const found = allLivestock.find((a) => a.id === id)
-    return { name: found?.name ?? id }
+    return {
+      name: found?.name ?? id,
+      glyph: livestockGlyph(found?.slug ?? found?.name ?? id),
+    }
   })
 
   // Resolve goal names from catalog, fallback to slug
   const allGoals = goalsQuery.data ?? []
   const resolvedGoals = profile.goalSlugs.map((slug) => {
     const found = allGoals.find((g) => g.slug === slug)
-    return { name: found?.name ?? slug }
+    return {
+      name: found?.name ?? slug,
+      glyph: goalGlyph(found?.illustrationKey ?? slug),
+    }
   })
 
   const farmTypeLabel =
@@ -184,9 +222,15 @@ export default function ProfileScreen() {
           <Text style={$heroName}>{profile.name}</Text>
           <View style={$heroBadgeRow}>
             <View style={$heroBadge}>
+              <Ionicons name="location-outline" size={12} color={forest500} />
               <Text style={$heroBadgeText}>{profile.location.label}</Text>
             </View>
             <View style={$heroBadge}>
+              <Ionicons
+                name={isCrops ? "leaf-outline" : "paw-outline"}
+                size={12}
+                color={forest500}
+              />
               <Text style={$heroBadgeText}>{farmTypeLabel}</Text>
             </View>
           </View>
@@ -214,11 +258,16 @@ export default function ProfileScreen() {
           <View style={$section}>
             <SectionHeader title="Crops" />
             {resolvedCrops.length === 0 ? (
-              <EmptyState message="No crops selected during onboarding." />
+              <SoftEmptyState
+                heading="No crops"
+                body="No crops selected during onboarding."
+                source={structuralGlyph("farm-crops")}
+                fallbackIcon="leaf-outline"
+              />
             ) : (
               <View style={$chipRow}>
                 {resolvedCrops.map((crop) => (
-                  <TagChip key={crop.name} label={crop.name} />
+                  <TagChip key={crop.name} label={crop.name} source={crop.glyph} />
                 ))}
               </View>
             )}
@@ -230,11 +279,16 @@ export default function ProfileScreen() {
           <View style={$section}>
             <SectionHeader title="Livestock" />
             {resolvedLivestock.length === 0 ? (
-              <EmptyState message="No livestock selected during onboarding." />
+              <SoftEmptyState
+                heading="No livestock"
+                body="No livestock selected during onboarding."
+                source={structuralGlyph("farm-livestock")}
+                fallbackIcon="paw-outline"
+              />
             ) : (
               <View style={$chipRow}>
                 {resolvedLivestock.map((animal) => (
-                  <TagChip key={animal.name} label={animal.name} />
+                  <TagChip key={animal.name} label={animal.name} source={animal.glyph} />
                 ))}
               </View>
             )}
@@ -245,7 +299,12 @@ export default function ProfileScreen() {
         <View style={$section}>
           <SectionHeader title="Farming Goals" />
           {resolvedGoals.length === 0 ? (
-            <EmptyState message="No goals selected during onboarding." />
+            <SoftEmptyState
+              heading="No goals"
+              body="No goals selected during onboarding."
+              source={goalGlyph("MAKE_MONEY")}
+              fallbackIcon="flag-outline"
+            />
           ) : (
             <View style={$goalsList}>
               {resolvedGoals.map((goal, i) => (
@@ -253,6 +312,7 @@ export default function ProfileScreen() {
                   key={goal.name}
                   style={[$goalItem, i < resolvedGoals.length - 1 && $goalItemBorder]}
                 >
+                  <GlyphMark source={goal.glyph} size="sm" style={$goalGlyph} />
                   <Text style={$goalLabel}>{goal.name}</Text>
                   <Ionicons name="checkmark-circle" size={18} color={statusGood} />
                 </View>
@@ -312,7 +372,12 @@ export default function ProfileScreen() {
               ))}
             </View>
           ) : !tipCoursesQuery.isLoading && !tipCoursesQuery.isError ? (
-            <EmptyState message="Finish a tip course from any activity to see it here." />
+            <SoftEmptyState
+              heading="No tip courses yet"
+              body="Finish a tip course from any activity to see it here."
+              source={structuralGlyph("sprout")}
+              fallbackIcon="school-outline"
+            />
           ) : null}
         </View>
 
@@ -327,10 +392,30 @@ export default function ProfileScreen() {
           <Text style={$completionText}>Onboarding complete · Farm plan active</Text>
         </View>
 
+        {/* ── Preview onboarding ── */}
+        <TouchableOpacity
+          style={$previewBtn}
+          activeOpacity={0.7}
+          onPress={() =>
+            router.push({ pathname: "/onboarding", params: { preview: "1" } } as any)
+          }
+        >
+          <Ionicons name="eye-outline" size={18} color={forest500} />
+          <Text style={$previewBtnText}>Preview onboarding</Text>
+        </TouchableOpacity>
+
         {/* ── Logout ── */}
         <TouchableOpacity style={$logoutBtn} activeOpacity={0.7} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={18} color={statusBad} />
           <Text style={$logoutText}>Log out</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={$attribution}
+          onPress={() => Linking.openURL(ICONS8_ATTRIBUTION_URL)}
+          hitSlop={8}
+        >
+          <Text style={$attributionText}>{ICONS8_ATTRIBUTION_LABEL}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -401,8 +486,8 @@ const $avatarLargeText: TextStyle = {
 }
 
 const $heroName: TextStyle = {
-  fontFamily: typography.primary.bold,
-  fontSize: 22,
+  fontFamily: typography.display.bold,
+  fontSize: 24,
   color: ink,
   marginBottom: spacing.s3,
 }
@@ -415,6 +500,9 @@ const $heroBadgeRow: ViewStyle = {
 }
 
 const $heroBadge: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
   backgroundColor: forest50,
   borderRadius: radii.pill,
   paddingHorizontal: spacing.s3,
@@ -495,12 +583,17 @@ const $chipRow: ViewStyle = {
 const $chip: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
+  gap: spacing.s1,
   backgroundColor: card,
   borderRadius: radii.pill,
   borderWidth: 1.5,
   borderColor: forest100,
   paddingHorizontal: spacing.s3,
   paddingVertical: spacing.s2,
+}
+
+const $chipGlyph: ViewStyle = {
+  marginRight: 2,
 }
 
 const $chipLabel: TextStyle = {
@@ -524,6 +617,8 @@ const $goalItem: ViewStyle = {
   paddingVertical: spacing.s3,
   gap: spacing.s3,
 }
+
+const $goalGlyph: ViewStyle = {}
 
 const $goalItemBorder: ViewStyle = {
   borderBottomWidth: 1,
@@ -550,6 +645,25 @@ const $completionText: TextStyle = {
   color: statusGood,
 }
 
+const $previewBtn: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: spacing.s2,
+  backgroundColor: forest50,
+  borderRadius: radii.xl,
+  paddingVertical: spacing.s4,
+  borderWidth: 1,
+  borderColor: forest100,
+  marginBottom: spacing.s3,
+}
+
+const $previewBtnText: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 15,
+  color: forest500,
+}
+
 const $logoutBtn: ViewStyle = {
   flexDirection: "row",
   alignItems: "center",
@@ -568,19 +682,15 @@ const $logoutText: TextStyle = {
   color: statusBad,
 }
 
-const $emptyState: ViewStyle = {
-  backgroundColor: card,
-  borderRadius: radii.lg,
-  borderWidth: 1,
-  borderColor: hairline,
-  paddingVertical: spacing.s4,
-  paddingHorizontal: spacing.s4,
+const $attribution: ViewStyle = {
   alignItems: "center",
+  marginTop: spacing.s5,
+  paddingVertical: spacing.s2,
 }
 
-const $emptyStateText: TextStyle = {
+const $attributionText: TextStyle = {
   fontFamily: typography.primary.normal,
-  fontSize: 14,
+  fontSize: 12,
   color: ink4,
-  textAlign: "center",
+  textDecorationLine: "underline",
 }

@@ -34,6 +34,10 @@ import type {
   PlanTemplateDto,
   ActivityQuestionsListDto,
 } from "./planner-types"
+import {
+  clearSessionExpiredHandling,
+  notifySessionExpired,
+} from "./session-expired"
 import type { ApiConfig } from "./types"
 import { unwrap, unwrapRaw, unwrapVoid } from "./unwrap"
 
@@ -190,6 +194,7 @@ export class Api {
   }
 
   setAuthToken(token: string) {
+    clearSessionExpiredHandling()
     this.apisauce.setHeader("Authorization", `Bearer ${token}`)
   }
 
@@ -200,6 +205,7 @@ export class Api {
   /**
    * Exchange the stored refresh token for a new access/refresh pair.
    * Concurrent 401s share one in-flight refresh.
+   * On failure, clears tokens and notifies listeners so the UI can redirect to login.
    */
   async refreshSession(): Promise<boolean> {
     if (this.refreshInFlight) return this.refreshInFlight
@@ -207,12 +213,14 @@ export class Api {
     this.refreshInFlight = (async () => {
       try {
         const refreshToken = loadRefreshToken()
-        if (!refreshToken) return false
+        if (!refreshToken) {
+          this.expireSession()
+          return false
+        }
 
         const res = await this.refreshTokens(refreshToken)
         if (!res.ok || !res.data?.data?.accessToken) {
-          clearAuthToken()
-          this.clearAuthToken()
+          this.expireSession()
           return false
         }
 
@@ -221,8 +229,7 @@ export class Api {
         this.setAuthToken(accessToken)
         return true
       } catch {
-        clearAuthToken()
-        this.clearAuthToken()
+        this.expireSession()
         return false
       } finally {
         this.refreshInFlight = null
@@ -230,6 +237,13 @@ export class Api {
     })()
 
     return this.refreshInFlight
+  }
+
+  /** Clear stored credentials and notify the app to leave authenticated screens. */
+  private expireSession() {
+    clearAuthToken()
+    this.clearAuthToken()
+    notifySessionExpired()
   }
 
   private setupAuthInterceptor() {

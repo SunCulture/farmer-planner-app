@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ApiErrorView } from "@/components/ApiErrorView"
+import { GlyphMark } from "@/components/GlyphMark"
 import type { ContestReaction } from "@/services/api"
 import { isNotFoundError } from "@/shared/infrastructure/api-error"
 import {
@@ -55,6 +56,7 @@ import { useActivityDetail } from "../application/use-activity-detail"
 import { useActivityQA } from "../application/use-activity-qa"
 import type { ActivityHighlight } from "../domain/entities/activity-highlight"
 import { statusColorToUi } from "../infrastructure/api-mappers"
+import { iconKeyToGlyph } from "../infrastructure/icon-key-map"
 import { ActivityEducationSection } from "./components/ActivityEducationSection"
 import { AiAssistantPanel, type AiChatMessage } from "./components/AiAssistantPanel"
 import { HighlightBadge } from "./components/HighlightBadge"
@@ -273,7 +275,12 @@ export default function ActivityDetailScreen() {
         bottomOffset={spacing.s6}
       >
         <View style={$titleRow}>
-          {activity.iconEmoji ? <Text style={$titleIcon}>{activity.iconEmoji}</Text> : null}
+          <GlyphMark
+            source={iconKeyToGlyph(activity.iconKey)}
+            fallbackIcon="leaf-outline"
+            size="lg"
+            style={$titleGlyph}
+          />
           <Text style={$title}>{activity.title}</Text>
         </View>
 
@@ -531,17 +538,19 @@ const $headerTitle: TextStyle = {
 const $scrollContent: ViewStyle = { paddingHorizontal: spacing.s5 }
 const $titleRow: ViewStyle = {
   flexDirection: "row",
-  alignItems: "center",
-  gap: spacing.s2,
+  alignItems: "flex-start",
+  gap: spacing.s3,
   marginBottom: spacing.s3,
 }
-const $titleIcon: TextStyle = { fontSize: 22 }
+const $titleGlyph: ViewStyle = {
+  marginTop: 2,
+}
 const $title: TextStyle = {
   flex: 1,
-  fontFamily: typography.primary.bold,
-  fontSize: 22,
+  fontFamily: typography.display.bold,
+  fontSize: 24,
   color: ink,
-  lineHeight: 28,
+  lineHeight: 30,
 }
 const $metaRow: ViewStyle = {
   flexDirection: "row",
