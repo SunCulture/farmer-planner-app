@@ -28,4 +28,8 @@ config.resolver.unstable_conditionNames = ["require", "default", "browser"]
 // such as Firebase that use the extension cjs.
 config.resolver.sourceExts.push("cjs")
 
+// expo-sqlite's web build (wa-sqlite) ships a `.wasm` module that Metro must
+// treat as a bundleable asset, otherwise the web target fails to resolve it.
+config.resolver.assetExts.push("wasm")
+
 module.exports = config
