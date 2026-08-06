@@ -1,6 +1,6 @@
 {
   "name": "Tujiweze Mobile",
-  "install": "corepack enable pnpm >/dev/null 2>&1 || true; pnpm install --frozen-lockfile && { [ -f .env ] || cp .env.example .env; }",
+  "install": "pnpm install --frozen-lockfile && { [ -f .env ] || cp .env.example .env; }",
   "terminals": [
     {
       "name": "expo-web",
