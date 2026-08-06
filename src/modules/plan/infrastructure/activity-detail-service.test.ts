@@ -14,6 +14,12 @@ describe("mapActivityDetail", () => {
       subtitle: "Protection · ~20 min",
       description: "Walk the field edges.",
       educationBrief: "Early scouting prevents losses.",
+      education: {
+        summary: "Early scouting prevents losses.",
+        whyNow: "Pests multiply fast in warm weather.",
+        howToThink: "Focus on leaf undersides.",
+        practicalSteps: ["Walk edges", "Check leaves", "Note damage"],
+      },
       status: { code: "PENDING", label: "Not started", color: "amber" },
       iconKey: "pest-scout",
       highlight: { text: "Check underside of leaves", addedAt: "2026-08-05T10:00:00.000Z" },
@@ -24,6 +30,7 @@ describe("mapActivityDetail", () => {
 
     expect(detail.title).toBe("Scout for fall armyworm")
     expect(detail.educationBrief).toContain("scouting")
+    expect(detail.education?.practicalSteps).toHaveLength(3)
     expect(detail.iconEmoji).toBe("")
     expect(detail.status.code).toBe("PENDING")
     expect(detail.highlight?.text).toContain("underside")

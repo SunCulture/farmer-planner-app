@@ -2,8 +2,6 @@ import React, { useCallback, useMemo, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -16,6 +14,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import * as ImagePicker from "expo-image-picker"
 import { useQueryClient } from "@tanstack/react-query"
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { FLOATING_NAV_CLEARANCE } from "@/app/(tabs)/_layout"
@@ -181,17 +180,15 @@ function EntryForm({
   }
 
   return (
-    <KeyboardAvoidingView
-      style={$root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView
+    <View style={$root}>
+      <KeyboardAwareScrollView
         contentContainerStyle={[
           $scroll,
           { paddingTop: insets.top + spacing.s4, paddingBottom: FLOATING_NAV_CLEARANCE + spacing.s4 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bottomOffset={FLOATING_NAV_CLEARANCE + spacing.s4}
       >
         {/* ── Nav header ── */}
         <View style={$navHeader}>
@@ -301,8 +298,8 @@ function EntryForm({
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   )
 }
 

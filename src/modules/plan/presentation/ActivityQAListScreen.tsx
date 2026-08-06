@@ -1,3 +1,4 @@
+import React, { useRef, useState } from "react"
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,10 +13,11 @@ import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ApiErrorView } from "@/components/ApiErrorView"
-import { forest500, ink, ink3, paper, spacing } from "@/theme/tujiweze-tokens"
+import { forest500, hairline, ink, ink3, paper, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
 import { useActivityQA } from "../application/use-activity-qa"
+import { AskQuestionBar } from "./components/AskQuestionBar"
 import { QuestionBubble } from "./components/QuestionBubble"
 
 /** Full Q&A list for a single activity, linked to from "View all Q&A". */
@@ -24,8 +26,22 @@ export default function ActivityQAListScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const activityId = typeof id === "string" ? id : ""
+  const [input, setInput] = useState("")
+  const scrollRef = useRef<ScrollView>(null)
 
   const qa = useActivityQA(activityId)
+
+  async function send(text: string) {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    setInput("")
+    try {
+      await qa.ask(trimmed)
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120)
+    } catch {
+      setInput(trimmed)
+    }
+  }
 
   return (
     <View style={$root}>
@@ -37,8 +53,10 @@ export default function ActivityQAListScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={$scroll}
-        contentContainerStyle={[$scrollContent, { paddingBottom: insets.bottom + spacing.s10 }]}
+        contentContainerStyle={[$scrollContent, { paddingBottom: spacing.s10 }]}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {qa.isLoading ? (
@@ -53,15 +71,24 @@ export default function ActivityQAListScreen() {
           <Text style={$emptyText}>No questions asked for this activity yet.</Text>
         ) : null}
 
-        {qa.questions.map((question) => (
+        {qa.questions.map((question, index) => (
           <QuestionBubble
-            key={question.questionId}
+            key={question.questionId || `qa-${index}`}
             question={question}
             onRetry={() => qa.retry(question)}
-            onFaqPress={() => router.back()}
+            onFaqPress={(faq) => send(faq)}
           />
         ))}
       </ScrollView>
+
+      <View style={[$composer, { paddingBottom: insets.bottom + spacing.s3 }]}>
+        <AskQuestionBar
+          value={input}
+          onChangeText={setInput}
+          onSend={() => send(input)}
+          disabled={qa.isAsking}
+        />
+      </View>
     </View>
   )
 }
@@ -89,4 +116,11 @@ const $emptyText: TextStyle = {
   color: ink3,
   textAlign: "center",
   marginTop: spacing.s8,
+}
+const $composer: ViewStyle = {
+  paddingHorizontal: spacing.s5,
+  paddingTop: spacing.s3,
+  backgroundColor: paper,
+  borderTopWidth: 1,
+  borderTopColor: hairline,
 }

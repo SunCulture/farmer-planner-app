@@ -5,12 +5,13 @@ import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { container } from "@/bootstrap/container"
-import { clearAuthToken, loadFarmerProfile } from "@/modules/onboarding"
+import { clearAuthToken, loadFarmerProfile, loadRefreshToken } from "@/modules/onboarding"
 import {
   useCrops,
   useGoals,
   useLivestock,
 } from "@/modules/onboarding/application/use-catalog-queries"
+import { useEducationCourses } from "@/modules/plan"
 import { api } from "@/services/api"
 import type { SseClient } from "@/shared/contracts/sse"
 import {
@@ -89,6 +90,7 @@ export default function ProfileScreen() {
   const cropsQuery = useCrops()
   const livestockQuery = useLivestock()
   const goalsQuery = useGoals()
+  const tipCoursesQuery = useEducationCourses()
 
   if (!profile) {
     return (
@@ -148,7 +150,8 @@ export default function ProfileScreen() {
   const workStyleLabel = profile.helpersLevel === "SOLO" ? "Solo farmer" : "Farms with helpers"
 
   function handleLogout() {
-    api.logout("").catch(() => {})
+    const refreshToken = loadRefreshToken() ?? ""
+    api.logout(refreshToken).catch(() => {})
     clearAuthToken()
     api.clearAuthToken()
     container.resolve<SseClient>("sseClient")?.disconnect()
@@ -256,6 +259,61 @@ export default function ProfileScreen() {
               ))}
             </View>
           )}
+        </View>
+
+        {/* ── Tip courses ── */}
+        <View style={$section}>
+          <SectionHeader title="Tip courses" />
+          <View style={$card}>
+            {tipCoursesQuery.isLoading ? (
+              <Text style={$infoLabel}>Loading tip courses…</Text>
+            ) : tipCoursesQuery.isError ? (
+              <Text style={$infoLabel}>Could not load tip courses.</Text>
+            ) : (
+              <>
+                <InfoRow
+                  label="Progress"
+                  value={`${tipCoursesQuery.data?.totals.coursesCompleted ?? 0} courses · ${tipCoursesQuery.data?.totals.totalCompletions ?? 0} reviews`}
+                />
+                <View style={$divider} />
+                <InfoRow
+                  label="Feedback"
+                  value={`${tipCoursesQuery.data?.totals.helpfulCount ?? 0} helpful · ${tipCoursesQuery.data?.totals.notHelpfulCount ?? 0} not helpful`}
+                />
+              </>
+            )}
+          </View>
+
+          {(tipCoursesQuery.data?.courses.length ?? 0) > 0 ? (
+            <View style={[$card, { marginTop: spacing.s3 }]}>
+              {tipCoursesQuery.data!.courses.slice(0, 8).map((course, i, arr) => (
+                <View key={course.activityId}>
+                  <TouchableOpacity
+                    style={$courseRow}
+                    activeOpacity={0.7}
+                    onPress={() => router.push(`/activity/${course.activityId}` as any)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={$infoValue} numberOfLines={2}>
+                        {course.title}
+                      </Text>
+                      <Text style={$infoLabel}>
+                        Reviewed {course.completedCount}×
+                        {course.lastRating
+                          ? ` · ${course.lastRating === "helpful" ? "Helpful" : "Not helpful"}`
+                          : ""}
+                      </Text>
+                    </View>
+                    <Text style={$reviewLink}>Review</Text>
+                    <Ionicons name="chevron-forward" size={16} color={ink4} />
+                  </TouchableOpacity>
+                  {i < arr.length - 1 ? <View style={$divider} /> : null}
+                </View>
+              ))}
+            </View>
+          ) : !tipCoursesQuery.isLoading && !tipCoursesQuery.isError ? (
+            <EmptyState message="Finish a tip course from any activity to see it here." />
+          ) : null}
         </View>
 
         {/* ── Onboarding completion badge ── */}
@@ -408,6 +466,19 @@ const $infoValue: TextStyle = {
   fontFamily: typography.primary.medium,
   fontSize: 15,
   color: ink,
+}
+
+const $courseRow: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.s2,
+  paddingVertical: spacing.s3,
+}
+
+const $reviewLink: TextStyle = {
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+  color: forest500,
 }
 
 const $divider: ViewStyle = {

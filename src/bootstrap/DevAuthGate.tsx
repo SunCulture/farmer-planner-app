@@ -6,6 +6,7 @@ import { hasDevAuthToken } from "@/bootstrap/dev-auth"
 import { ink, ink3, spacing } from "@/theme/tujiweze-tokens"
 import { typography } from "@/theme/typography"
 
+/** Optional gate for local builds that rely on EXPO_PUBLIC_DEV_ACCESS_TOKEN. */
 export function DevAuthGate({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets()
 

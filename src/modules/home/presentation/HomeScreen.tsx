@@ -90,7 +90,10 @@ export default function HomeScreen() {
   const weekStrip = dashboard?.weekStrip ?? []
   const templateCards = dashboard?.templateCards ?? []
   const todayActivities = dashboard?.todaySection.activities ?? []
-  const remaining = todayActivities.filter((a) => a.status.code !== "VERIFIED").length
+  const remaining = todayActivities.filter(
+    (a) =>
+      a.status.code !== "VERIFIED" && a.status.code !== "DONE" && a.status.code !== "SKIPPED",
+  ).length
   const isPlanActionPending = enrollPlan.isPending || generatePlan.isPending
 
   async function handleTemplatePress(template: TemplateCard) {
@@ -270,18 +273,7 @@ function HomeActivityCard({ activity }: { activity: ActivityCard }) {
     <TouchableOpacity
       style={$activityCard}
       activeOpacity={0.7}
-      onPress={() =>
-        router.push({
-          pathname: "/(tabs)/journal",
-          params: {
-            date: todayStr(),
-            activityId: activity.id,
-            activityName: activity.title,
-            activityIcon: activity.iconEmoji,
-            mode: "new",
-          },
-        })
-      }
+      onPress={() => router.push(`/activity/${activity.id}` as any)}
     >
       <View style={$activityIconCircle}>
         <Text style={$activityIcon}>{activity.iconEmoji}</Text>

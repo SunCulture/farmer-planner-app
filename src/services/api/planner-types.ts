@@ -1,7 +1,7 @@
 // Shared API response shapes for planner endpoints (from Tujiweze Postman collection)
 
 export interface ActivityStatusDto {
-  code: "PENDING" | "VERIFIED" | "REJECTED"
+  code: "PENDING" | "DONE" | "VERIFIED" | "SKIPPED" | "REJECTED"
   label: string
   color: string
 }
@@ -117,11 +117,42 @@ export interface GeneratedPlanDto {
   cta?: ActivityCtaDto
 }
 
+export interface ActivityEducationDto {
+  summary: string
+  whyNow: string
+  howToThink: string
+  practicalSteps: string[]
+}
+
+export interface EducationProgressDto {
+  completedCount: number
+  lastCompletedAt: string | null
+  lastRating: "helpful" | "not_helpful" | null
+}
+
 export interface ActivityDetailDto extends ActivityCardDto {
   planId: string
   date: string
   educationBrief?: string
+  education?: ActivityEducationDto | null
+  educationProgress?: EducationProgressDto | null
   completion: ActivityCompletionDto | null
+}
+
+export interface EducationCoursesDto {
+  totals: {
+    coursesCompleted: number
+    totalCompletions: number
+    helpfulCount: number
+    notHelpfulCount: number
+  }
+  courses: Array<{
+    activityId: string
+    title: string
+    completedCount: number
+    lastCompletedAt: string | null
+    lastRating: "helpful" | "not_helpful" | null
+  }>
 }
 
 export interface ActivityCompletionDto {

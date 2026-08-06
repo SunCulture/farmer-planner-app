@@ -10,6 +10,7 @@ export const plannerKeys = {
   templates: (filters: { goal?: string; durationDays?: number }) =>
     ["planner", "templates", filters] as const,
   suggestions: (date: string) => ["planner", "suggestions", date] as const,
+  educationCourses: () => ["planner", "educationCourses"] as const,
 }
 
 /** Develop-era plan keys — still used by activity done/skip/contest actions. */

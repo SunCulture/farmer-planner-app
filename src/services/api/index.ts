@@ -1,6 +1,13 @@
 import { ApisauceInstance, create } from "apisauce"
+import type { InternalAxiosRequestConfig } from "axios"
 
 import Config from "@/config"
+import {
+  clearAuthToken,
+  loadAuthToken,
+  loadRefreshToken,
+  saveAuthSession,
+} from "@/modules/onboarding/application/farmer-profile-store"
 import type {
   FarmerLocation,
   HelpersLevel,
@@ -15,6 +22,8 @@ import type {
   DayActivityQuestionsDto,
   DayCompletionsDto,
   DayPlanDto,
+  EducationCoursesDto,
+  EducationProgressDto,
   EnrollPlanBody,
   GeneratePlanBody,
   GeneratedPlanDto,
@@ -157,9 +166,12 @@ export interface ContestActivityResponse {
 
 // ---- Api class ----------------------------------------------------------------
 
+type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean }
+
 export class Api {
   apisauce: ApisauceInstance
   config: ApiConfig
+  private refreshInFlight: Promise<boolean> | null = null
 
   constructor(config: ApiConfig = DEFAULT_API_CONFIG) {
     this.config = config
@@ -170,6 +182,11 @@ export class Api {
         Accept: "application/json",
       },
     })
+    this.setupAuthInterceptor()
+
+    // Survive Fast Refresh recreating this singleton without re-running bootstrap.
+    const existing = loadAuthToken()
+    if (existing) this.setAuthToken(existing)
   }
 
   setAuthToken(token: string) {
@@ -178,6 +195,79 @@ export class Api {
 
   clearAuthToken() {
     this.apisauce.deleteHeader("Authorization")
+  }
+
+  /**
+   * Exchange the stored refresh token for a new access/refresh pair.
+   * Concurrent 401s share one in-flight refresh.
+   */
+  async refreshSession(): Promise<boolean> {
+    if (this.refreshInFlight) return this.refreshInFlight
+
+    this.refreshInFlight = (async () => {
+      try {
+        const refreshToken = loadRefreshToken()
+        if (!refreshToken) return false
+
+        const res = await this.refreshTokens(refreshToken)
+        if (!res.ok || !res.data?.data?.accessToken) {
+          clearAuthToken()
+          this.clearAuthToken()
+          return false
+        }
+
+        const { accessToken, refreshToken: nextRefresh } = res.data.data
+        saveAuthSession(accessToken, nextRefresh)
+        this.setAuthToken(accessToken)
+        return true
+      } catch {
+        clearAuthToken()
+        this.clearAuthToken()
+        return false
+      } finally {
+        this.refreshInFlight = null
+      }
+    })()
+
+    return this.refreshInFlight
+  }
+
+  private setupAuthInterceptor() {
+    this.apisauce.axiosInstance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config as RetriableRequestConfig | undefined
+        if (!originalRequest || error.response?.status !== 401) {
+          return Promise.reject(error)
+        }
+
+        const url = `${originalRequest.baseURL ?? ""}${originalRequest.url ?? ""}`
+        if (
+          url.includes("/api/auth/login") ||
+          url.includes("/api/auth/register") ||
+          url.includes("/api/auth/refresh")
+        ) {
+          return Promise.reject(error)
+        }
+
+        if (originalRequest._retry) {
+          return Promise.reject(error)
+        }
+        originalRequest._retry = true
+
+        const refreshed = await this.refreshSession()
+        if (!refreshed) {
+          return Promise.reject(error)
+        }
+
+        const nextToken = loadAuthToken()
+        if (nextToken) {
+          originalRequest.headers = originalRequest.headers ?? {}
+          originalRequest.headers.Authorization = `Bearer ${nextToken}`
+        }
+        return this.apisauce.axiosInstance(originalRequest)
+      },
+    )
   }
 
   // ---- Auth ------------------------------------------------------------------
@@ -286,6 +376,31 @@ export class Api {
   async getActivity(activityId: string): Promise<ActivityDetailDto> {
     const response = await this.apisauce.get(`/api/me/activities/${activityId}`)
     return unwrap<ActivityDetailDto>(response)
+  }
+
+  async startEducationCourse(activityId: string): Promise<EducationProgressDto> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/education/start`)
+    return unwrap<EducationProgressDto>(response)
+  }
+
+  async completeEducationCourse(activityId: string): Promise<EducationProgressDto> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/education/complete`)
+    return unwrap<EducationProgressDto>(response)
+  }
+
+  async rateEducationCourse(
+    activityId: string,
+    rating: "helpful" | "not_helpful",
+  ): Promise<EducationProgressDto & { briefCleared?: boolean }> {
+    const response = await this.apisauce.post(`/api/me/activities/${activityId}/education/rate`, {
+      rating,
+    })
+    return unwrap<EducationProgressDto & { briefCleared?: boolean }>(response)
+  }
+
+  async getEducationCourses(): Promise<EducationCoursesDto> {
+    const response = await this.apisauce.get("/api/me/education-courses")
+    return unwrap<EducationCoursesDto>(response)
   }
 
   /** Mark activity done — returns raw Apisauce response for activity-detail-service. */
